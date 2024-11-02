@@ -35,7 +35,7 @@ cols_geo <- c(
   "code_academie",
   "code_commune"  
 )
-df_geo <- read.csv2("data/fr-en-adresse-et-geolocalisation-etablissements-premier-et-second-degre.csv") %>% 
+df_geo <- read.csv2("data_raw/fr-en-adresse-et-geolocalisation-etablissements-premier-et-second-degre.csv") %>% 
   select(cols_geo) %>% 
   mutate(
     latitude = as.numeric(latitude),
@@ -76,7 +76,7 @@ if(filtre_depts){
 } else {
   depts_cible_lycee <- unique(df_geo$code_departement)
 }
-df_lycee <- read.csv2("data/fr-en-indicateurs-de-resultat-des-lycees.csv") %>% 
+df_lycee <- read.csv2("data_raw/fr-en-indicateurs-de-resultat-des-lycees.csv") %>% 
   select(cols_lycee) %>% 
   left_join(
     df_geo,
@@ -128,7 +128,7 @@ if(filtre_depts){
 } else {
   depts_cible_college <- unique(df_geo$code_departement)
 }
-df_college <- read.csv2("data/fr-en-indicateurs-valeur-ajoutee-colleges.csv") %>% 
+df_college <- read.csv2("data_raw/fr-en-indicateurs-valeur-ajoutee-colleges.csv") %>% 
   select(cols_college) %>% 
   left_join(
     df_geo,
@@ -154,7 +154,6 @@ df_college <- read.csv2("data/fr-en-indicateurs-valeur-ajoutee-colleges.csv") %>
 
 ```
 
-
 ```{r "données école", include=FALSE}
 
 # données école
@@ -171,7 +170,7 @@ if(filtre_depts){
   depts_cible_ecole <- unique(df_geo$code_departement)
 }
 
-df_ecole <- read.csv2("data/fr-en-adresse-et-geolocalisation-etablissements-premier-et-second-degre.csv") %>% 
+df_ecole <- read.csv2("data_raw/fr-en-adresse-et-geolocalisation-etablissements-premier-et-second-degre.csv") %>% 
   filter(
     etat_etablissement_libe == "OUVERT",
     grepl("ECOLE.*", nature_uai_libe)) %>% 
