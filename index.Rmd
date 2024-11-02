@@ -1,0 +1,320 @@
+---
+title: "Classement des Collèges et Lycées"
+author: "Bruno Lemetayer"
+date: "`r Sys.Date()`"
+output: rmdformats::robobook
+---
+
+```{r "paramétrage", include=FALSE}
+
+library(leaflet)
+library(tidyverse)
+library(htmltools)
+library(crosstalk)
+library(DT)
+
+# paramètres
+annee_cible <- 2023
+filtre_depts <- FALSE
+depts_cible <- c("092", "075")
+
+```
+
+```{r "données geolocalisation", include=FALSE}
+
+# données géolocalisation
+cols_geo <- c(
+  "numero_uai",
+  "adresse_uai",
+  "code_postal_uai",
+  "libelle_commune",
+  "latitude",
+  "longitude",
+  "code_departement",
+  "code_region",
+  "code_academie",
+  "code_commune"  
+)
+df_geo <- read.csv2("data/fr-en-adresse-et-geolocalisation-etablissements-premier-et-second-degre.csv") %>% 
+  select(cols_geo) %>% 
+  mutate(
+    latitude = as.numeric(latitude),
+    longitude = as.numeric(longitude)
+  )
+
+```
+
+```{r "données lycées", include=FALSE}
+
+# données lycées
+cols_lycee <- c(
+  "Annee",
+  "UAI",
+  "Etablissement",
+  "Secteur",
+  "Code.commune",
+  "Commune",
+  "Code.departement",
+  "Departement",
+  "Academie",
+  "Code.region",
+  "Region",
+  "Presents...Gnle",
+  "Taux.de.reussite...Gnle",
+  "Taux.d.acces.2nde.bac",
+  "Taux.d.acces.1ere.bac",
+  "Taux.d.acces.terminale.bac",
+  "Taux.de.mentions...Gnle",
+  "Valeur.ajoutee.du.taux.de.mentions...Gnle",
+  "Valeur.ajoutee.du.taux.de.reussite...Gnle",
+  "Valeur.ajoutee.du.taux.d.acces.2nde.bac",
+  "Valeur.ajoutee.du.taux.d.acces.1ere.bac",
+  "Valeur.ajoutee.du.taux.d.acces.terminale.bac"
+  )
+if(filtre_depts){
+  depts_cible_lycee <- depts_cible
+} else {
+  depts_cible_lycee <- unique(df_geo$code_departement)
+}
+df_lycee <- read.csv2("data/fr-en-indicateurs-de-resultat-des-lycees.csv") %>% 
+  select(cols_lycee) %>% 
+  left_join(
+    df_geo,
+    by = c("UAI" = "numero_uai")
+  ) %>% 
+  filter(
+    Annee == annee_cible,
+    code_departement %in% depts_cible_lycee,
+    !is.na(Taux.de.reussite...Gnle),
+    !is.na(Taux.de.mentions...Gnle)) %>% 
+  mutate(
+    score = rowSums(across(
+      c("Taux.de.reussite...Gnle",
+  "Taux.d.acces.2nde.bac",
+  "Taux.d.acces.1ere.bac",
+  "Taux.d.acces.terminale.bac",
+  "Taux.de.mentions...Gnle"), 
+  ~(as.numeric(.x)/100)))) %>% 
+  arrange(desc(score)) %>% 
+  mutate(
+    code_departement = as.numeric(code_departement),
+    Secteur = ifelse(Secteur == "public", Secteur, "privé"),
+    classement = row_number())
+
+```
+
+```{r "données collège", include=FALSE}
+
+# données collèges
+cols_college <- c(
+  "Session",
+  "UAI",
+  "Nom.de.l.établissement",
+  "Commune",
+  "Département",
+  "Académie",
+  "Secteur",
+  "Nb.candidats...G",
+  "Taux.de.réussite...G",
+  "VA.du.taux.de.réussite...G",
+  "Note.à.l.écrit...G",
+  "VA.de.la.note...G",
+  "Taux.d.accès.6ème.3ème",
+  "Part.présents.3ème.ordinaire...G",
+  "Nb.mentions.global...G"
+)
+if(filtre_depts){
+  depts_cible_college <- depts_cible
+} else {
+  depts_cible_college <- unique(df_geo$code_departement)
+}
+df_college <- read.csv2("data/fr-en-indicateurs-valeur-ajoutee-colleges.csv") %>% 
+  select(cols_college) %>% 
+  left_join(
+    df_geo,
+    by = c("UAI" = "numero_uai")
+  ) %>% 
+  filter(
+    Session == annee_cible,
+    code_departement %in% depts_cible_college,
+    !is.na(Taux.de.réussite...G),
+    !is.na(Nb.mentions.global...G)) %>% 
+  mutate(
+    Taux.de.mentions...Gnle = (Nb.mentions.global...G / Nb.candidats...G)*100,
+    score = rowSums(across(
+      c("Taux.de.réussite...G",
+  "Taux.d.accès.6ème.3ème",
+  "Taux.de.mentions...Gnle"), 
+  ~(as.numeric(.x)/100)))) %>% 
+  arrange(desc(score)) %>% 
+  mutate(
+    code_departement = as.numeric(code_departement),
+    Secteur = ifelse(Secteur == "PU", "public", "privé"),
+    classement = row_number())
+
+```
+
+
+```{r "données école", include=FALSE}
+
+# données école
+cols_ecole <- c(
+  "latitude",
+  "longitude",
+  "secteur_public_prive_libe",
+  "libelle_commune",
+  "code_departement"
+)
+if(filtre_depts){
+  depts_cible_ecole <- depts_cible
+} else {
+  depts_cible_ecole <- unique(df_geo$code_departement)
+}
+
+df_ecole <- read.csv2("data/fr-en-adresse-et-geolocalisation-etablissements-premier-et-second-degre.csv") %>% 
+  filter(
+    etat_etablissement_libe == "OUVERT",
+    grepl("ECOLE.*", nature_uai_libe)) %>% 
+  select(cols_ecole)
+
+```
+
+# Carte
+
+```{r "carte", echo=FALSE, warning=FALSE}
+
+# nombre d'établissements par type
+nb_colleges <- dim(df_college)[1]
+nb_lycees <- dim(df_lycee)[1]
+
+# df pour l'affichage carte
+df_carte <- rbind(
+  df_college %>% 
+    mutate(
+      type = "collège",
+      nb = nb_colleges) %>% 
+    select(latitude, longitude, Nom.de.l.établissement, type, Secteur, Commune, code_departement, score, classement, nb) %>% 
+    rename(Etablissement = Nom.de.l.établissement),
+  df_lycee %>% 
+    mutate(
+      type = "lycée",
+      nb = nb_lycees) %>% 
+    select(latitude, longitude, Etablissement, type, Secteur, Commune, code_departement, score, classement, nb)) %>% 
+  mutate(
+    score = round(score, 2),
+    color_rank = (nb-classement)/nb)
+
+# palette de couleurs sur le score
+qpal <- colorQuantile("RdYlBu", df_carte$color_rank, 6)
+
+# carte avec filtres interactifs
+sd_carte <- SharedData$new(df_carte)
+bscols(
+  widths = c(3, 3, 3, 3),
+  filter_select("filter_type", "Type", sd_carte, ~ type),
+  filter_select("filter_secteur", "Secteur", sd_carte, ~ Secteur),
+  filter_select("filter_dept", "Département", sd_carte, ~ code_departement),
+  filter_select("filter_commune", "Commune", sd_carte, ~ Commune))
+bscols(
+  leaflet(sd_carte) %>% addTiles() %>%
+    addCircleMarkers(
+      lng = ~ longitude,
+      lat = ~ latitude,
+      label = ~ htmlEscape(Etablissement),
+      popup = ~ paste(
+        Etablissement,
+        "<br/>",
+        Commune, paste0("(", code_departement, ")"),
+        "<br/>",
+        Secteur,
+        "<br/>",
+        score, paste0("(", classement, "/", nb, ")")
+      ),
+      radius = 10,
+      fillColor = ~ qpal(color_rank),
+      color = "black",
+      weight = 0.6,
+      fillOpacity = 0.9
+    )
+)
+
+```
+
+## Données
+
+```{r "tableau", echo=FALSE, warning=FALSE}
+
+# DT table
+sd_carte %>% 
+  DT::datatable(
+    extensions = c(
+      "Buttons",
+      "Scroller"),
+    rownames = FALSE, 
+    options = list(
+      columnDefs = list(
+        list(
+          visible = FALSE,
+          targets = c(0, 1, 9, 10))), 
+      buttons = list("csv")))
+
+```
+
+# Sources
+
+Géolocalisation des établissements : [data.education.gouv.fr](https://data.education.gouv.fr/explore/dataset/fr-en-adresse-et-geolocalisation-etablissements-premier-et-second-degre)
+
+Indicateurs de valeur ajoutée des collèges : [data.education.gouv.fr](https://data.education.gouv.fr/explore/dataset/fr-en-indicateurs-valeur-ajoutee-colleges)
+
+Indicateurs de valeur ajoutée des lycées d'enseignement général et technologique :
+[data.education.gouv.fr](https://data.education.gouv.fr/explore/dataset/fr-en-indicateurs-de-resultat-des-lycees-gt_v2)
+
+```{r "affichage critères", echo=FALSE, results='asis'}
+
+cat(paste0(
+  "\nAnnée: ", 
+  annee_cible, 
+  "\n"))
+if (filtre_depts) {
+  cat(paste0(
+    "\nDépartements: ", 
+    paste(as.numeric(depts_cible), collapse = ","), 
+    "\n"))
+}
+
+```
+
+# Méthodologie
+
+## Lycées
+
+Le score est calculé en faisant la somme des pourcentages suivants pour la filière "générale":
+
++ Taux de réussite au bac
++ Taux de mentions au bac
++ Taux d'accès au bac à partir de la seconde
++ Taux d'accès au bac à partir de la première
++ Taux d'accès au bac à partir de la terminale
+
+Données palmarès Le Figaro :
+
++ Taux de réussite au bac, voie générale (avec valeur ajoutée)
++ Taux de mentions au bac, voie générale (avec valeur ajoutée)
++ Taux d'accès au bac depuis la 2nde
++ Taux d'accès au bac depuis la 1ere
++ Taux d'accès au bac depuis la Tale
+
+## Collèges
+
+Le score est calculé en faisant la somme des pourcentages suivants pour la filière "générale":
+
++ Taux de réussite au brevet
++ Taux de mentions au brevet
++ Taux d'accès à la 3eme depuis la 6e
+
+Données palmarès Le Figaro :
+
++ Note moyenne aux épreuves écrites (avec valeur ajoutée)
++ Taux d'accès à la 3e depuis la 6e
++ Part d'élèves de 3e présents au brevet
++ Taux de réussite au brevet
