@@ -69,7 +69,8 @@ cols_lycee <- c(
   "Valeur.ajoutee.du.taux.de.reussite...Gnle",
   "Valeur.ajoutee.du.taux.d.acces.2nde.bac",
   "Valeur.ajoutee.du.taux.d.acces.1ere.bac",
-  "Valeur.ajoutee.du.taux.d.acces.terminale.bac"
+  "Valeur.ajoutee.du.taux.d.acces.terminale.bac",
+  "Presents...Toutes.series"
   )
 if(filtre_depts){
   depts_cible_lycee <- depts_cible
@@ -121,7 +122,8 @@ cols_college <- c(
   "VA.de.la.note...G",
   "Taux.d.accès.6ème.3ème",
   "Part.présents.3ème.ordinaire...G",
-  "Nb.mentions.global...G"
+  "Nb.mentions.global...G",
+  "Nb.candidats...G"
 )
 if(filtre_depts){
   depts_cible_college <- depts_cible
@@ -190,15 +192,17 @@ nb_lycees <- dim(df_lycee)[1]
 df_carte <- rbind(
   df_college %>% 
     mutate(
+      eleves = Nb.candidats...G,
       type = "collège",
       nb = nb_colleges) %>% 
-    select(latitude, longitude, Nom.de.l.établissement, type, Secteur, Commune, code_departement, score, classement, nb) %>% 
+    select(latitude, longitude, Nom.de.l.établissement, type, Secteur, Commune, code_departement, score, classement, nb, eleves) %>% 
     rename(Etablissement = Nom.de.l.établissement),
   df_lycee %>% 
     mutate(
+      eleves = Presents...Toutes.series,
       type = "lycée",
       nb = nb_lycees) %>% 
-    select(latitude, longitude, Etablissement, type, Secteur, Commune, code_departement, score, classement, nb)) %>% 
+    select(latitude, longitude, Etablissement, type, Secteur, Commune, code_departement, score, classement, nb, eleves)) %>% 
   mutate(
     score = round(score, 2),
     color_rank = (nb-classement)/nb)
@@ -223,6 +227,8 @@ bscols(
       popup = ~ paste(
         Etablissement,
         "<br/>",
+        eleves,
+        "<br/>",
         Commune, paste0("(", code_departement, ")"),
         "<br/>",
         Secteur,
@@ -234,7 +240,10 @@ bscols(
       color = "black",
       weight = 0.6,
       fillOpacity = 0.9
-    )
+    ) %>% 
+    fitBounds(
+      lng1 = max(sd_carte$longitude),lat1 = max(sd_carte$latitude),
+      lng2 = min(sd_carte$longitude),lat2 = min(sd_carte$latitude))
 )
 
 ```
