@@ -242,8 +242,10 @@ bscols(
       fillOpacity = 0.9
     ) %>% 
     fitBounds(
-      lng1 = max(sd_carte$longitude),lat1 = max(sd_carte$latitude),
-      lng2 = min(sd_carte$longitude),lat2 = min(sd_carte$latitude))
+      lng1 = ~min(longitude),
+      lat1 = ~min(latitude), 
+      lng2 = ~max(longitude), 
+      lat2 = ~max(latitude))
 )
 
 ```
