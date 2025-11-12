@@ -14,9 +14,7 @@ library(crosstalk)
 library(DT)
 
 # paramètres
-annees_cibles <- c(2022, 2023, 2024)
-filtre_depts <- FALSE
-depts_cible <- c("092", "075")
+annnee_min <- 2020
 
 ```
 
@@ -41,6 +39,12 @@ df_geo <- read.csv2("data_raw/fr-en-adresse-et-geolocalisation-etablissements-pr
     latitude = as.numeric(latitude),
     longitude = as.numeric(longitude)
   )
+
+```
+
+```{r "données communes", include=FALSE}
+
+df_communes <- read.csv2("data_raw/codes_postaux.csv", fileEncoding = "latin1")
 
 ```
 
@@ -72,11 +76,6 @@ cols_lycee <- c(
   "Valeur.ajoutée.du.taux.d.accès.terminale.bac",
   "Présents...Toutes.séries"
   )
-if(filtre_depts){
-  depts_cible_lycee <- depts_cible
-} else {
-  depts_cible_lycee <- unique(df_geo$code_departement)
-}
 df_lycee <- read.csv2("data_raw/fr-en-indicateurs-de-resultat-des-lycees.csv") %>% 
   select(cols_lycee) %>% 
   left_join(
@@ -84,11 +83,11 @@ df_lycee <- read.csv2("data_raw/fr-en-indicateurs-de-resultat-des-lycees.csv") %
     by = c("UAI" = "numero_uai")
   ) %>% 
   filter(
-    Année %in% annees_cibles,
-    code_departement %in% depts_cible_lycee,
     !is.na(Taux.de.réussite...Gnle),
     !is.na(Taux.de.mentions...Gnle)) %>% 
   mutate(
+    type = "lycée",
+    Secteur = ifelse(Secteur == "public", Secteur, "privé"),
     score = rowSums(across(
       c("Taux.de.réussite...Gnle",
   "Taux.d.accès.2nde.bac",
@@ -99,11 +98,11 @@ df_lycee <- read.csv2("data_raw/fr-en-indicateurs-de-resultat-des-lycees.csv") %
   group_by(Année) %>% 
   arrange(desc(score)) %>% 
   mutate(
-    code_departement = as.numeric(code_departement),
-    Secteur = ifelse(Secteur == "public", Secteur, "privé"),
     classement = row_number(),
     nb = n()) %>% 
-  ungroup()
+  ungroup() %>% 
+  rename(eleves = Présents...Toutes.séries) %>% 
+    select(Année, latitude, longitude, Etablissement, type, Secteur, Commune, code_departement, score, classement, nb, eleves)
 
 ```
 
@@ -128,11 +127,6 @@ cols_college <- c(
   "Nb.mentions.global.G",
   "Nb.candidats.G"
 )
-if(filtre_depts){
-  depts_cible_college <- depts_cible
-} else {
-  depts_cible_college <- unique(df_geo$code_departement)
-}
 df_college <- read.csv2("data_raw/fr-en-indicateurs-valeur-ajoutee-colleges.csv") %>% 
   select(cols_college) %>% 
   left_join(
@@ -140,25 +134,55 @@ df_college <- read.csv2("data_raw/fr-en-indicateurs-valeur-ajoutee-colleges.csv"
     by = c("UAI" = "numero_uai")
   ) %>% 
   filter(
-    Session %in% annees_cibles,
-    code_departement %in% depts_cible_college,
     !is.na(Taux.de.réussite.G),
     !is.na(Nb.mentions.global.G)) %>% 
   mutate(
+    type = "collège",
+    Secteur = ifelse(Secteur == "PU", "public", "privé"),
     Taux.de.mentions.Gnle = (Nb.mentions.global.G / Nb.candidats.G)*100,
     score = rowSums(across(
       c("Taux.de.réussite.G",
-  "Taux.d.accès.6eme.3eme",
   "Taux.de.mentions.Gnle"), 
   ~(as.numeric(.x)/100)))) %>% 
   group_by(Session) %>% 
   arrange(desc(score)) %>% 
   mutate(
-    code_departement = as.numeric(code_departement),
-    Secteur = ifelse(Secteur == "PU", "public", "privé"),
     classement = row_number(),
     nb = n()) %>% 
-  ungroup()
+  ungroup() %>% 
+  rename(
+    Année = Session, 
+    Etablissement = Nom.de.l.établissement,
+    eleves = Nb.candidats.G) %>% 
+    select(Année, latitude, longitude, Etablissement, type, Secteur, Commune, code_departement, score, classement, nb, eleves)
+
+# données anciennes
+df_college_old <- read.csv2("data_raw/fr-en-dnb-par-etablissement.csv") %>% 
+  left_join(
+    df_geo,
+    by = c("Numero.d.etablissement" = "numero_uai")
+  ) %>% 
+  filter(
+    Commune != "-",
+    !is.na(Admis),
+    !is.na(Admis.sans.mention),
+    !is.na(Presents)) %>% 
+  mutate(
+    type = "collège",
+    Secteur = ifelse(Secteur.d.enseignement == "PUBLIC", "public", "privé"),
+    score = (Admis/Presents + 1 - Admis.sans.mention/Admis)/100) %>% 
+  group_by(Session) %>% 
+  arrange(desc(score)) %>% 
+  mutate(
+    Commune = Libellé.commune,
+    classement = row_number(),
+    nb = n()) %>% 
+  ungroup() %>% 
+  rename(
+    Année = Session, 
+    Etablissement = Patronyme,
+    eleves = Inscrits) %>% 
+    select(Année, latitude, longitude, Etablissement, type, Secteur, Commune, code_departement, score, classement, nb, eleves)
 
 ```
 
@@ -172,15 +196,9 @@ cols_ecole <- c(
   "libelle_commune",
   "code_departement"
 )
-if(filtre_depts){
-  depts_cible_ecole <- depts_cible
-} else {
-  depts_cible_ecole <- unique(df_geo$code_departement)
-}
 
 df_ecole <- read.csv2("data_raw/fr-en-adresse-et-geolocalisation-etablissements-premier-et-second-degre.csv") %>% 
   filter(
-    etat_etablissement_libe == "OUVERT",
     grepl("ECOLE.*", nature_uai_libe)) %>% 
   select(cols_ecole)
 
@@ -192,20 +210,13 @@ df_ecole <- read.csv2("data_raw/fr-en-adresse-et-geolocalisation-etablissements-
 
 # df pour l'affichage carte
 df_carte <- rbind(
-  df_college %>% 
-    mutate(
-      eleves = Nb.candidats.G,
-      type = "collège") %>% 
-    select(Session, latitude, longitude, Nom.de.l.établissement, type, Secteur, Commune, code_departement, score, classement, nb, eleves) %>% 
-    rename(Année = Session, Etablissement = Nom.de.l.établissement),
-  df_lycee %>% 
-    mutate(
-      eleves = Présents...Toutes.séries,
-      type = "lycée") %>% 
-    select(Année, latitude, longitude, Etablissement, type, Secteur, Commune, code_departement, score, classement, nb, eleves)) %>% 
+  df_college,
+  df_college_old,
+  df_lycee) %>% 
   mutate(
     score = round(score, 2),
-    color_rank = (nb-classement)/nb)
+    color_rank = (nb-classement)/nb) %>% 
+  filter(Année >= annnee_min)
 
 # palette de couleurs sur le score
 qpal <- colorQuantile("RdYlBu", df_carte$color_rank, 6)
@@ -253,49 +264,17 @@ bscols(
 
 ```
 
-## Données
-
-```{r "tableau", echo=FALSE, warning=FALSE}
-
-# DT table
-sd_carte %>% 
-  DT::datatable(
-    extensions = c(
-      "Buttons",
-      "Scroller"),
-    rownames = FALSE, 
-    options = list(
-      columnDefs = list(
-        list(
-          visible = FALSE,
-          targets = c(0, 1, 9, 10))), 
-      buttons = list("csv")))
-
-```
-
 # Sources
 
 Géolocalisation des établissements : [data.education.gouv.fr](https://data.education.gouv.fr/explore/dataset/fr-en-adresse-et-geolocalisation-etablissements-premier-et-second-degre)
 
-Indicateurs de valeur ajoutée des collèges : [data.education.gouv.fr](https://data.education.gouv.fr/explore/dataset/fr-en-indicateurs-valeur-ajoutee-colleges)
+Indicateurs de valeur ajoutée des collèges (2022 et après) : [data.education.gouv.fr](https://data.education.gouv.fr/explore/dataset/fr-en-indicateurs-valeur-ajoutee-colleges)
+
+Résultats au brevet (2021 et avant) :
+[data.education.gouv.fr](https://data.education.gouv.fr/explore/dataset/fr-en-dnb-par-etablissement)
 
 Indicateurs de valeur ajoutée des lycées d'enseignement général et technologique :
 [data.education.gouv.fr](https://data.education.gouv.fr/explore/dataset/fr-en-indicateurs-de-resultat-des-lycees-gt_v2)
-
-```{r "affichage critères", echo=FALSE, results='asis'}
-
-cat(paste0(
-  "\nAnnées: ", 
-  paste(annees_cibles, collapse = ","), 
-  "\n"))
-if (filtre_depts) {
-  cat(paste0(
-    "\nDépartements: ", 
-    paste(as.numeric(depts_cible), collapse = ","), 
-    "\n"))
-}
-
-```
 
 # Méthodologie
 
