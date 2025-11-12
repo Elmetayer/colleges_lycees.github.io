@@ -214,7 +214,7 @@ qpal <- colorQuantile("RdYlBu", df_carte$color_rank, 6)
 sd_carte <- SharedData$new(df_carte)
 bscols(
   widths = c(2, 3, 3, 3, 3),
-  filter_select("filter_annee", "Annee", sd_carte, ~ Année),
+  filter_select("filter_annee", "Annee", sd_carte, ~ Année, multiple = FALSE),
   filter_select("filter_type", "Type", sd_carte, ~ type),
   filter_select("filter_secteur", "Secteur", sd_carte, ~ Secteur),
   filter_select("filter_dept", "Département", sd_carte, ~ code_departement),
