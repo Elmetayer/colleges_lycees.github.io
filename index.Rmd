@@ -11,10 +11,10 @@ library(leaflet)
 library(tidyverse)
 library(htmltools)
 library(crosstalk)
-library(DT)
+library(downloadthis)
 
 # paramètres
-annnee_min <- 2020
+annnee_min <- 2024
 
 ```
 
@@ -127,6 +127,7 @@ cols_college <- c(
   "Nb.mentions.global.G",
   "Nb.candidats.G"
 )
+
 df_college <- read.csv2("data_raw/fr-en-indicateurs-valeur-ajoutee-colleges.csv") %>% 
   select(cols_college) %>% 
   left_join(
@@ -162,6 +163,12 @@ df_college_old <- read.csv2("data_raw/fr-en-dnb-par-etablissement.csv") %>%
     df_geo,
     by = c("Numero.d.etablissement" = "numero_uai")
   ) %>% 
+  left_join(
+    df_communes %>% 
+      select(X.Code_commune_INSEE, Nom_de_la_commune) %>% 
+      unique(),
+    by = c("Commune" = "X.Code_commune_INSEE")
+  ) %>% 
   filter(
     Commune != "-",
     !is.na(Admis),
@@ -170,11 +177,11 @@ df_college_old <- read.csv2("data_raw/fr-en-dnb-par-etablissement.csv") %>%
   mutate(
     type = "collège",
     Secteur = ifelse(Secteur.d.enseignement == "PUBLIC", "public", "privé"),
-    score = (Admis/Presents + 1 - Admis.sans.mention/Admis)/100) %>% 
+    score = Admis/Presents + 1 - Admis.sans.mention/Admis) %>% 
   group_by(Session) %>% 
   arrange(desc(score)) %>% 
   mutate(
-    Commune = Libellé.commune,
+    Commune = Nom_de_la_commune,
     classement = row_number(),
     nb = n()) %>% 
   ungroup() %>% 
@@ -212,14 +219,19 @@ df_ecole <- read.csv2("data_raw/fr-en-adresse-et-geolocalisation-etablissements-
 df_carte <- rbind(
   df_college,
   df_college_old,
-  df_lycee) %>% 
+  df_lycee) %>%
+  filter(
+    !is.na(latitude),
+    !is.na(longitude)
+  ) %>% 
   mutate(
+    Année = as.numeric(Année),
     score = round(score, 2),
-    color_rank = (nb-classement)/nb) %>% 
-  filter(Année >= annnee_min)
+    color_rank = (nb-classement)/nb)
 
 # palette de couleurs sur le score
-qpal <- colorQuantile("RdYlBu", df_carte$color_rank, 6)
+# qpal <- colorQuantile("RdYlBu", df_carte$color_rank, 10)
+qpal <- colorNumeric("RdYlBu", c(0, 1))
 
 # carte avec filtres interactifs
 sd_carte <- SharedData$new(df_carte)
@@ -231,7 +243,8 @@ bscols(
   filter_select("filter_dept", "Département", sd_carte, ~ code_departement),
   filter_select("filter_commune", "Commune", sd_carte, ~ Commune))
 bscols(
-  leaflet(sd_carte) %>% addTiles() %>%
+  leaflet(sd_carte) %>% 
+    addTiles() %>%
     addCircleMarkers(
       lng = ~ longitude,
       lat = ~ latitude,
@@ -261,6 +274,22 @@ bscols(
       lng2 = ~max(longitude), 
       lat2 = ~max(latitude))
 )
+
+```
+
+# Données
+
+```{r "données carte", echo=FALSE, warning=FALSE}
+
+df_carte %>%
+  download_this(
+    output_name = "cartes_colleges_lycees",
+    output_extension = ".csv",
+    button_label = "données carte csv",
+    button_type = "default",
+    has_icon = TRUE,
+    icon = "fa fa-save"
+  )
 
 ```
 
