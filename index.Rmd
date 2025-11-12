@@ -14,7 +14,7 @@ library(crosstalk)
 library(DT)
 
 # paramètres
-annee_cible <- 2023
+annees_cibles <- c(2022, 2023, 2024)
 filtre_depts <- FALSE
 depts_cible <- c("092", "075")
 
@@ -48,29 +48,29 @@ df_geo <- read.csv2("data_raw/fr-en-adresse-et-geolocalisation-etablissements-pr
 
 # données lycées
 cols_lycee <- c(
-  "Annee",
+  "Année",
   "UAI",
   "Etablissement",
   "Secteur",
   "Code.commune",
   "Commune",
   "Code.departement",
-  "Departement",
-  "Academie",
-  "Code.region",
+  "Département",
+  "Académie",
+  "Code.région",
   "Region",
-  "Presents...Gnle",
-  "Taux.de.reussite...Gnle",
-  "Taux.d.acces.2nde.bac",
-  "Taux.d.acces.1ere.bac",
-  "Taux.d.acces.terminale.bac",
+  "Présents...Gnle",
+  "Taux.de.réussite...Gnle",
+  "Taux.d.accès.2nde.bac",
+  "Taux.d.accès.1ere.bac",
+  "Taux.d.accès.terminale.bac",
   "Taux.de.mentions...Gnle",
-  "Valeur.ajoutee.du.taux.de.mentions...Gnle",
-  "Valeur.ajoutee.du.taux.de.reussite...Gnle",
-  "Valeur.ajoutee.du.taux.d.acces.2nde.bac",
-  "Valeur.ajoutee.du.taux.d.acces.1ere.bac",
-  "Valeur.ajoutee.du.taux.d.acces.terminale.bac",
-  "Presents...Toutes.series"
+  "Valeur.ajoutée.du.taux.de.mentions...Gnle",
+  "Valeur.ajoutée.du.taux.de.réussite...Gnle",
+  "Valeur.ajoutée.du.taux.d.acces.2nde.bac",
+  "Valeur.ajoutée.du.taux.d.accès.1ere.bac",
+  "Valeur.ajoutée.du.taux.d.accès.terminale.bac",
+  "Présents...Toutes.séries"
   )
 if(filtre_depts){
   depts_cible_lycee <- depts_cible
@@ -84,23 +84,26 @@ df_lycee <- read.csv2("data_raw/fr-en-indicateurs-de-resultat-des-lycees.csv") %
     by = c("UAI" = "numero_uai")
   ) %>% 
   filter(
-    Annee == annee_cible,
+    Année %in% annees_cibles,
     code_departement %in% depts_cible_lycee,
-    !is.na(Taux.de.reussite...Gnle),
+    !is.na(Taux.de.réussite...Gnle),
     !is.na(Taux.de.mentions...Gnle)) %>% 
   mutate(
     score = rowSums(across(
-      c("Taux.de.reussite...Gnle",
-  "Taux.d.acces.2nde.bac",
-  "Taux.d.acces.1ere.bac",
-  "Taux.d.acces.terminale.bac",
+      c("Taux.de.réussite...Gnle",
+  "Taux.d.accès.2nde.bac",
+  "Taux.d.accès.1ere.bac",
+  "Taux.d.accès.terminale.bac",
   "Taux.de.mentions...Gnle"), 
   ~(as.numeric(.x)/100)))) %>% 
+  group_by(Année) %>% 
   arrange(desc(score)) %>% 
   mutate(
     code_departement = as.numeric(code_departement),
     Secteur = ifelse(Secteur == "public", Secteur, "privé"),
-    classement = row_number())
+    classement = row_number(),
+    nb = n()) %>% 
+  ungroup()
 
 ```
 
@@ -115,15 +118,15 @@ cols_college <- c(
   "Département",
   "Académie",
   "Secteur",
-  "Nb.candidats...G",
-  "Taux.de.réussite...G",
-  "VA.du.taux.de.réussite...G",
-  "Note.à.l.écrit...G",
-  "VA.de.la.note...G",
-  "Taux.d.accès.6ème.3ème",
-  "Part.présents.3ème.ordinaire...G",
-  "Nb.mentions.global...G",
-  "Nb.candidats...G"
+  "Nb.candidats.G",
+  "Taux.de.réussite.G",
+  "VA.du.taux.de.réussite.G",
+  "Note.à.l.écrit.G",
+  "VA.de.la.note.G",
+  "Taux.d.accès.6eme.3eme",
+  "Part.présents.3eme.ordinaire.G",
+  "Nb.mentions.global.G",
+  "Nb.candidats.G"
 )
 if(filtre_depts){
   depts_cible_college <- depts_cible
@@ -137,22 +140,25 @@ df_college <- read.csv2("data_raw/fr-en-indicateurs-valeur-ajoutee-colleges.csv"
     by = c("UAI" = "numero_uai")
   ) %>% 
   filter(
-    Session == annee_cible,
+    Session %in% annees_cibles,
     code_departement %in% depts_cible_college,
-    !is.na(Taux.de.réussite...G),
-    !is.na(Nb.mentions.global...G)) %>% 
+    !is.na(Taux.de.réussite.G),
+    !is.na(Nb.mentions.global.G)) %>% 
   mutate(
-    Taux.de.mentions...Gnle = (Nb.mentions.global...G / Nb.candidats...G)*100,
+    Taux.de.mentions.Gnle = (Nb.mentions.global.G / Nb.candidats.G)*100,
     score = rowSums(across(
-      c("Taux.de.réussite...G",
-  "Taux.d.accès.6ème.3ème",
-  "Taux.de.mentions...Gnle"), 
+      c("Taux.de.réussite.G",
+  "Taux.d.accès.6eme.3eme",
+  "Taux.de.mentions.Gnle"), 
   ~(as.numeric(.x)/100)))) %>% 
+  group_by(Session) %>% 
   arrange(desc(score)) %>% 
   mutate(
     code_departement = as.numeric(code_departement),
     Secteur = ifelse(Secteur == "PU", "public", "privé"),
-    classement = row_number())
+    classement = row_number(),
+    nb = n()) %>% 
+  ungroup()
 
 ```
 
@@ -184,25 +190,19 @@ df_ecole <- read.csv2("data_raw/fr-en-adresse-et-geolocalisation-etablissements-
 
 ```{r "carte", echo=FALSE, warning=FALSE}
 
-# nombre d'établissements par type
-nb_colleges <- dim(df_college)[1]
-nb_lycees <- dim(df_lycee)[1]
-
 # df pour l'affichage carte
 df_carte <- rbind(
   df_college %>% 
     mutate(
-      eleves = Nb.candidats...G,
-      type = "collège",
-      nb = nb_colleges) %>% 
-    select(latitude, longitude, Nom.de.l.établissement, type, Secteur, Commune, code_departement, score, classement, nb, eleves) %>% 
-    rename(Etablissement = Nom.de.l.établissement),
+      eleves = Nb.candidats.G,
+      type = "collège") %>% 
+    select(Session, latitude, longitude, Nom.de.l.établissement, type, Secteur, Commune, code_departement, score, classement, nb, eleves) %>% 
+    rename(Année = Session, Etablissement = Nom.de.l.établissement),
   df_lycee %>% 
     mutate(
-      eleves = Presents...Toutes.series,
-      type = "lycée",
-      nb = nb_lycees) %>% 
-    select(latitude, longitude, Etablissement, type, Secteur, Commune, code_departement, score, classement, nb, eleves)) %>% 
+      eleves = Présents...Toutes.séries,
+      type = "lycée") %>% 
+    select(Année, latitude, longitude, Etablissement, type, Secteur, Commune, code_departement, score, classement, nb, eleves)) %>% 
   mutate(
     score = round(score, 2),
     color_rank = (nb-classement)/nb)
@@ -213,7 +213,8 @@ qpal <- colorQuantile("RdYlBu", df_carte$color_rank, 6)
 # carte avec filtres interactifs
 sd_carte <- SharedData$new(df_carte)
 bscols(
-  widths = c(3, 3, 3, 3),
+  widths = c(2, 3, 3, 3, 3),
+  filter_select("filter_annee", "Annee", sd_carte, ~ Année),
   filter_select("filter_type", "Type", sd_carte, ~ type),
   filter_select("filter_secteur", "Secteur", sd_carte, ~ Secteur),
   filter_select("filter_dept", "Département", sd_carte, ~ code_departement),
@@ -225,6 +226,8 @@ bscols(
       lat = ~ latitude,
       label = ~ htmlEscape(Etablissement),
       popup = ~ paste(
+        Année,
+        "<br/>",
         Etablissement,
         "<br/>",
         eleves,
@@ -282,8 +285,8 @@ Indicateurs de valeur ajoutée des lycées d'enseignement général et technolog
 ```{r "affichage critères", echo=FALSE, results='asis'}
 
 cat(paste0(
-  "\nAnnée: ", 
-  annee_cible, 
+  "\nAnnées: ", 
+  paste(annees_cibles, collapse = ","), 
   "\n"))
 if (filtre_depts) {
   cat(paste0(
