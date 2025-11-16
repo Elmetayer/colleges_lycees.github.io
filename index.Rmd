@@ -51,33 +51,7 @@ df_communes <- read.csv2("data_raw/codes_postaux.csv", fileEncoding = "latin1")
 ```{r "données lycées", include=FALSE}
 
 # données lycées
-cols_lycee <- c(
-  "Année",
-  "UAI",
-  "Etablissement",
-  "Secteur",
-  "Code.commune",
-  "Commune",
-  "Code.departement",
-  "Département",
-  "Académie",
-  "Code.région",
-  "Region",
-  "Présents...Gnle",
-  "Taux.de.réussite...Gnle",
-  "Taux.d.accès.2nde.bac",
-  "Taux.d.accès.1ere.bac",
-  "Taux.d.accès.terminale.bac",
-  "Taux.de.mentions...Gnle",
-  "Valeur.ajoutée.du.taux.de.mentions...Gnle",
-  "Valeur.ajoutée.du.taux.de.réussite...Gnle",
-  "Valeur.ajoutée.du.taux.d.acces.2nde.bac",
-  "Valeur.ajoutée.du.taux.d.accès.1ere.bac",
-  "Valeur.ajoutée.du.taux.d.accès.terminale.bac",
-  "Présents...Toutes.séries"
-  )
 df_lycee <- read.csv2("data_raw/fr-en-indicateurs-de-resultat-des-lycees.csv") %>% 
-  select(cols_lycee) %>% 
   left_join(
     df_geo,
     by = c("UAI" = "numero_uai")
@@ -109,42 +83,19 @@ df_lycee <- read.csv2("data_raw/fr-en-indicateurs-de-resultat-des-lycees.csv") %
 ```{r "données collège", include=FALSE}
 
 # données collèges
-cols_college <- c(
-  "Session",
-  "UAI",
-  "Nom.de.l.établissement",
-  "Commune",
-  "Département",
-  "Académie",
-  "Secteur",
-  "Nb.candidats.G",
-  "Taux.de.réussite.G",
-  "VA.du.taux.de.réussite.G",
-  "Note.à.l.écrit.G",
-  "VA.de.la.note.G",
-  "Taux.d.accès.6eme.3eme",
-  "Part.présents.3eme.ordinaire.G",
-  "Nb.mentions.global.G",
-  "Nb.candidats.G"
-)
-
-df_college <- read.csv2("data_raw/fr-en-indicateurs-valeur-ajoutee-colleges.csv") %>% 
-  select(cols_college) %>% 
+df_college_new <- read.csv2("data_raw/fr-en-indicateurs-valeur-ajoutee-colleges.csv") %>% 
   left_join(
     df_geo,
     by = c("UAI" = "numero_uai")
   ) %>% 
-  filter(
-    !is.na(Taux.de.réussite.G),
-    !is.na(Nb.mentions.global.G)) %>% 
+  filter(!is.na(Taux.de.réussite.G)) %>% 
   mutate(
     type = "collège",
     Secteur = ifelse(Secteur == "PU", "public", "privé"),
-    Taux.de.mentions.Gnle = (Nb.mentions.global.G / Nb.candidats.G)*100,
-    score = rowSums(across(
-      c("Taux.de.réussite.G",
-  "Taux.de.mentions.Gnle"), 
-  ~(as.numeric(.x)/100)))) %>% 
+    Taux.de.mentions.Gnle = Nb.mentions.global.G / Nb.candidats.G,
+    Taux.de.mentions.TB.Gnle = Nb.mentions.TB.G / Nb.candidats.G,
+    score = rowSums(across(c("Taux.de.réussite.G", "Taux.de.mentions.Gnle", "Taux.de.mentions.TB.Gnle"),
+                           ~(as.numeric(.x))))) %>% 
   group_by(Session) %>% 
   arrange(desc(score)) %>% 
   mutate(
@@ -177,7 +128,7 @@ df_college_old <- read.csv2("data_raw/fr-en-dnb-par-etablissement.csv") %>%
   mutate(
     type = "collège",
     Secteur = ifelse(Secteur.d.enseignement == "PUBLIC", "public", "privé"),
-    score = Admis/Presents + 1 - Admis.sans.mention/Admis) %>% 
+    score = Admis/Presents + 1 - Admis.sans.mention/Presents + Admis.Mention.très.bien/Presents) %>% 
   group_by(Session) %>% 
   arrange(desc(score)) %>% 
   mutate(
@@ -217,7 +168,7 @@ df_ecole <- read.csv2("data_raw/fr-en-adresse-et-geolocalisation-etablissements-
 
 # df pour l'affichage carte
 df_carte <- rbind(
-  df_college,
+  df_college_new,
   df_college_old,
   df_lycee) %>%
   filter(
@@ -331,7 +282,7 @@ Le score est calculé en faisant la somme des pourcentages suivants pour la fili
 
 + Taux de réussite au brevet
 + Taux de mentions au brevet
-+ Taux d'accès à la 3eme depuis la 6e
++ Taux de mentions au brevet
 
 Données palmarès Le Figaro :
 
