@@ -14,7 +14,7 @@ library(crosstalk)
 library(downloadthis)
 
 # paramètres
-annnee_min <- 2024
+annnees <- c(2021, 2022, 2023, 2024)
 
 ```
 
@@ -51,24 +51,26 @@ df_communes <- read.csv2("data_raw/codes_postaux.csv", fileEncoding = "latin1")
 ```{r "données lycées", include=FALSE}
 
 # données lycées
+cols_score_input_lycee <- c("Taux.de.réussite...Gnle", "Nombre.de.mentions.AB...G", "Nombre.de.mentions.B...G", "Nombre.de.mentions.TB.sans.félicitations...G", "Nombre.de.mentions.TB.avec.félicitations...G", "Présents...Toutes.séries")
+cols_score_lycee <- c("Taux.de.réussite...Gnle", "Taux.de.mentions.Gnle", "Taux.de.mentions.TB.Gnle")
 df_lycee <- read.csv2("data_raw/fr-en-indicateurs-de-resultat-des-lycees.csv") %>% 
   left_join(
     df_geo,
     by = c("UAI" = "numero_uai")
   ) %>% 
   filter(
+    as.numeric(Année) %in% annnees,
     !is.na(Taux.de.réussite...Gnle),
     !is.na(Taux.de.mentions...Gnle)) %>% 
   mutate(
     type = "lycée",
     Secteur = ifelse(Secteur == "public", Secteur, "privé"),
-    score = rowSums(across(
-      c("Taux.de.réussite...Gnle",
-  "Taux.d.accès.2nde.bac",
-  "Taux.d.accès.1ere.bac",
-  "Taux.d.accès.terminale.bac",
-  "Taux.de.mentions...Gnle"), 
-  ~(as.numeric(.x)/100)))) %>% 
+    across(cols_score_input_lycee, ~as.numeric(.x)),
+    Taux.de.mentions.Gnle = ((Nombre.de.mentions.AB...G + Nombre.de.mentions.B...G + Nombre.de.mentions.TB.sans.félicitations...G + Nombre.de.mentions.TB.avec.félicitations...G) / Présents...Toutes.séries)*100,
+    Taux.de.mentions.TB.Gnle = ((Nombre.de.mentions.TB.sans.félicitations...G + Nombre.de.mentions.TB.avec.félicitations...G) / Présents...Toutes.séries)*100,
+    score = rowSums(across(cols_score_lycee, ~.x)),
+    across(cols_score_lycee, ~sprintf("%1.2f%%", .x))) %>% 
+  unite(score_display, cols_score_lycee, sep = ", ") %>% 
   group_by(Année) %>% 
   arrange(desc(score)) %>% 
   mutate(
@@ -76,26 +78,33 @@ df_lycee <- read.csv2("data_raw/fr-en-indicateurs-de-resultat-des-lycees.csv") %
     nb = n()) %>% 
   ungroup() %>% 
   rename(eleves = Présents...Toutes.séries) %>% 
-    select(Année, latitude, longitude, Etablissement, type, Secteur, Commune, code_departement, score, classement, nb, eleves)
+    select(Année, latitude, longitude, Etablissement, type, Secteur, Commune, code_departement, score, score_display, classement, nb, eleves)
 
 ```
 
 ```{r "données collège", include=FALSE}
 
 # données collèges
+cols_score_input_college_new <- c("Taux.de.réussite.G", "Nb.mentions.global.G", "Nb.candidats.G", "Nb.mentions.TB.G")
+cols_score_college <- c("Taux.de.réussite.G", "Taux.de.mentions.Gnle", "Taux.de.mentions.TB.Gnle")
 df_college_new <- read.csv2("data_raw/fr-en-indicateurs-valeur-ajoutee-colleges.csv") %>% 
   left_join(
     df_geo,
     by = c("UAI" = "numero_uai")
   ) %>% 
-  filter(!is.na(Taux.de.réussite.G)) %>% 
+  filter(
+    as.numeric(Session) %in% annnees,
+    !is.na(Taux.de.réussite.G)) %>% 
   mutate(
     type = "collège",
     Secteur = ifelse(Secteur == "PU", "public", "privé"),
-    Taux.de.mentions.Gnle = Nb.mentions.global.G / Nb.candidats.G,
-    Taux.de.mentions.TB.Gnle = Nb.mentions.TB.G / Nb.candidats.G,
-    score = rowSums(across(c("Taux.de.réussite.G", "Taux.de.mentions.Gnle", "Taux.de.mentions.TB.Gnle"),
-                           ~(as.numeric(.x))))) %>% 
+    across(cols_score_input_college_new, ~as.numeric(.x)),
+    Taux.de.réussite.G = Taux.de.réussite.G,
+    Taux.de.mentions.Gnle = (Nb.mentions.global.G / Nb.candidats.G)*100,
+    Taux.de.mentions.TB.Gnle = (Nb.mentions.TB.G / Nb.candidats.G)*100,
+    score = rowSums(across(cols_score_college, ~.x)),
+    across(cols_score_college, ~sprintf("%1.2f%%", .x))) %>%  
+  unite(score_display, cols_score_college, sep = ", ") %>% 
   group_by(Session) %>% 
   arrange(desc(score)) %>% 
   mutate(
@@ -106,9 +115,10 @@ df_college_new <- read.csv2("data_raw/fr-en-indicateurs-valeur-ajoutee-colleges.
     Année = Session, 
     Etablissement = Nom.de.l.établissement,
     eleves = Nb.candidats.G) %>% 
-    select(Année, latitude, longitude, Etablissement, type, Secteur, Commune, code_departement, score, classement, nb, eleves)
+    select(Année, latitude, longitude, Etablissement, type, Secteur, Commune, code_departement, score, score_display, classement, nb, eleves)
 
 # données anciennes
+cols_score_input_college_old <- c("Admis", "Presents", "Admis.sans.mention", "Admis.Mention.très.bien")
 df_college_old <- read.csv2("data_raw/fr-en-dnb-par-etablissement.csv") %>% 
   left_join(
     df_geo,
@@ -121,6 +131,7 @@ df_college_old <- read.csv2("data_raw/fr-en-dnb-par-etablissement.csv") %>%
     by = c("Commune" = "X.Code_commune_INSEE")
   ) %>% 
   filter(
+    as.numeric(Session) %in% annnees,
     Commune != "-",
     !is.na(Admis),
     !is.na(Admis.sans.mention),
@@ -128,7 +139,13 @@ df_college_old <- read.csv2("data_raw/fr-en-dnb-par-etablissement.csv") %>%
   mutate(
     type = "collège",
     Secteur = ifelse(Secteur.d.enseignement == "PUBLIC", "public", "privé"),
-    score = Admis/Presents + 1 - Admis.sans.mention/Presents + Admis.Mention.très.bien/Presents) %>% 
+    across(cols_score_input_college_old, ~as.numeric(.x)),
+    Taux.de.réussite.G = (Admis/Presents)*100,
+    Taux.de.mentions.Gnle = ((Admis - Admis.sans.mention)/Presents)*100,
+    Taux.de.mentions.TB.Gnle = (Admis.Mention.très.bien/Presents)*100,
+    score = rowSums(across(cols_score_college, ~.x)),
+    across(cols_score_college, ~sprintf("%1.2f%%", .x))) %>% 
+  unite(score_display, cols_score_college, sep = ", ") %>% 
   group_by(Session) %>% 
   arrange(desc(score)) %>% 
   mutate(
@@ -140,7 +157,7 @@ df_college_old <- read.csv2("data_raw/fr-en-dnb-par-etablissement.csv") %>%
     Année = Session, 
     Etablissement = Patronyme,
     eleves = Inscrits) %>% 
-    select(Année, latitude, longitude, Etablissement, type, Secteur, Commune, code_departement, score, classement, nb, eleves)
+    select(Année, latitude, longitude, Etablissement, type, Secteur, Commune, code_departement, score, score_display, classement, nb, eleves)
 
 ```
 
@@ -211,7 +228,9 @@ bscols(
         "<br/>",
         Secteur,
         "<br/>",
-        score, paste0("(", classement, "/", nb, ")")
+        score, paste0("(", classement, "/", nb, ")"),
+        "<br/>",
+        score_display
       ),
       radius = 10,
       fillColor = ~ qpal(color_rank),
@@ -264,9 +283,7 @@ Le score est calculé en faisant la somme des pourcentages suivants pour la fili
 
 + Taux de réussite au bac
 + Taux de mentions au bac
-+ Taux d'accès au bac à partir de la seconde
-+ Taux d'accès au bac à partir de la première
-+ Taux d'accès au bac à partir de la terminale
++ Taux de mentions TB au bac
 
 Données palmarès Le Figaro :
 
@@ -282,7 +299,7 @@ Le score est calculé en faisant la somme des pourcentages suivants pour la fili
 
 + Taux de réussite au brevet
 + Taux de mentions au brevet
-+ Taux de mentions au brevet
++ Taux de mentions TB au brevet
 
 Données palmarès Le Figaro :
 
