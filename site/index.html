@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Carte scolaire</title>
+  <meta name="description" content="Collèges des académies de Paris et de Versailles et leurs indicateurs : IPS, brevet, valeur ajoutée, évaluations de 6e.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Literata:opsz,wght@7..72,500;7..72,650&display=swap" rel="stylesheet">
+  <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet">
+  <link href="style.css" rel="stylesheet">
+</head>
+<body class="page-carte">
+  <header class="barre">
+    <a class="titre" href="./">Carte scolaire</a>
+    <a class="lien-doc" href="documentation.html">Documentation</a>
+  </header>
+
+  <main id="carte" aria-label="Carte des collèges"></main>
+
+  <section class="panneau" id="panneau" aria-label="Réglages de la carte">
+    <label class="champ" for="indicateur">Couleur des points</label>
+    <select id="indicateur"></select>
+    <div class="legende" id="legende" aria-live="polite"></div>
+    <fieldset class="secteurs">
+      <legend class="sr-only">Établissements affichés</legend>
+      <label><input type="checkbox" id="voir-public" checked> Public</label>
+      <label><input type="checkbox" id="voir-prive" checked> Privé sous contrat <span class="pastille-prive" aria-hidden="true"></span></label>
+    </fieldset>
+    <p class="etat" id="etat">Chargement des collèges…</p>
+  </section>
+
+  <aside class="fiche" id="fiche" hidden aria-labelledby="fiche-nom">
+    <button class="fermer" id="fermer" type="button" aria-label="Fermer la fiche">×</button>
+    <div class="fiche-contenu" id="fiche-contenu"></div>
+  </aside>
+
+  <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
