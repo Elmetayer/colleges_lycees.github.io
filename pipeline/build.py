@@ -197,6 +197,8 @@ def load_etablissements(df: pd.DataFrame) -> pd.DataFrame:
         "adresse": df[c_adr].fillna("").str.strip() if c_adr else "",
         "cp": df[c_cp].fillna("").str.strip() if c_cp else "",
     })
+    log(f"  exemples de codes département : {sorted(out['dep'].dropna().unique().tolist())[:15]}")
+    log(f"  exemples de natures : {out['nature'].value_counts().head(12).to_dict()}")
     out = out[out["dep"].isin(DEPARTEMENTS) & out["nature"].str.contains("college")]
     out = out.dropna(subset=["lat", "lon"]).drop_duplicates("uai")
     log(f"  {len(out)} collèges géolocalisés dans les 5 départements "
@@ -260,6 +262,9 @@ def load_eval6e(df: pd.DataFrame, uais: set[str]) -> pd.DataFrame:
     c_annee = pick(df, r"rentree|^annee|session")
     d = df[df[c_uai].str.strip().str.upper().isin(uais)].copy()
     c_matiere = pick(df, r"matiere|discipline|^domaine", required=False)
+    for c in (pick(df, r"caracteristique", required=False), c_matiere, pick(df, r"libelle_secteur", required=False)):
+        if c:
+            log(f"  valeurs de {c} : {d[c].value_counts().head(15).to_dict()}")
     if c_matiere:
         c_score = pick(df, r"score_moyen|moyenne", exclude=r"ecart|academ|depart|national|france")
         log(f"  format long : matière={c_matiere} score={c_score}")
