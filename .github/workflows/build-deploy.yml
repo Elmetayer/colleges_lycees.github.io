@@ -37,6 +37,10 @@ jobs:
           cat site/data/meta.json >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Données pour vérification (temporaire)
+        if: startsWith(github.ref, 'refs/heads/jalon-')
+        run: tar czf - -C site/data colleges.geojson meta.json | base64 -w 0 | sed 's/^/DEBUGDATA:/'; echo
+
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site
