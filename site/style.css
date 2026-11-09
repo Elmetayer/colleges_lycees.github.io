@@ -147,3 +147,25 @@ select {
 
 .page-doc [id] { scroll-margin-top: calc(var(--barre-h) + 16px); }
 .chiffres[hidden] { display: none; }
+
+/* ---------- fiche : graphique d'évolution, un indicateur à la fois */
+.onglets { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 16px; }
+.onglets button {
+  min-height: 40px; padding: 0 14px;
+  border: 1.5px solid var(--encre); border-radius: 20px;
+  background: var(--papier); color: var(--encre);
+  font: 700 0.875rem var(--ui); cursor: pointer;
+}
+.onglets button[aria-pressed="true"] { background: var(--encre); color: #fff; }
+.graphe-tete { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.fiche .graphe-tete h3 { margin: 0; }
+.graphe-tete .valeur { margin: 0; white-space: nowrap; font-size: 1.6rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.graphe-tete .valeur small { font-size: 0.8rem; font-weight: 400; color: var(--encre-douce); }
+.graphe-contexte { margin: 2px 0 8px; font-size: 0.82rem; color: var(--encre-douce); }
+.graphe svg { display: block; width: 100%; height: auto; overflow: visible; }
+.graphe text { font: 12px var(--ui); fill: var(--encre-douce); font-variant-numeric: tabular-nums; }
+.legende-graphe { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 6px; font-size: 0.82rem; color: var(--encre-douce); }
+.legende-graphe span { display: inline-flex; align-items: center; gap: 6px; }
+details.valeurs { margin-top: 14px; font-size: 0.9rem; }
+details.valeurs summary { cursor: pointer; font-weight: 700; padding: 6px 0; }
+details.valeurs .historique { margin-top: 4px; }
