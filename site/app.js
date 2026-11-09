@@ -125,7 +125,8 @@
     $("fiche-contenu").innerHTML = `
       <h2 id="fiche-nom">${echapper(p.nom)}</h2>
       <p class="lieu">${type}, ${echapper(p.commune)} (${echapper(p.departement)})</p>
-      <dl class="chiffres">
+      ${INDICATEURS.some((i) => typeof p[i.cle] === "number") ? "" : `<p>Aucun indicateur n'est publié pour ce collège. C'est souvent le cas des établissements récents ou à petit effectif.</p>`}
+      <dl class="chiffres"${INDICATEURS.some((i) => typeof p[i.cle] === "number") ? "" : " hidden"}>
         ${chiffre(p, ind.ips, p.annee_ips ? echapper(p.annee_ips) : "")}
         ${chiffre(p, ind.taux_reussite, sess)}
         ${chiffre(p, ind.taux_mentions)}
@@ -198,7 +199,7 @@
         "circle-radius": ["interpolate", ["linear"], ["zoom"], 8, 3.5, 12, 7, 15, 11],
         "circle-color": ABSENT,
         "circle-stroke-color": "#1e2f6b",
-        "circle-stroke-width": ["case", ["==", ["get", "secteur"], "privé"], 2.5, 0.6],
+        "circle-stroke-width": ["case", ["==", ["get", "secteur"], "privé"], 2, 0.5],
       },
     });
     remplirSelecteur();

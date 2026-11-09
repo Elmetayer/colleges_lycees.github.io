@@ -222,8 +222,6 @@ def load_etablissements(df: pd.DataFrame) -> pd.DataFrame:
         "adresse": df[c_adr].fillna("").str.strip() if c_adr else "",
         "cp": df[c_cp].fillna("").str.strip() if c_cp else "",
     })
-    log(f"  exemples de codes département : {sorted(out['dep'].dropna().unique().tolist())[:15]}")
-    log(f"  exemples de natures : {out['nature'].value_counts().head(12).to_dict()}")
     out = out[out["dep"].isin(DEPARTEMENTS) & out["nature"].str.contains("college")]
     out = out.dropna(subset=["lat", "lon"]).drop_duplicates("uai")
     log(f"  {len(out)} collèges géolocalisés dans les 5 départements "
