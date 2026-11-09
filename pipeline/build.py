@@ -215,7 +215,7 @@ def load_etablissements(df: pd.DataFrame) -> pd.DataFrame:
         "nom": df[c_nom].str.strip(),
         "nature": df[c_nature].fillna("").map(norm),
         "secteur": df[c_secteur].fillna("").map(lambda s: "public" if norm(s).startswith("pu") else "privé"),
-        "commune": df[c_commune].str.strip(),
+        "commune": df[c_commune].str.replace(r"\s+", " ", regex=True).str.strip(),
         "dep": df[c_dep].map(dep_code),
         "lat": num(df[c_lat]),
         "lon": num(df[c_lon]),
@@ -351,7 +351,7 @@ def build_features(etabs, ivac, ips, ev) -> list[dict]:
         g = ev_by.get(e.uai)
         if g is not None:
             g = g.sort_values("annee")
-            hist["eval6e"] = [{"annee": r.annee, "fr": round_or_none(r.fr), "ma": round_or_none(r.ma)} for r in g.itertuples()]
+            hist["eval6e"] = [{"annee": r.annee, "fr": round_or_none(r.fr), "ma": round_or_none(r.ma)} for r in g.itertuples()][-5:]
             p["eval_fr"] = hist["eval6e"][-1]["fr"]
             p["eval_ma"] = hist["eval6e"][-1]["ma"]
             p["annee_eval"] = hist["eval6e"][-1]["annee"]
