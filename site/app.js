@@ -16,9 +16,9 @@
     { cle: "taux_reussite", nom: "Réussite au brevet", type: "seq", fmt: (v) => fr(v, 1) + " %", doc: "brevet" },
     { cle: "taux_mentions", nom: "Mentions au brevet", type: "seq", fmt: (v) => fr(v, 1) + " %", doc: "brevet" },
     { cle: "note_ecrit", nom: "Note aux écrits du brevet", type: "seq", fmt: (v) => fr(v, 1) + " / 20", doc: "brevet" },
-    { cle: "va_reussite", nom: "Valeur ajoutée (réussite)", type: "div", fmt: signe, doc: "valeur-ajoutee",
+    { cle: "va_reussite", nom: "Valeur ajoutée (réussite)", type: "div", fmt: signe, doc: "valeur-ajoutee", seuil: 2, unite: "points",
       note: "Écart entre la réussite obtenue et celle attendue au vu du profil des élèves." },
-    { cle: "va_note", nom: "Valeur ajoutée (note écrite)", type: "div", fmt: signe, doc: "valeur-ajoutee",
+    { cle: "va_note", nom: "Valeur ajoutée (note écrite)", type: "div", fmt: signe, doc: "valeur-ajoutee", seuil: 0.3, unite: "point",
       note: "Écart entre la note obtenue et celle attendue au vu du profil des élèves." },
     { cle: "eval_fr", nom: "Évaluations 6e (français)", type: "seq", fmt: (v) => fr(v, 0), doc: "evaluations" },
     { cle: "eval_ma", nom: "Évaluations 6e (maths)", type: "seq", fmt: (v) => fr(v, 0), doc: "evaluations" },
@@ -70,8 +70,15 @@
   function domaine(ind) {
     const vals = donnees.features.map((f) => f.properties[ind.cle]).filter((v) => typeof v === "number").sort((a, b) => a - b);
     if (ind.type === "div") {
-      const m = Math.max(Math.abs(quantile(vals, 0.05)), Math.abs(quantile(vals, 0.95))) || 1;
-      return { stops: [-m, -m / 2, 0, m / 2, m], n: vals.length };
+      // Zone neutre : entre -seuil et +seuil, le collège fait à peu près ce qui était attendu.
+      const s = ind.seuil || 0;
+      const m = Math.max(Math.abs(quantile(vals, 0.05)), Math.abs(quantile(vals, 0.95)), s * 2) || 1;
+      return {
+        stops: [-m, -s, 0, s, m], m, s, n: vals.length,
+        dessous: vals.filter((v) => v < -s).length,
+        proches: vals.filter((v) => Math.abs(v) <= s).length,
+        dessus: vals.filter((v) => v > s).length,
+      };
     }
     const stops = [0.05, 0.25, 0.5, 0.75, 0.95].map((q) => quantile(vals, q));
     for (let i = 1; i < stops.length; i++) if (stops[i] <= stops[i - 1]) stops[i] = stops[i - 1] + 1e-6;
@@ -81,6 +88,14 @@
   function couleur(ind) {
     const d = domaine(ind);
     const pal = ind.type === "div" ? DIVERGENTE : ECHELLE;
+    if (ind.type === "div") {
+      const val = ["get", ind.cle];
+      const expr = ["case",
+        ["!", ["has", ind.cle]], ABSENT,
+        ["<=", ["abs", val], d.s], pal[2],
+        ["interpolate", ["linear"], val, -d.m, pal[0], -d.s, pal[1], d.s, pal[3], d.m, pal[4]]];
+      return { expr, d, pal };
+    }
     const stops = pal.flatMap((c, i) => [d.stops[i], c]);
     return { expr: ["case", ["has", ind.cle], ["interpolate", ["linear"], ["get", ind.cle], ...stops], ABSENT], d, pal };
   }
@@ -97,6 +112,17 @@
     carte.setPaintProperty("colleges", "circle-color", expr);
     carte.setFilter("colleges", filtre());
     const manquants = donnees.features.length - d.n;
+    if (indicateur.type === "div") {
+      const pos = (x) => (((x + d.m) / (2 * d.m)) * 100).toFixed(1) + "%";
+      const pct = (k) => Math.round((100 * k) / d.n);
+      $("legende").innerHTML =
+        `<div class="degrade" style="background:linear-gradient(90deg,${pal[0]} 0%,${pal[1]} ${pos(-d.s)},${pal[2]} ${pos(-d.s)},${pal[2]} ${pos(d.s)},${pal[3]} ${pos(d.s)},${pal[4]} 100%)"></div>` +
+        `<div class="bornes"><span>${indicateur.fmt(-d.m)}</span><span>proche de l'attendu</span><span>${indicateur.fmt(d.m)}</span></div>` +
+        `<p class="note">${indicateur.note} Entre ${indicateur.fmt(-d.s)} et ${indicateur.fmt(d.s)} ${indicateur.unite}, l'écart est considéré comme faible.</p>` +
+        `<p class="note">${pct(d.dessous)} % des collèges en dessous de l'attendu, ${pct(d.proches)} % proches, ${pct(d.dessus)} % au-dessus.</p>` +
+        (manquants > 0 ? `<p class="note">En gris foncé : ${manquants} collège${manquants > 1 ? "s" : ""} sans donnée.</p>` : "");
+      return;
+    }
     $("legende").innerHTML =
       `<div class="degrade" style="background:linear-gradient(90deg,${pal.join(",")})"></div>` +
       `<div class="bornes"><span>${indicateur.fmt(d.stops[0])}</span><span>${indicateur.fmt(d.stops[2])}</span><span>${indicateur.fmt(d.stops[4])}</span></div>` +
@@ -106,8 +132,14 @@
   }
 
   // ---------------------------------------------------------------- fiche
+  function lectureVA(ind, v) {
+    if (Math.abs(v) <= ind.seuil) return "proche de l'attendu";
+    return v > 0 ? "au-dessus de l'attendu" : "en dessous de l'attendu";
+  }
+
   function chiffre(p, ind, suffixe) {
     const v = p[ind.cle];
+    if (ind.type === "div" && typeof v === "number") suffixe = lectureVA(ind, v);
     if (typeof v !== "number") return `<div class="chiffre vide"><dt>${ind.nom}</dt><dd>Non publié</dd></div>`;
     return `<div class="chiffre"><dt>${ind.nom}</dt><dd>${ind.fmt(v)}${suffixe ? ` <small>${suffixe}</small>` : ""}</dd></div>`;
   }
