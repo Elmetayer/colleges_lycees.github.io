@@ -24,7 +24,7 @@
     <p>La carte présente les collèges publics et privés sous contrat des académies de Paris et de Versailles : Paris, les Yvelines, l'Essonne, les Hauts-de-Seine et le Val-d'Oise. Chaque point est un collège, coloré selon l'indicateur choisi. Les collèges privés sont entourés d'un trait épais. Un point gris signale un collège pour lequel l'indicateur n'est pas publié.</p>
     <p>Les couleurs vont du jaune (valeurs les plus basses) au bleu nuit (les plus hautes). Elles sont réparties selon le classement des collèges et non selon l'écart brut entre valeurs : la teinte du milieu correspond à la médiane, et chaque passage de teinte regroupe environ un quart des collèges. Les écarts restent ainsi visibles même quand les valeurs sont proches. Pour la valeur ajoutée, la même logique s'applique autour de zéro : orange pour une valeur négative, violet pour une valeur positive, gris très clair pour un écart faible (voir plus bas).</p>
     <p>Le champ de recherche en haut de la carte trouve un collège par son nom, une commune ou une adresse. Pour une adresse, la carte affiche les cinq collèges publics les plus proches à vol d'oiseau ; ce ne sont pas forcément les collèges de secteur.</p>
-    <p>Les secteurs de recrutement des collèges seront ajoutés dans une prochaine version. Les collèges privés n'ont pas de secteur.</p>
+    <p>Les zones colorées sont les secteurs de recrutement des collèges publics, de la couleur de leur collège. Toucher une zone ouvre la fiche du collège ; la case « Secteurs des collèges publics » les masque. Les collèges privés n'ont pas de secteur.</p>
     <p id="resume-donnees"></p>
 
     <h2 id="indicateurs">Les indicateurs</h2>
@@ -58,6 +58,15 @@
     <p class="formule">Score = moyenne du taux de réussite, du taux de mentions et du taux de mentions très bien au brevet, pour la dernière session disponible.</p>
     <p>Le rang classe les collèges des deux académies ayant un score pour la même session, du plus élevé au plus bas. Ce score ne tient pas compte du profil des élèves : il suit de près l'IPS et ne mesure pas la qualité de l'enseignement. Pour comparer des collèges au public différent, la valeur ajoutée est plus pertinente.</p>
 
+    <h2 id="secteurs">Secteurs des collèges</h2>
+    <p>Les secteurs sont reconstitués à partir de la <b>carte scolaire des collèges publics</b> publiée par le ministère de l'Éducation nationale, qui rassemble les fichiers utilisés par les services départementaux pour affecter les élèves en 6e. Ce fichier ne contient pas de zones dessinées : il liste, commune par commune, les voies et les numéros rattachés à chaque collège.</p>
+    <ul>
+      <li><b>Commune à un seul collège de secteur</b> : la zone est le contour de la commune.</li>
+      <li><b>Commune à plusieurs collèges</b> : chaque adresse de la Base Adresse Nationale est rattachée à son collège selon les règles du fichier (nom de la voie, numéros pairs ou impairs, premier et dernier numéro). Les adresses que le fichier ne cite pas prennent le collège de l'adresse rattachée la plus proche. La commune est ensuite découpée en zones autour des adresses.</li>
+    </ul>
+    <p id="controle-secteurs">Pour contrôler la méthode, les zones obtenues sont comparées aux secteurs officiels dessinés par la Ville de Paris et par le département des Hauts-de-Seine.</p>
+    <p>Le résultat est fiable à l'échelle d'un quartier, mais une adresse proche d'une limite de secteur peut être rattachée au collège voisin. Pour une inscription, seule la réponse de l'inspection académique fait foi.</p>
+
     <h2 id="limites">Limites</h2>
     <ul>
       <li>Les données ont un décalage d'un an ou plus : les résultats d'une session sont publiés plusieurs mois après l'examen.</li>
@@ -73,6 +82,7 @@
         <tr><td colspan="2">Chargement de la liste des sources…</td></tr>
       </tbody>
     </table>
+    <p>Secteurs : <a href="https://www.data.gouv.fr/datasets/carte-scolaire-des-colleges-publics">carte scolaire des collèges publics</a> (DGESCO, Licence Ouverte 2.0), <a href="https://adresse.data.gouv.fr">Base Adresse Nationale</a> (Licence Ouverte 2.0) et contours des communes de <a href="https://geo.api.gouv.fr">geo.api.gouv.fr</a>. Contrôle avec les secteurs officiels de la Ville de Paris (ODbL) et du département des Hauts-de-Seine (Licence Ouverte), qui ne sont pas utilisés pour dessiner la carte.</p>
     <p>Fond de carte : OpenFreeMap, à partir des données OpenStreetMap.</p>
 
     <h3 id="adresses">Services d'adresses</h3>
@@ -107,6 +117,13 @@
       fetch("data/meta.json").then((r) => r.json()).then((m) => {
         document.getElementById("liste-sources").innerHTML = m.sources.map((s) =>
           `<tr><td>${s.page ? `<a href="${esc(s.page)}">${esc(s.titre)}</a>` : esc(s.titre)}</td><td>${date(s.mise_a_jour)}</td></tr>`).join("");
+        const ctrl = m.secteurs && m.secteurs.controle;
+        if (ctrl && Object.keys(ctrl).length) {
+          const pc = (v) => Math.round(v * 100) + " %";
+          document.getElementById("controle-secteurs").textContent =
+            "Pour contrôler la méthode, les zones obtenues sont comparées aux secteurs officiels dessinés par la Ville de Paris et par le département des Hauts-de-Seine. " +
+            Object.entries(ctrl).map(([nom, v]) => `${nom} : ${pc(v.taux_surface)} de la surface est attribuée au même collège`).join(" ; ") + ".";
+        }
         const c = m.colleges, p = m.periodes;
         const liste = (a) => a && a.length ? a.join(", ") : "aucune";
         document.getElementById("resume-donnees").textContent =

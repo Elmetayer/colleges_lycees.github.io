@@ -342,7 +342,9 @@ def main() -> int:
     sortie["nom"] = sortie["uai"].map(noms)
     feats = []
     for r in sortie.itertuples():
-        g = shapely.set_precision(r.geometry, 0.00001)
+        g = shapely.make_valid(shapely.set_precision(r.geometry, 0.00001))
+        if g.geom_type == "GeometryCollection":
+            g = unary_union([x for x in g.geoms if x.geom_type in ("Polygon", "MultiPolygon")])
         feats.append({"type": "Feature", "properties": {"uai": r.uai, **({"nom": r.nom} if isinstance(r.nom, str) else {})}, "geometry": shapely.geometry.mapping(g)})
     (out / "secteurs.geojson").write_text(json.dumps({"type": "FeatureCollection", "features": feats}, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     taille = (out / "secteurs.geojson").stat().st_size

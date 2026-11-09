@@ -30,6 +30,11 @@ jobs:
       - name: Préparer les données
         run: python pipeline/build.py --out site/data
 
+      - name: Construire les secteurs des collèges
+        # En cas d'échec, la carte est publiée sans les secteurs plutôt que pas du tout.
+        continue-on-error: true
+        run: python pipeline/secteurs.py --out site/data
+
       - name: Résumé
         run: |
           echo "### Données générées" >> "$GITHUB_STEP_SUMMARY"
