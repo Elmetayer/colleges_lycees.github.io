@@ -4,7 +4,9 @@
 
   // Plasma, du plus bas (jaune) au plus haut (bleu nuit). Lisible pour les daltoniens.
   const ECHELLE = ["#f0f921", "#f89540", "#cc4778", "#7e03a8", "#0d0887"];
-  const DIVERGENTE = ["#b7791f", "#e2c08a", "#eef0f4", "#8fa3d6", "#1e2f6b"];
+  // Valeur ajoutée, dans la logique de Plasma : valeurs basses côté orange, valeurs hautes côté violet,
+  // zéro en gris très clair. Les extrêmes ont une clarté proche pour ne favoriser aucun côté.
+  const DIVERGENTE = ["#c4500f", "#f4ad73", "#f3f1f6", "#b48ad9", "#6a0d9e"];
   const ABSENT = "#a7adba";
 
   // Indicateurs proposés. "doc" pointe vers la section de documentation.
