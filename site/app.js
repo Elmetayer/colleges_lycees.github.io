@@ -20,8 +20,6 @@
 
   // Indicateurs proposés. "doc" pointe vers la section de documentation.
   const INDICATEURS = [
-    { cle: "ips", nom: "Indice de position sociale (IPS)", type: "seq", fmt: (v) => fr(v, 1), doc: "ips",
-      note: "Plus l'IPS est élevé, plus le milieu social des élèves est favorisé." },
     { cle: "taux_reussite", nom: "Réussite au brevet", type: "seq", fmt: (v) => fr(v, 1) + " %", doc: "brevet" },
     { cle: "taux_mentions", nom: "Mentions au brevet", type: "seq", fmt: (v) => fr(v, 1) + " %", doc: "brevet" },
     { cle: "note_ecrit", nom: "Note aux écrits du brevet", type: "seq", fmt: (v) => fr(v, 1) + " / 20", doc: "brevet" },
@@ -29,9 +27,11 @@
       note: "Écart entre la réussite obtenue et celle attendue au vu du profil des élèves." },
     { cle: "va_note", nom: "Valeur ajoutée (note écrite)", type: "div", fmt: signe, doc: "valeur-ajoutee", unite: "point",
       note: "Écart entre la note obtenue et celle attendue au vu du profil des élèves." },
+    { cle: "ips", nom: "Indice de position sociale (IPS)", type: "seq", fmt: (v) => fr(v, 1), doc: "ips",
+      note: "Plus l'IPS est élevé, plus le milieu social des élèves est favorisé." },
     { cle: "eval_fr", nom: "Évaluations 6e (français)", type: "seq", fmt: (v) => fr(v, 0), doc: "evaluations" },
     { cle: "eval_ma", nom: "Évaluations 6e (maths)", type: "seq", fmt: (v) => fr(v, 0), doc: "evaluations" },
-    { cle: "score", nom: "Score agrégé (optionnel)", type: "seq", fmt: (v) => fr(v, 1), doc: "score",
+    { cle: "score", nom: "Score agrégé", type: "seq", fmt: (v) => fr(v, 1), doc: "score",
       note: "Moyenne des taux de réussite, de mentions et de mentions très bien. À lire avec précaution." },
   ];
 
