@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Documentation – Carte scolaire</title>
+  <meta name="description" content="Sources de données et méthode de calcul des indicateurs de la carte scolaire.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Literata:opsz,wght@7..72,500;7..72,650&display=swap" rel="stylesheet">
+  <link href="style.css" rel="stylesheet">
+</head>
+<body class="page-doc">
+  <header class="barre">
+    <a class="titre" href="./">Carte scolaire</a>
+    <a class="lien-doc" href="./">Retour à la carte</a>
+  </header>
+
+  <main>
+    <h1>Documentation</h1>
+    <p class="chapeau">D'où viennent les données de la carte, comment chaque indicateur est calculé, et ce qu'il ne dit pas.</p>
+
+    <h2 id="presentation">Ce que montre la carte</h2>
+    <p>La carte présente les collèges publics et privés sous contrat des académies de Paris et de Versailles : Paris, les Yvelines, l'Essonne, les Hauts-de-Seine et le Val-d'Oise. Chaque point est un collège, coloré selon l'indicateur choisi. Les collèges privés sont entourés d'un trait épais. Un point gris signale un collège pour lequel l'indicateur n'est pas publié.</p>
+    <p>Les secteurs de recrutement des collèges seront ajoutés dans une prochaine version. Les collèges privés n'ont pas de secteur.</p>
+    <p id="resume-donnees"></p>
+
+    <h2 id="indicateurs">Les indicateurs</h2>
+    <p>Tous les indicateurs viennent de la DEPP, le service statistique du ministère de l'Éducation nationale. La carte affiche pour chaque collège la valeur la plus récente ; la fiche du collège donne l'historique disponible.</p>
+
+    <h3 id="ips">Indice de position sociale (IPS)</h3>
+    <p>L'IPS résume le milieu social des élèves à partir des professions de leurs responsables légaux. Plus il est élevé, plus les élèves viennent en moyenne de milieux favorables à la réussite scolaire. La fiche donne aussi l'écart-type de l'IPS, qui mesure la diversité sociale à l'intérieur du collège : un écart-type élevé signale un collège socialement mélangé.</p>
+    <p>L'IPS n'est pas publié quand il porte sur moins de 5 élèves. La série a été recalculée à partir de la rentrée 2022 : les valeurs antérieures ne sont pas comparables et ne sont pas utilisées.</p>
+
+    <h3 id="brevet">Résultats au brevet</h3>
+    <p>Les résultats portent sur la série générale du diplôme national du brevet.</p>
+    <ul>
+      <li><b>Réussite au brevet</b> : part des candidats admis, telle que publiée par la DEPP.</li>
+      <li><b>Mentions au brevet</b> : nombre de candidats ayant obtenu une mention (assez bien, bien ou très bien), divisé par le nombre de candidats.</li>
+      <li><b>Mentions très bien</b> : même calcul pour la seule mention très bien. Ce taux n'est pas proposé comme couleur de la carte mais entre dans le score agrégé.</li>
+      <li><b>Note moyenne aux écrits</b> : moyenne des notes aux épreuves écrites, sur 20, telle que publiée par la DEPP.</li>
+    </ul>
+
+    <h3 id="valeur-ajoutee">Valeur ajoutée</h3>
+    <p>La valeur ajoutée compare les résultats obtenus par un collège à ceux qu'on pouvait attendre au vu de ses élèves : âge, sexe, niveau à l'entrée en sixième et milieu social, ainsi que la composition du collège. Une valeur positive signifie que les élèves ont mieux réussi que prévu ; une valeur négative, moins bien.</p>
+    <p>Elle est calculée par la DEPP pour le taux de réussite (en points de pourcentage) et pour la note aux écrits (en points sur 20), à partir de la session 2022. C'est l'indicateur le plus proche de « l'effet » du collège, mais il reste une estimation statistique : de petites valeurs ne sont pas significatives, en particulier dans les petits collèges.</p>
+
+    <h3 id="evaluations">Évaluations nationales de début de sixième</h3>
+    <p>Tous les élèves de sixième passent en septembre des tests de français et de mathématiques. La carte affiche le score moyen des élèves du collège dans chaque matière. Ces évaluations mesurent le niveau des élèves à leur arrivée : elles décrivent le public du collège, pas le travail qui y est fait.</p>
+
+    <h3 id="score">Score agrégé (optionnel)</h3>
+    <p>Le score reprend la logique de la première version de cette carte. Il est proposé à titre indicatif et n'est pas affiché par défaut.</p>
+    <p class="formule">Score = moyenne du taux de réussite, du taux de mentions et du taux de mentions très bien au brevet, pour la dernière session disponible.</p>
+    <p>Le rang classe les collèges des deux académies ayant un score pour la même session, du plus élevé au plus bas. Ce score ne tient pas compte du profil des élèves : il suit de près l'IPS et ne mesure pas la qualité de l'enseignement. Pour comparer des collèges au public différent, la valeur ajoutée est plus pertinente.</p>
+
+    <h2 id="limites">Limites</h2>
+    <ul>
+      <li>Les données ont un décalage d'un an ou plus : les résultats d'une session sont publiés plusieurs mois après l'examen.</li>
+      <li>Un indicateur isolé résume mal un établissement. Croiser l'IPS, les résultats et la valeur ajoutée donne une image plus juste.</li>
+      <li>Les petites variations d'une année sur l'autre sont fréquentes, surtout dans les collèges aux effectifs réduits.</li>
+    </ul>
+
+    <h2 id="sources">Sources</h2>
+    <p>Les données sont téléchargées et recalculées automatiquement chaque mois.</p>
+    <table class="sources">
+      <thead><tr><th scope="col">Jeu de données</th><th scope="col">Dernière mise à jour</th></tr></thead>
+      <tbody id="liste-sources">
+        <tr><td colspan="2">Chargement de la liste des sources…</td></tr>
+      </tbody>
+    </table>
+    <p>Fond de carte : OpenFreeMap, à partir des données OpenStreetMap.</p>
+
+    <h2 id="licences">Licences et code</h2>
+    <p>Les données de l'Éducation nationale sont publiées sous Licence Ouverte 2.0, qui autorise leur réutilisation à condition d'en citer la source. Le code de cette carte est public sur <a href="https://github.com/Elmetayer/colleges_lycees.github.io">GitHub</a>.</p>
+  </main>
+
+  <script>
+    (function () {
+      const date = (s) => s ? new Date(s).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" }) : "Non renseignée";
+      const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+      fetch("data/meta.json").then((r) => r.json()).then((m) => {
+        document.getElementById("liste-sources").innerHTML = m.sources.map((s) =>
+          `<tr><td>${s.page ? `<a href="${esc(s.page)}">${esc(s.titre)}</a>` : esc(s.titre)}</td><td>${date(s.mise_a_jour)}</td></tr>`).join("");
+        const c = m.colleges, p = m.periodes;
+        const liste = (a) => a && a.length ? a.join(", ") : "aucune";
+        document.getElementById("resume-donnees").textContent =
+          `Données générées le ${date(m.genere_le)} : ${c.total} collèges (${c.publics} publics, ${c.prives} privés). ` +
+          `Sessions du brevet : ${liste(p.brevet)}. IPS : ${liste(p.ips)}. Évaluations de 6e : ${liste(p.eval6e)}.`;
+      }).catch(() => {
+        document.getElementById("liste-sources").innerHTML = "<tr><td colspan='2'>La liste des sources n'a pas pu être chargée.</td></tr>";
+      });
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,59 @@
+name: Construire et publier la carte
+
+on:
+  push:
+    branches: [main, "jalon-*"]
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    # Le 3 de chaque mois à 4 h 17 UTC : récupère les nouvelles publications open data.
+    - cron: "17 4 3 * *"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pipeline/requirements.txt
+
+      - name: Installer les dépendances
+        run: pip install -r pipeline/requirements.txt
+
+      - name: Préparer les données
+        run: python pipeline/build.py --out site/data
+
+      - name: Résumé
+        run: |
+          echo "### Données générées" >> "$GITHUB_STEP_SUMMARY"
+          echo '```json' >> "$GITHUB_STEP_SUMMARY"
+          cat site/data/meta.json >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    environment:
+      name: github-pages
+      url: ${{ steps.deploiement.outputs.page_url }}
+    steps:
+      - id: deploiement
+        uses: actions/deploy-pages@v4

@@ -1,6 +1,5 @@
-.Rproj.user
-.Rhistory
-.RData
-.Ruserdata
 .DS_Store
-/data_raw
+__pycache__/
+.venv/
+site/data/*
+!site/data/.gitkeep

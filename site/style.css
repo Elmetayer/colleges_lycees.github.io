@@ -1,0 +1,148 @@
+:root {
+  --papier: #fbfcfe;
+  --encre: #1e2f6b;
+  --encre-douce: #56648f;
+  --trait: #d9deea;
+  --absent: #a7adba;
+  --ocre: #b7791f;
+  --marge: #d2453a;
+  --ombre: 0 6px 24px rgba(30, 47, 107, 0.16);
+  --ui: "Atkinson Hyperlegible", system-ui, sans-serif;
+  --titre: "Literata", Georgia, serif;
+  --barre-h: 52px;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body {
+  background: var(--papier);
+  color: var(--encre);
+  font: 16px/1.45 var(--ui);
+  -webkit-font-smoothing: antialiased;
+}
+a { color: var(--encre); }
+:focus-visible { outline: 3px solid var(--encre); outline-offset: 2px; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* ---------- barre du haut */
+.barre {
+  position: fixed; inset: 0 0 auto 0; z-index: 3;
+  height: var(--barre-h);
+  padding: 0 16px;
+  display: flex; align-items: center; justify-content: space-between;
+  background: var(--papier);
+  border-bottom: 1px solid var(--trait);
+}
+.titre { font: 650 1.2rem/1 var(--titre); text-decoration: none; }
+.lien-doc { font-weight: 700; text-underline-offset: 3px; }
+
+/* ---------- carte */
+.page-carte { overflow: hidden; }
+#carte { position: fixed; inset: var(--barre-h) 0 0 0; }
+
+/* ---------- panneau de réglages */
+.panneau {
+  position: fixed; z-index: 2;
+  left: 12px; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom));
+  padding: 14px 16px 12px;
+  background: var(--papier);
+  border-radius: 14px;
+  box-shadow: var(--ombre);
+}
+.champ { display: block; font-size: 0.85rem; color: var(--encre-douce); margin-bottom: 4px; }
+select {
+  width: 100%;
+  font: 700 1rem var(--ui); color: var(--encre);
+  padding: 9px 36px 9px 12px;
+  border: 1.5px solid var(--encre); border-radius: 10px;
+  background: var(--papier) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%231e2f6b' stroke-width='2'/%3E%3C/svg%3E") no-repeat right 12px center;
+  appearance: none;
+}
+.legende { margin: 10px 0 6px; font-size: 0.85rem; font-variant-numeric: tabular-nums; }
+.legende .degrade { height: 10px; border-radius: 5px; margin-bottom: 3px; }
+.legende .bornes { display: flex; justify-content: space-between; color: var(--encre-douce); }
+.legende .note { margin: 4px 0 0; color: var(--encre-douce); }
+.secteurs { border: 0; padding: 0; margin: 6px 0 0; display: flex; gap: 18px; flex-wrap: wrap; font-size: 0.95rem; }
+.secteurs label { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; }
+.secteurs input { width: 18px; height: 18px; accent-color: var(--encre); margin: 0; }
+.pastille-prive { width: 12px; height: 12px; border-radius: 50%; border: 2.5px solid var(--encre); display: inline-block; }
+.etat { margin: 6px 0 0; font-size: 0.85rem; color: var(--encre-douce); }
+.etat:empty { display: none; }
+
+/* ---------- fiche établissement : une copie double, avec sa marge */
+.fiche {
+  position: fixed; z-index: 4;
+  left: 0; right: 0; bottom: 0;
+  max-height: 72vh; overflow-y: auto;
+  background: var(--papier);
+  border-radius: 16px 16px 0 0;
+  box-shadow: var(--ombre);
+  padding: 20px 16px calc(20px + env(safe-area-inset-bottom)) 40px;
+  background-image: linear-gradient(var(--marge), var(--marge));
+  background-size: 1.5px 100%;
+  background-position: 26px 0;
+  background-repeat: no-repeat;
+  animation: monte 0.22s ease-out;
+}
+@keyframes monte { from { transform: translateY(24px); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .fiche { animation: none; } }
+.fermer {
+  position: absolute; top: 10px; right: 10px;
+  width: 40px; height: 40px;
+  border: 0; border-radius: 50%;
+  background: transparent; color: var(--encre);
+  font-size: 1.8rem; line-height: 1; cursor: pointer;
+}
+.fermer:hover { background: #eef1f8; }
+.fiche h2 { font: 650 1.45rem/1.2 var(--titre); margin: 0 44px 4px 0; }
+.fiche .lieu { margin: 0 0 16px; color: var(--encre-douce); }
+.chiffres { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 16px; margin: 0 0 18px; }
+.chiffre dt { font-size: 0.82rem; color: var(--encre-douce); }
+.chiffre dd { margin: 0; font-size: 1.5rem; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.2; }
+.chiffre dd small { font-size: 0.8rem; font-weight: 400; color: var(--encre-douce); }
+.chiffre.vide dd { color: var(--absent); font-size: 1rem; font-weight: 400; padding-top: 6px; }
+.fiche h3 { font: 650 1.05rem/1.3 var(--titre); margin: 20px 0 6px; }
+.historique { width: 100%; border-collapse: collapse; font-size: 0.9rem; font-variant-numeric: tabular-nums; }
+.historique th, .historique td { text-align: right; padding: 5px 6px; border-bottom: 1px solid var(--trait); }
+.historique th:first-child, .historique td:first-child { text-align: left; padding-left: 0; }
+.historique thead th { font-weight: 400; color: var(--encre-douce); }
+.fiche .renvoi { margin-top: 18px; font-size: 0.9rem; }
+
+/* ---------- écrans larges */
+@media (min-width: 760px) {
+  .panneau { left: 16px; right: auto; top: calc(var(--barre-h) + 16px); bottom: auto; width: 320px; }
+  .fiche {
+    left: auto; right: 16px; top: calc(var(--barre-h) + 16px); bottom: 16px;
+    width: 400px; max-height: none;
+    border-radius: 16px;
+    animation-name: glisse;
+  }
+  @keyframes glisse { from { transform: translateX(24px); opacity: 0; } }
+}
+
+/* ---------- MapLibre */
+.maplibregl-ctrl-attrib { font-size: 11px; }
+.maplibregl-ctrl-bottom-right, .maplibregl-ctrl-bottom-left { bottom: 190px; }
+@media (min-width: 760px) {
+  .maplibregl-ctrl-bottom-right, .maplibregl-ctrl-bottom-left { bottom: 0; }
+  .fiche-ouverte .maplibregl-ctrl-top-right { right: 424px; }
+}
+
+/* ---------- page Documentation */
+.page-doc main { max-width: 42rem; margin: 0 auto; padding: calc(var(--barre-h) + 28px) 16px 64px; }
+.page-doc h1 { font: 650 2rem/1.15 var(--titre); margin: 0 0 12px; }
+.page-doc h2 { font: 650 1.35rem/1.25 var(--titre); margin: 40px 0 8px; padding-left: 14px; border-left: 2px solid var(--marge); }
+.page-doc h3 { font: 700 1.05rem/1.3 var(--ui); margin: 24px 0 4px; }
+.page-doc p, .page-doc li { max-width: 68ch; }
+.page-doc .chapeau { font-size: 1.1rem; color: var(--encre-douce); }
+.page-doc table { width: 100%; border-collapse: collapse; font-size: 0.92rem; margin: 8px 0; }
+.page-doc th, .page-doc td { text-align: left; vertical-align: top; padding: 8px 8px 8px 0; border-bottom: 1px solid var(--trait); }
+.page-doc th { font-weight: 400; color: var(--encre-douce); }
+.page-doc .formule { padding: 10px 14px; background: #eef1f8; border-radius: 8px; }
+@media (max-width: 560px) {
+  .page-doc .sources thead { display: none; }
+  .page-doc .sources tr { display: block; padding: 8px 0; border-bottom: 1px solid var(--trait); }
+  .page-doc .sources td { display: block; border: 0; padding: 2px 0; }
+}
+
+.page-doc [id] { scroll-margin-top: calc(var(--barre-h) + 16px); }
