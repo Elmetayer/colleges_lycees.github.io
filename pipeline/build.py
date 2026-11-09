@@ -412,6 +412,7 @@ def main() -> int:
                     "va_reussite": round_or_none(g["va_reussite"].median()),
                     "note_ecrit": round_or_none(g["note_ecrit"].median(), 2),
                     "va_note": round_or_none(g["va_note"].median(), 2),
+                    "score": round_or_none(g["score"].median()),
                 }
         if ip is not None and len(ip):
             for an, g in ip.groupby("annee"):

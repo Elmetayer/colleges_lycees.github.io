@@ -164,6 +164,7 @@ select {
 .graphe-contexte { margin: 2px 0 8px; font-size: 0.82rem; color: var(--encre-douce); }
 .graphe svg { display: block; width: 100%; height: auto; overflow: visible; }
 .graphe text { font: 12px var(--ui); fill: var(--encre-douce); font-variant-numeric: tabular-nums; }
+.graphe text.titre-panneau { font-weight: 700; fill: var(--encre); }
 .legende-graphe { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 6px; font-size: 0.82rem; color: var(--encre-douce); }
 .legende-graphe span { display: inline-flex; align-items: center; gap: 6px; }
 details.valeurs { margin-top: 14px; font-size: 0.9rem; }
