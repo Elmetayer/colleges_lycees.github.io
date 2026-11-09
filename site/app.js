@@ -2,7 +2,8 @@
 (function () {
   "use strict";
 
-  const ECHELLE = ["#e8edf7", "#b4c3e3", "#7a93cc", "#3e5ba8", "#1e2f6b"];
+  // Plasma, du plus bas (jaune) au plus haut (bleu nuit). Lisible pour les daltoniens.
+  const ECHELLE = ["#f0f921", "#f89540", "#cc4778", "#7e03a8", "#0d0887"];
   const DIVERGENTE = ["#b7791f", "#e2c08a", "#eef0f4", "#8fa3d6", "#1e2f6b"];
   const ABSENT = "#a7adba";
 
@@ -61,20 +62,24 @@
   carte.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
   carte.addControl(new maplibregl.GeolocateControl({ positionOptions: { enableHighAccuracy: true } }), "top-right");
 
+  // Échelles séquentielles : les couleurs sont posées sur les quantiles (5 %, 25 %, médiane,
+  // 75 %, 95 %) pour que chaque teinte couvre à peu près autant de collèges et que les écarts
+  // restent lisibles même quand les valeurs sont serrées.
   function domaine(ind) {
     const vals = donnees.features.map((f) => f.properties[ind.cle]).filter((v) => typeof v === "number").sort((a, b) => a - b);
     if (ind.type === "div") {
       const m = Math.max(Math.abs(quantile(vals, 0.05)), Math.abs(quantile(vals, 0.95))) || 1;
-      return { min: -m, max: m, n: vals.length };
+      return { stops: [-m, -m / 2, 0, m / 2, m], n: vals.length };
     }
-    return { min: quantile(vals, 0.05), max: quantile(vals, 0.95), n: vals.length };
+    const stops = [0.05, 0.25, 0.5, 0.75, 0.95].map((q) => quantile(vals, q));
+    for (let i = 1; i < stops.length; i++) if (stops[i] <= stops[i - 1]) stops[i] = stops[i - 1] + 1e-6;
+    return { stops, n: vals.length };
   }
 
   function couleur(ind) {
     const d = domaine(ind);
     const pal = ind.type === "div" ? DIVERGENTE : ECHELLE;
-    const pas = (d.max - d.min) / (pal.length - 1) || 1;
-    const stops = pal.flatMap((c, i) => [d.min + i * pas, c]);
+    const stops = pal.flatMap((c, i) => [d.stops[i], c]);
     return { expr: ["case", ["has", ind.cle], ["interpolate", ["linear"], ["get", ind.cle], ...stops], ABSENT], d, pal };
   }
 
@@ -92,7 +97,8 @@
     const manquants = donnees.features.length - d.n;
     $("legende").innerHTML =
       `<div class="degrade" style="background:linear-gradient(90deg,${pal.join(",")})"></div>` +
-      `<div class="bornes"><span>${indicateur.fmt(d.min)}</span><span>${indicateur.fmt(d.max)}</span></div>` +
+      `<div class="bornes"><span>${indicateur.fmt(d.stops[0])}</span><span>${indicateur.fmt(d.stops[2])}</span><span>${indicateur.fmt(d.stops[4])}</span></div>` +
+      (indicateur.type === "seq" ? `<p class="note">La teinte du milieu correspond à la médiane : la moitié des collèges est au-dessus.</p>` : "") +
       (indicateur.note ? `<p class="note">${indicateur.note}</p>` : "") +
       (manquants > 0 ? `<p class="note">En gris : ${manquants} collège${manquants > 1 ? "s" : ""} sans donnée.</p>` : "");
   }
