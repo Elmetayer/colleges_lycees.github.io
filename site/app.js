@@ -175,39 +175,48 @@
     return { min, max, ticks };
   }
 
-  // Graphique en ligne : séries du collège, médiane en pointillés, bande neutre éventuelle.
+  // Graphique en courbes. Un ou deux panneaux superposés partageant l'axe des années
+  // (deux panneaux quand les unités diffèrent, par exemple % et note sur 20).
+  // Chaque série a sa médiane en pointillés, de la même couleur.
   function graphique(g) {
-    const W = 334, H = 200, L = 40, R = 70, T = 12, B = 26, pw = W - L - R, ph = H - T - B;
-    const n = g.labels.length;
-    const tous = [].concat(...g.series.map((s) => s.vals), g.med || [], g.bande || []).filter(num);
-    const e = echelle(tous, g.echelle);
+    const W = 334, L = 40, R = 70, B = 26;
+    const multi = g.panneaux.length > 1;
+    const hPan = multi ? 120 : 176, titreH = multi ? 18 : 0, ecart = multi ? 30 : 0;
+    const H = g.panneaux.length * (titreH + hPan) + (g.panneaux.length - 1) * ecart + 12 + B;
+    const n = g.labels.length, pw = W - L - R;
     const x = (i) => (n > 1 ? L + (i * pw) / (n - 1) : L + pw / 2);
-    const y = (v) => T + ph * (1 - (v - e.min) / (e.max - e.min));
-    const trace = (vals) => {
-      let d = "", leve = true;
-      vals.forEach((v, i) => { if (!num(v)) { leve = true; return; } d += (leve ? "M" : "L") + x(i).toFixed(1) + " " + y(v).toFixed(1) + " "; leve = false; });
-      return d.trim();
-    };
     let svg = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${echapper(g.aria)}">`;
-    if (g.bande) svg += `<rect x="${L}" y="${y(g.bande[1]).toFixed(1)}" width="${pw}" height="${(y(g.bande[0]) - y(g.bande[1])).toFixed(1)}" fill="${BANDE}"/>`;
-    e.ticks.forEach((t) => {
-      svg += `<line x1="${L}" x2="${W - R}" y1="${y(t).toFixed(1)}" y2="${y(t).toFixed(1)}" stroke="${t === 0 && g.zero ? "#56648f" : "#e3e7f0"}" stroke-width="1"/>`;
-      svg += `<text x="${L - 6}" y="${(y(t) + 4).toFixed(1)}" text-anchor="end">${echapper(g.tick(t))}</text>`;
+    g.panneaux.forEach((pan, k) => {
+      const top = 12 + k * (titreH + hPan + ecart) + titreH;
+      const tous = [].concat(...pan.series.map((s) => s.vals.concat(s.med || [])), pan.bande || []).filter(num);
+      const e = echelle(tous, pan.echelle);
+      const y = (v) => top + hPan * (1 - (v - e.min) / (e.max - e.min));
+      const trace = (vals) => {
+        let d = "", leve = true;
+        vals.forEach((v, i) => { if (!num(v)) { leve = true; return; } d += (leve ? "M" : "L") + x(i).toFixed(1) + " " + y(v).toFixed(1) + " "; leve = false; });
+        return d.trim();
+      };
+      if (multi) svg += `<text x="${L - 34}" y="${top - 8}" class="titre-panneau">${echapper(pan.titre)}</text>`;
+      if (pan.bande) svg += `<rect x="${L}" y="${y(pan.bande[1]).toFixed(1)}" width="${pw}" height="${(y(pan.bande[0]) - y(pan.bande[1])).toFixed(1)}" fill="${BANDE}"/>`;
+      e.ticks.forEach((t) => {
+        svg += `<line x1="${L}" x2="${W - R}" y1="${y(t).toFixed(1)}" y2="${y(t).toFixed(1)}" stroke="${t === 0 && pan.zero ? "#56648f" : "#e3e7f0"}" stroke-width="1"/>`;
+        svg += `<text x="${L - 6}" y="${(y(t) + 4).toFixed(1)}" text-anchor="end">${echapper(pan.tick(t))}</text>`;
+      });
+      pan.series.forEach((s) => {
+        if (s.med && s.med.some(num)) svg += `<path d="${trace(s.med)}" fill="none" stroke="${s.couleur}" stroke-opacity="0.55" stroke-width="2" stroke-dasharray="4 3"/>`;
+      });
+      pan.series.slice().reverse().forEach((s) => {
+        svg += `<path d="${trace(s.vals)}" fill="none" stroke="${s.couleur}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>`;
+        s.vals.forEach((v, i) => { if (num(v)) svg += `<circle cx="${x(i).toFixed(1)}" cy="${y(v).toFixed(1)}" r="4" fill="${s.couleur}"/>`; });
+      });
+      // Noms des courbes au bout des lignes, écartés s'ils se chevauchent.
+      const fins = [];
+      pan.series.forEach((s) => { for (let i = s.vals.length - 1; i >= 0; i--) if (num(s.vals[i])) { fins.push({ txt: s.nom, y: y(s.vals[i]), couleur: s.texte || s.couleur }); break; } });
+      fins.sort((a, b) => a.y - b.y);
+      for (let i = 1; i < fins.length; i++) if (fins[i].y - fins[i - 1].y < 15) fins[i].y = fins[i - 1].y + 15;
+      fins.forEach((f) => { svg += `<text x="${W - R + 8}" y="${(f.y + 4).toFixed(1)}" style="fill:${f.couleur};font-weight:700">${echapper(f.txt)}</text>`; });
     });
     g.labels.forEach((l, i) => { svg += `<text x="${x(i).toFixed(1)}" y="${H - 8}" text-anchor="middle">${echapper(l)}</text>`; });
-    if (g.med && g.med.some(num)) svg += `<path d="${trace(g.med)}" fill="none" stroke="${MEDIANE}" stroke-width="2" stroke-dasharray="4 3"/>`;
-    g.series.slice().reverse().forEach((s) => {
-      svg += `<path d="${trace(s.vals)}" fill="none" stroke="${s.couleur}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>`;
-      s.vals.forEach((v, i) => { if (num(v)) svg += `<circle cx="${x(i).toFixed(1)}" cy="${y(v).toFixed(1)}" r="4" fill="${s.couleur}"/>`; });
-    });
-    // Noms des courbes au bout des lignes, écartés s'ils se chevauchent.
-    const fins = [];
-    const fin = (vals, txt, couleur, gras) => { for (let i = vals.length - 1; i >= 0; i--) if (num(vals[i])) { fins.push({ txt, y: y(vals[i]), couleur, gras }); return; } };
-    g.series.forEach((s) => fin(s.vals, s.nom, s.texte || s.couleur, true));
-    if (g.med) fin(g.med, "médiane", "#56648f", false);
-    fins.sort((a, b) => a.y - b.y);
-    for (let i = 1; i < fins.length; i++) if (fins[i].y - fins[i - 1].y < 15) fins[i].y = fins[i - 1].y + 15;
-    fins.forEach((f) => { svg += `<text x="${W - R + 8}" y="${(f.y + 4).toFixed(1)}" style="fill:${f.couleur};font-weight:${f.gras ? 700 : 400}">${echapper(f.txt)}</text>`; });
     return svg + "</svg>";
   }
 
@@ -225,28 +234,44 @@
   // Contenu de chaque onglet, à partir de l'historique du collège et des médianes.
   function onglets(p, hist) {
     const pct = (v) => fr(v, 1) + " %";
+    const signe1 = (v) => (v > 0 ? "+" : v < 0 ? "−" : "") + fr(Math.abs(v), 1);
+    const tickSigne = (nd) => (t) => (t > 0 ? "+" : t < 0 ? "−" : "") + fr(Math.abs(t), nd);
     const br = hist.brevet || [], ip = hist.ips || [], ev = hist.eval6e || [];
     const medB = (cle) => br.map((r) => (medianes.brevet[r.session] || {})[cle]);
+    const medE = (cle) => ev.map((r) => (medianes.eval6e[r.annee] || {})[cle]);
+    const col = (lignes, cle) => lignes.map((r) => r[cle]);
+    const decrire = (lignes, cleA, cle, fmt) => lignes.map((r) => `${r[cleA]} ${num(r[cle]) ? fmt(r[cle]) : "non publié"}`).join(", ");
     const res = [];
-    if (br.some((r) => num(r.taux_reussite))) {
-      const d = dernier(br, "taux_reussite"), m = (medianes.brevet[d.session] || {}).taux_reussite;
+
+    if (br.some((r) => num(r.taux_reussite) || num(r.note_ecrit))) {
+      const d = dernier(br, "taux_reussite") || dernier(br, "note_ecrit"), m = medianes.brevet[d.session] || {};
       const contexte = [];
       if (num(d.taux_mentions)) contexte.push(`Mentions : ${pct(d.taux_mentions)}.`);
       if (num(d.note_ecrit)) contexte.push(`Note aux écrits : ${fr(d.note_ecrit, 1)} / 20.`);
-      if (num(m)) contexte.push(`Médiane de réussite : ${pct(m)}.`);
-      if (num(d.score)) contexte.push(`Score agrégé : ${fr(d.score, 1)} (${d.rang}e sur ${fr(d.nb, 0)}).`);
+      const meds = [];
+      if (num(m.taux_reussite)) meds.push(`réussite ${pct(m.taux_reussite)}`);
+      if (num(m.taux_mentions)) meds.push(`mentions ${pct(m.taux_mentions)}`);
+      if (num(m.note_ecrit)) meds.push(`écrits ${fr(m.note_ecrit, 1)}`);
+      if (meds.length) contexte.push(`Médianes : ${meds.join(", ")}.`);
       res.push({
-        cle: "brevet", nom: "Brevet", titre: "Réussite et mentions au brevet",
-        valeur: pct(d.taux_reussite), unite: `réussite ${d.session}`, contexte: contexte.join(" "),
-        graphe: { labels: br.map((r) => r.session), series: [
-          { vals: br.map((r) => r.taux_reussite), couleur: ENCRE, nom: "réussite" },
-          { vals: br.map((r) => r.taux_mentions), couleur: MAGENTA, texte: MAGENTA_TEXTE, nom: "mentions" },
-        ], med: medB("taux_reussite"), tick: (t) => fr(t, 0) + " %", echelle: { plancher: 0, plafond: 100, etendueMin: 20 },
-          aria: "Réussite au brevet par session : " + br.map((r) => `${r.session} ${num(r.taux_reussite) ? pct(r.taux_reussite) : "non publié"}`).join(", ") + "." },
+        cle: "brevet", nom: "Brevet", titre: "Résultats au brevet",
+        valeur: num(d.taux_reussite) ? pct(d.taux_reussite) : "–", unite: `réussite ${d.session}`, contexte: contexte.join(" "),
+        graphe: { labels: br.map((r) => r.session),
+          aria: `Réussite au brevet : ${decrire(br, "session", "taux_reussite", pct)}. Mentions : ${decrire(br, "session", "taux_mentions", pct)}. Note aux écrits : ${decrire(br, "session", "note_ecrit", (v) => fr(v, 1))}.`,
+          panneaux: [
+            { titre: "Réussite et mentions (%)", tick: (t) => fr(t, 0) + " %", echelle: { plancher: 0, plafond: 100, etendueMin: 20 }, series: [
+              { vals: col(br, "taux_reussite"), med: medB("taux_reussite"), couleur: ENCRE, nom: "réussite" },
+              { vals: col(br, "taux_mentions"), med: medB("taux_mentions"), couleur: MAGENTA, texte: MAGENTA_TEXTE, nom: "mentions" },
+            ] },
+            { titre: "Note aux écrits (sur 20)", tick: (t) => fr(t, 0), echelle: { plancher: 0, plafond: 20, etendueMin: 4 }, series: [
+              { vals: col(br, "note_ecrit"), med: medB("note_ecrit"), couleur: ENCRE, nom: "écrits" },
+            ] },
+          ] },
         table: tableau([{ cle: "session", nom: "Session" }, { cle: "taux_reussite", nom: "Réussite", fmt: pct }, { cle: "taux_mentions", nom: "Mentions", fmt: pct },
           { cle: "note_ecrit", nom: "Écrits", fmt: (v) => fr(v, 1) }, { cle: "candidats", nom: "Candidats", fmt: (v) => fr(v, 0) }], br),
       });
     }
+
     if (ip.some((r) => num(r.ips))) {
       const d = dernier(ip, "ips"), m = medianes.ips[d.annee];
       const contexte = [];
@@ -255,43 +280,73 @@
       res.push({
         cle: "ips", nom: "IPS", titre: "Indice de position sociale",
         valeur: fr(d.ips, 1), unite: d.annee, contexte: contexte.join(" "),
-        graphe: { labels: ip.map((r) => anneeCourte(r.annee)), series: [{ vals: ip.map((r) => r.ips), couleur: ENCRE, nom: "IPS" }],
-          med: ip.map((r) => medianes.ips[r.annee]), tick: (t) => fr(t, 0), echelle: { etendueMin: 20 },
-          aria: "IPS par année : " + ip.map((r) => `${r.annee} ${num(r.ips) ? fr(r.ips, 1) : "non publié"}`).join(", ") + "." },
+        graphe: { labels: ip.map((r) => anneeCourte(r.annee)), aria: `IPS par année : ${decrire(ip, "annee", "ips", (v) => fr(v, 1))}.`,
+          panneaux: [{ tick: (t) => fr(t, 0), echelle: { etendueMin: 20 }, series: [
+            { vals: col(ip, "ips"), med: ip.map((r) => medianes.ips[r.annee]), couleur: ENCRE, nom: "IPS" },
+          ] }] },
         table: tableau([{ cle: "annee", nom: "Année" }, { cle: "ips", nom: "IPS", fmt: (v) => fr(v, 1) }, { cle: "ecart_type", nom: "Écart-type", fmt: (v) => fr(v, 1) }], ip),
       });
     }
-    if (br.some((r) => num(r.va_reussite))) {
-      const d = dernier(br, "va_reussite"), s = seuilVA("va_reussite");
-      const unite = Math.abs(d.va_reussite) > 1 ? "points" : "point";
-      const contexte = [lectureVA("va_reussite", d.va_reussite).replace(/^./, (c) => c.toUpperCase()) + "."];
-      const dn = dernier(br, "va_note");
-      if (dn) contexte.push(`Sur la note aux écrits : ${signe(dn.va_note)} (${lectureVA("va_note", dn.va_note)}).`);
-      contexte.push(`Zone grisée : entre ${signe(-s)} et ${signe(s)} points.`);
+
+    if (br.some((r) => num(r.va_reussite) || num(r.va_note))) {
+      const sR = seuilVA("va_reussite"), sN = seuilVA("va_note");
+      const dR = dernier(br, "va_reussite"), dN = dernier(br, "va_note"), d = dR || dN;
+      const contexte = [];
+      if (dR) contexte.push(`Réussite : ${lectureVA("va_reussite", dR.va_reussite)}.`);
+      if (dN) contexte.push(`Note aux écrits : ${signe1(dN.va_note)} point, ${lectureVA("va_note", dN.va_note)}.`);
+      contexte.push(`Zones grisées : écart faible (${signe1(-sR)} à ${signe1(sR)} points pour la réussite, ${signe1(-sN)} à ${signe1(sN)} pour les écrits).`);
       res.push({
-        cle: "va", nom: "Valeur ajoutée", titre: "Valeur ajoutée (réussite)",
-        valeur: signe(d.va_reussite), unite: `${unite}, ${d.session}`, contexte: contexte.join(" "),
-        graphe: { labels: br.map((r) => r.session), series: [{ vals: br.map((r) => r.va_reussite), couleur: ENCRE, nom: "collège" }],
-          med: medB("va_reussite"), bande: [-s, s], zero: true, tick: (t) => (t > 0 ? "+" : t < 0 ? "−" : "") + fr(Math.abs(t), 0),
-          echelle: { sym: true, demiMin: Math.max(s * 3, 4) },
-          aria: "Valeur ajoutée sur la réussite par session : " + br.map((r) => `${r.session} ${num(r.va_reussite) ? signe(r.va_reussite) : "non publié"}`).join(", ") + "." },
-        table: tableau([{ cle: "session", nom: "Session" }, { cle: "va_reussite", nom: "Réussite", fmt: signe }, { cle: "va_note", nom: "Note écrite", fmt: signe }], br),
+        cle: "va", nom: "Valeur ajoutée", titre: "Valeur ajoutée",
+        valeur: dR ? signe(dR.va_reussite) : signe1(dN.va_note), unite: dR ? `points de réussite, ${d.session}` : `point aux écrits, ${d.session}`, contexte: contexte.join(" "),
+        graphe: { labels: br.map((r) => r.session),
+          aria: `Valeur ajoutée sur la réussite : ${decrire(br, "session", "va_reussite", signe)}. Sur la note aux écrits : ${decrire(br, "session", "va_note", signe1)}.`,
+          panneaux: [
+            { titre: "Sur la réussite (points de %)", tick: tickSigne(0), bande: [-sR, sR], zero: true, echelle: { sym: true, demiMin: Math.max(sR * 3, 4) }, series: [
+              { vals: col(br, "va_reussite"), med: medB("va_reussite"), couleur: ENCRE, nom: "réussite" },
+            ] },
+            { titre: "Sur la note aux écrits (points sur 20)", tick: tickSigne(1), bande: [-sN, sN], zero: true, echelle: { sym: true, demiMin: Math.max(sN * 3, 0.5) }, series: [
+              { vals: col(br, "va_note"), med: medB("va_note"), couleur: MAGENTA, texte: MAGENTA_TEXTE, nom: "écrits" },
+            ] },
+          ] },
+        table: tableau([{ cle: "session", nom: "Session" }, { cle: "va_reussite", nom: "Réussite", fmt: signe }, { cle: "va_note", nom: "Écrits", fmt: signe1 }], br),
       });
     }
+
     if (ev.some((r) => num(r.fr) || num(r.ma))) {
-      const d = dernier(ev, "fr") || dernier(ev, "ma"), m = (medianes.eval6e[d.annee] || {}).fr;
+      const d = dernier(ev, "fr") || dernier(ev, "ma"), m = medianes.eval6e[d.annee] || {};
       const contexte = [];
       if (num(d.ma)) contexte.push(`Mathématiques : ${fr(d.ma, 0)}.`);
-      if (num(m)) contexte.push(`Médiane en français : ${fr(m, 0)}.`);
+      const meds = [];
+      if (num(m.fr)) meds.push(`français ${fr(m.fr, 0)}`);
+      if (num(m.ma)) meds.push(`maths ${fr(m.ma, 0)}`);
+      if (meds.length) contexte.push(`Médianes : ${meds.join(", ")}.`);
       res.push({
         cle: "eval", nom: "Évaluations 6e", titre: "Évaluations de 6e",
         valeur: num(d.fr) ? fr(d.fr, 0) : "–", unite: `français ${d.annee}`, contexte: contexte.join(" "),
-        graphe: { labels: ev.map((r) => r.annee), series: [
-          { vals: ev.map((r) => r.fr), couleur: ENCRE, nom: "français" },
-          { vals: ev.map((r) => r.ma), couleur: MAGENTA, texte: MAGENTA_TEXTE, nom: "maths" },
-        ], med: ev.map((r) => (medianes.eval6e[r.annee] || {}).fr), tick: (t) => fr(t, 0), echelle: { etendueMin: 40 },
-          aria: "Scores moyens à l'entrée en 6e. Français : " + ev.map((r) => `${r.annee} ${num(r.fr) ? fr(r.fr, 0) : "non publié"}`).join(", ") + "." },
+        graphe: { labels: ev.map((r) => r.annee),
+          aria: `Scores moyens à l'entrée en 6e. Français : ${decrire(ev, "annee", "fr", (v) => fr(v, 0))}. Mathématiques : ${decrire(ev, "annee", "ma", (v) => fr(v, 0))}.`,
+          panneaux: [{ tick: (t) => fr(t, 0), echelle: { etendueMin: 40 }, series: [
+            { vals: col(ev, "fr"), med: medE("fr"), couleur: ENCRE, nom: "français" },
+            { vals: col(ev, "ma"), med: medE("ma"), couleur: MAGENTA, texte: MAGENTA_TEXTE, nom: "maths" },
+          ] }] },
         table: tableau([{ cle: "annee", nom: "Année" }, { cle: "fr", nom: "Français", fmt: (v) => fr(v, 0) }, { cle: "ma", nom: "Maths", fmt: (v) => fr(v, 0) }], ev),
+      });
+    }
+
+    if (br.some((r) => num(r.score))) {
+      const d = dernier(br, "score"), m = (medianes.brevet[d.session] || {}).score;
+      const contexte = [];
+      if (num(d.rang)) contexte.push(`${d.rang}e sur ${fr(d.nb, 0)} collèges des deux académies en ${d.session}.`);
+      if (num(m)) contexte.push(`Médiane : ${fr(m, 1)}.`);
+      contexte.push("Moyenne des taux de réussite, de mentions et de mentions très bien : à lire avec précaution.");
+      res.push({
+        cle: "score", nom: "Score", titre: "Score agrégé (optionnel)",
+        valeur: fr(d.score, 1), unite: d.session, contexte: contexte.join(" "),
+        graphe: { labels: br.map((r) => r.session), aria: `Score agrégé par session : ${decrire(br, "session", "score", (v) => fr(v, 1))}.`,
+          panneaux: [{ tick: (t) => fr(t, 0), echelle: { plancher: 0, plafond: 100, etendueMin: 20 }, series: [
+            { vals: col(br, "score"), med: medB("score"), couleur: ENCRE, nom: "score" },
+          ] }] },
+        table: tableau([{ cle: "session", nom: "Session" }, { cle: "score", nom: "Score", fmt: (v) => fr(v, 1) }, { cle: "rang", nom: "Rang", fmt: (v) => fr(v, 0) }, { cle: "nb", nom: "Sur", fmt: (v) => fr(v, 0) }], br),
       });
     }
     return res;
@@ -301,7 +356,7 @@
     const liste = ficheCourante.onglets;
     const o = liste.find((x) => x.cle === ongletChoisi) || liste[0];
     document.querySelectorAll("#fiche .onglets button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.onglet === o.cle)));
-    const avecMediane = o.graphe.med && o.graphe.med.some(num);
+    const avecMediane = o.graphe.panneaux.some((pan) => pan.series.some((s) => s.med && s.med.some(num)));
     $("fiche-graphe").innerHTML = `
       <div class="graphe-tete">
         <h3>${o.titre}</h3>
@@ -310,8 +365,8 @@
       <p class="graphe-contexte">${echapper(o.contexte)}</p>
       <div class="graphe">${graphique(o.graphe)}</div>
       <div class="legende-graphe" aria-hidden="true">
-        <span><svg width="22" height="8" viewBox="0 0 22 8"><path d="M1 4H21" stroke="${ENCRE}" stroke-width="2.5" stroke-linecap="round"/></svg>Ce collège</span>
-        ${avecMediane ? `<span><svg width="22" height="8" viewBox="0 0 22 8"><path d="M1 4H21" stroke="${MEDIANE}" stroke-width="2" stroke-dasharray="4 3"/></svg>Médiane Paris et Versailles</span>` : ""}
+        <span><svg width="22" height="8" viewBox="0 0 22 8"><path d="M1 4H21" stroke="${ENCRE}" stroke-width="2.5" stroke-linecap="round"/></svg>Trait plein : ce collège</span>
+        ${avecMediane ? `<span><svg width="22" height="8" viewBox="0 0 22 8"><path d="M1 4H21" stroke="${ENCRE}" stroke-opacity="0.55" stroke-width="2" stroke-dasharray="4 3"/></svg>Pointillés de même couleur : médiane Paris et Versailles</span>` : ""}
       </div>
       <details class="valeurs"><summary>Valeurs par année</summary>${o.table}</details>`;
   }
