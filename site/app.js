@@ -120,6 +120,11 @@
     const { expr, d, pal } = couleur(indicateur);
     carte.setPaintProperty("colleges", "circle-color", expr);
     carte.setFilter("colleges", filtre());
+    if (carte.getLayer("secteurs-fond")) {
+      carte.setPaintProperty("secteurs-fond", "fill-color", expr);
+      const vis = $("voir-zones").checked ? "visible" : "none";
+      ["secteurs-fond", "secteurs-contour", "secteurs-surligne"].forEach((id) => carte.setLayoutProperty(id, "visibility", vis));
+    }
     const manquants = donnees.features.length - d.n;
     if (indicateur.type === "div") {
       const pos = (x) => (((x + d.m) / (2 * d.m)) * 100).toFixed(1) + "%";
@@ -371,7 +376,12 @@
       <details class="valeurs"><summary>Valeurs par année</summary>${o.table}</details>`;
   }
 
+  function surlignerSecteur(uai) {
+    if (carte.getLayer("secteurs-surligne")) carte.setFilter("secteurs-surligne", ["==", ["get", "uai"], uai || ""]);
+  }
+
   function ouvrirFiche(p) {
+    surlignerSecteur(p.uai);
     const hist = JSON.parse(p.hist || "{}");
     const liste = onglets(p, hist);
     ficheCourante = { p, onglets: liste };
@@ -402,6 +412,7 @@
   });
 
   function fermerFiche() {
+    surlignerSecteur(null);
     $("fiche").hidden = true;
     document.body.classList.remove("fiche-ouverte");
   }
@@ -576,22 +587,27 @@
     }
     repereAdresse.setLngLat(a.coord).addTo(carte);
     centrer(a.coord, 14);
-    const proches = donnees.features
+    const uaiSecteur = secteurDe(a.coord);
+    const tous = donnees.features
       .filter((f) => f.properties.secteur === "public")
       .map((f) => ({ f, d: distanceKm(a.coord, f.geometry.coordinates) }))
-      .sort((x, y) => x.d - y.d)
-      .slice(0, 5);
+      .sort((x, y) => x.d - y.d);
+    const deSecteur = tous.find((x) => x.f.properties.uai === uaiSecteur);
+    const proches = (deSecteur ? [deSecteur] : []).concat(tous.filter((x) => x !== deSecteur).slice(0, deSecteur ? 4 : 5));
+    surlignerSecteur(uaiSecteur);
     ficheCourante = null;
     $("fiche-contenu").innerHTML = `
       <h2 id="fiche-nom">${echapper(a.libelle)}</h2>
-      <p class="lieu">Collèges publics les plus proches, à vol d'oiseau</p>
+      <p class="lieu">${deSecteur ? "Collège de secteur et collèges publics les plus proches" : "Collèges publics les plus proches"}, distances à vol d'oiseau</p>
       <ul class="proches">
-        ${proches.map((x, i) => `<li><button type="button" data-proche="${i}">
-          <span>${echapper(x.f.properties.nom)}<small>${echapper(x.f.properties.commune)}</small></span>
+        ${proches.map((x, i) => `<li${x === deSecteur ? ' class="secteur-adresse"' : ""}><button type="button" data-proche="${i}">
+          <span>${x === deSecteur ? '<span class="etiquette">Collège de secteur</span><br>' : ""}${echapper(x.f.properties.nom)}<small>${echapper(x.f.properties.commune)}</small></span>
           <span class="distance">${x.d < 1 ? fr(x.d * 1000, 0).replace(/\s/g, " ") + " m" : fr(x.d, 1) + " km"}</span>
         </button></li>`).join("")}
       </ul>
-      <p class="avertissement">Le collège le plus proche n'est pas forcément le collège de secteur. Les secteurs de recrutement seront ajoutés prochainement à la carte.</p>`;
+      <p class="avertissement">${deSecteur
+        ? "Le secteur est reconstitué à partir de la carte scolaire officielle et peut différer à la marge, notamment en limite de secteur. Pour une inscription, la réponse qui fait foi est celle de l'inspection académique."
+        : "Aucun secteur n'a été trouvé pour cette adresse. Le collège le plus proche n'est pas forcément le collège de secteur."}</p>`;
     $("fiche-contenu").querySelectorAll("[data-proche]").forEach((b) => b.addEventListener("click", () => {
       const f = proches[Number(b.dataset.proche)].f;
       centrer(f.geometry.coordinates, Math.max(carte.getZoom(), 14));
@@ -601,6 +617,47 @@
     fiche.hidden = false;
     document.body.classList.add("fiche-ouverte");
     fiche.scrollTop = 0;
+  }
+
+  // ---------------------------------------------------------------- secteurs
+  // Zones calculées à partir de la carte scolaire officielle (voir pipeline/secteurs.py).
+  let secteurs = null;
+
+  function dansAnneau(pt, anneau) {
+    let dedans = false;
+    for (let i = 0, j = anneau.length - 1; i < anneau.length; j = i++) {
+      const [xi, yi] = anneau[i], [xj, yj] = anneau[j];
+      if ((yi > pt[1]) !== (yj > pt[1]) && pt[0] < ((xj - xi) * (pt[1] - yi)) / (yj - yi) + xi) dedans = !dedans;
+    }
+    return dedans;
+  }
+  function dansPolygone(pt, poly) { return dansAnneau(pt, poly[0]) && !poly.slice(1).some((trou) => dansAnneau(pt, trou)); }
+  function secteurDe(pt) {
+    if (!secteurs) return null;
+    for (const f of secteurs.features) {
+      const g = f.geometry;
+      const polys = g.type === "Polygon" ? [g.coordinates] : g.type === "MultiPolygon" ? g.coordinates : [];
+      if (polys.some((poly) => dansPolygone(pt, poly))) return f.properties.uai;
+    }
+    return null;
+  }
+
+  function chargerSecteurs() {
+    fetch("data/secteurs.geojson").then((r) => (r.ok ? r.json() : Promise.reject(r.status))).then((geo) => {
+      // Chaque zone reçoit les indicateurs de son collège, pour être colorée comme lui.
+      const parUai = new Map(donnees.features.map((f) => [f.properties.uai, f.properties]));
+      geo.features.forEach((f) => {
+        const p = parUai.get(f.properties.uai);
+        if (p) INDICATEURS.forEach((i) => { if (typeof p[i.cle] === "number") f.properties[i.cle] = p[i.cle]; });
+      });
+      secteurs = geo;
+      carte.addSource("secteurs", { type: "geojson", data: geo });
+      carte.addLayer({ id: "secteurs-fond", type: "fill", source: "secteurs", paint: { "fill-color": ABSENT, "fill-opacity": 0.35 } }, "colleges");
+      carte.addLayer({ id: "secteurs-contour", type: "line", source: "secteurs", paint: { "line-color": "#1e2f6b", "line-width": ["interpolate", ["linear"], ["zoom"], 9, 0.3, 14, 1.2], "line-opacity": 0.55 } }, "colleges");
+      carte.addLayer({ id: "secteurs-surligne", type: "line", source: "secteurs", filter: ["==", ["get", "uai"], ""], paint: { "line-color": "#1e2f6b", "line-width": 3 } }, "colleges");
+      appliquer();
+      if (ficheCourante) surlignerSecteur(ficheCourante.p.uai);
+    }).catch((e) => console.warn("Secteurs indisponibles", e));
   }
 
   // ---------------------------------------------------------------- démarrage
@@ -644,8 +701,16 @@
     appliquer();
     cadrer();
     initRecherche();
+    chargerSecteurs();
     etat.textContent = "";
-    carte.on("click", "colleges", (e) => ouvrirFiche(e.features[0].properties));
+    carte.on("click", (e) => {
+      const pt = carte.queryRenderedFeatures(e.point, { layers: ["colleges"] })[0];
+      if (pt) { ouvrirFiche(pt.properties); return; }
+      if (!carte.getLayer("secteurs-fond") || !$("voir-zones").checked) return;
+      const z = carte.queryRenderedFeatures(e.point, { layers: ["secteurs-fond"] })[0];
+      const f = z && donnees.features.find((x) => x.properties.uai === z.properties.uai);
+      if (f) ouvrirFiche(f.properties);
+    });
     carte.on("mouseenter", "colleges", () => (carte.getCanvas().style.cursor = "pointer"));
     carte.on("mouseleave", "colleges", () => (carte.getCanvas().style.cursor = ""));
   }).catch((err) => {
@@ -655,6 +720,7 @@
 
   $("voir-public").addEventListener("change", () => donnees && appliquer());
   $("voir-prive").addEventListener("change", () => donnees && appliquer());
+  $("voir-zones").addEventListener("change", () => donnees && appliquer());
   $("fermer").addEventListener("click", fermerFiche);
   document.addEventListener("keydown", (e) => { if (e.key === "Escape") fermerFiche(); });
 })();
