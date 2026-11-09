@@ -9,6 +9,15 @@
   const DIVERGENTE = ["#c4500f", "#f4ad73", "#f3f1f6", "#b48ad9", "#6a0d9e"];
   const ABSENT = "#a7adba";
 
+  // Réglages modifiables dans parametres.js (valeurs par défaut si le fichier manque).
+  const VA = Object.assign({
+    seuils: { va_reussite: 2, va_note: 0.3 },
+    libelles: { proche: "proche de l'attendu", dessous: "en dessous de l'attendu", dessus: "au-dessus de l'attendu" },
+    texteZone: "Entre {min} et {max} {unite}, l'écart est considéré comme faible.",
+    texteRepartition: "{dessous} % des collèges en dessous de l'attendu, {proches} % proches, {dessus} % au-dessus.",
+  }, (window.PARAMETRES && window.PARAMETRES.valeurAjoutee) || {});
+  const remplir = (modele, valeurs) => modele.replace(/\{(\w+)\}/g, (m, k) => (k in valeurs ? valeurs[k] : m));
+
   // Indicateurs proposés. "doc" pointe vers la section de documentation.
   const INDICATEURS = [
     { cle: "ips", nom: "Indice de position sociale (IPS)", type: "seq", fmt: (v) => fr(v, 1), doc: "ips",
@@ -16,9 +25,9 @@
     { cle: "taux_reussite", nom: "Réussite au brevet", type: "seq", fmt: (v) => fr(v, 1) + " %", doc: "brevet" },
     { cle: "taux_mentions", nom: "Mentions au brevet", type: "seq", fmt: (v) => fr(v, 1) + " %", doc: "brevet" },
     { cle: "note_ecrit", nom: "Note aux écrits du brevet", type: "seq", fmt: (v) => fr(v, 1) + " / 20", doc: "brevet" },
-    { cle: "va_reussite", nom: "Valeur ajoutée (réussite)", type: "div", fmt: signe, doc: "valeur-ajoutee", seuil: 2, unite: "points",
+    { cle: "va_reussite", nom: "Valeur ajoutée (réussite)", type: "div", fmt: signe, doc: "valeur-ajoutee", unite: "points",
       note: "Écart entre la réussite obtenue et celle attendue au vu du profil des élèves." },
-    { cle: "va_note", nom: "Valeur ajoutée (note écrite)", type: "div", fmt: signe, doc: "valeur-ajoutee", seuil: 0.3, unite: "point",
+    { cle: "va_note", nom: "Valeur ajoutée (note écrite)", type: "div", fmt: signe, doc: "valeur-ajoutee", unite: "point",
       note: "Écart entre la note obtenue et celle attendue au vu du profil des élèves." },
     { cle: "eval_fr", nom: "Évaluations 6e (français)", type: "seq", fmt: (v) => fr(v, 0), doc: "evaluations" },
     { cle: "eval_ma", nom: "Évaluations 6e (maths)", type: "seq", fmt: (v) => fr(v, 0), doc: "evaluations" },
@@ -71,7 +80,7 @@
     const vals = donnees.features.map((f) => f.properties[ind.cle]).filter((v) => typeof v === "number").sort((a, b) => a - b);
     if (ind.type === "div") {
       // Zone neutre : entre -seuil et +seuil, le collège fait à peu près ce qui était attendu.
-      const s = ind.seuil || 0;
+      const s = Number(VA.seuils[ind.cle]) || 0;
       const m = Math.max(Math.abs(quantile(vals, 0.05)), Math.abs(quantile(vals, 0.95)), s * 2) || 1;
       return {
         stops: [-m, -s, 0, s, m], m, s, n: vals.length,
@@ -117,9 +126,9 @@
       const pct = (k) => Math.round((100 * k) / d.n);
       $("legende").innerHTML =
         `<div class="degrade" style="background:linear-gradient(90deg,${pal[0]} 0%,${pal[1]} ${pos(-d.s)},${pal[2]} ${pos(-d.s)},${pal[2]} ${pos(d.s)},${pal[3]} ${pos(d.s)},${pal[4]} 100%)"></div>` +
-        `<div class="bornes"><span>${indicateur.fmt(-d.m)}</span><span>proche de l'attendu</span><span>${indicateur.fmt(d.m)}</span></div>` +
-        `<p class="note">${indicateur.note} Entre ${indicateur.fmt(-d.s)} et ${indicateur.fmt(d.s)} ${indicateur.unite}, l'écart est considéré comme faible.</p>` +
-        `<p class="note">${pct(d.dessous)} % des collèges en dessous de l'attendu, ${pct(d.proches)} % proches, ${pct(d.dessus)} % au-dessus.</p>` +
+        `<div class="bornes"><span>${indicateur.fmt(-d.m)}</span><span>${echapper(VA.libelles.proche)}</span><span>${indicateur.fmt(d.m)}</span></div>` +
+        `<p class="note">${indicateur.note} ${echapper(remplir(VA.texteZone, { min: indicateur.fmt(-d.s), max: indicateur.fmt(d.s), unite: indicateur.unite }))}</p>` +
+        `<p class="note">${echapper(remplir(VA.texteRepartition, { dessous: pct(d.dessous), proches: pct(d.proches), dessus: pct(d.dessus) }))}</p>` +
         (manquants > 0 ? `<p class="note">En gris foncé : ${manquants} collège${manquants > 1 ? "s" : ""} sans donnée.</p>` : "");
       return;
     }
@@ -133,8 +142,8 @@
 
   // ---------------------------------------------------------------- fiche
   function lectureVA(ind, v) {
-    if (Math.abs(v) <= ind.seuil) return "proche de l'attendu";
-    return v > 0 ? "au-dessus de l'attendu" : "en dessous de l'attendu";
+    if (Math.abs(v) <= (Number(VA.seuils[ind.cle]) || 0)) return VA.libelles.proche;
+    return v > 0 ? VA.libelles.dessus : VA.libelles.dessous;
   }
 
   function chiffre(p, ind, suffixe) {

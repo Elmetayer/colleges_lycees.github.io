@@ -11,6 +11,7 @@ pipeline/build.py         télécharge l'open data, filtre les 5 départements, 
 pipeline/requirements.txt dépendances Python
 site/                     site statique publié sur GitHub Pages
   index.html, app.js      carte (MapLibre GL)
+  parametres.js           réglages modifiables sans toucher au code (zone neutre de la valeur ajoutée, textes)
   documentation.html      sources et méthodes de calcul
   data/                   fichiers générés par le script (non versionnés)
 .github/workflows/        construction et publication automatiques
