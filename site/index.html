@@ -14,6 +14,13 @@
 <body class="page-carte">
   <header class="barre">
     <a class="titre" href="./">Carte scolaire</a>
+    <div class="recherche" role="search">
+      <label class="sr-only" for="recherche">Rechercher un collège, une commune ou une adresse</label>
+      <input id="recherche" type="search" autocomplete="off" spellcheck="false"
+             placeholder="Collège, commune ou adresse"
+             role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="suggestions">
+      <ul id="suggestions" role="listbox" aria-label="Suggestions" hidden></ul>
+    </div>
     <a class="lien-doc" href="documentation.html">Documentation</a>
   </header>
 

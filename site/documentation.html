@@ -23,6 +23,7 @@
     <h2 id="presentation">Ce que montre la carte</h2>
     <p>La carte présente les collèges publics et privés sous contrat des académies de Paris et de Versailles : Paris, les Yvelines, l'Essonne, les Hauts-de-Seine et le Val-d'Oise. Chaque point est un collège, coloré selon l'indicateur choisi. Les collèges privés sont entourés d'un trait épais. Un point gris signale un collège pour lequel l'indicateur n'est pas publié.</p>
     <p>Les couleurs vont du jaune (valeurs les plus basses) au bleu nuit (les plus hautes). Elles sont réparties selon le classement des collèges et non selon l'écart brut entre valeurs : la teinte du milieu correspond à la médiane, et chaque passage de teinte regroupe environ un quart des collèges. Les écarts restent ainsi visibles même quand les valeurs sont proches. Pour la valeur ajoutée, la même logique s'applique autour de zéro : orange pour une valeur négative, violet pour une valeur positive, gris très clair pour un écart faible (voir plus bas).</p>
+    <p>Le champ de recherche en haut de la carte trouve un collège par son nom, une commune ou une adresse. Pour une adresse, la carte affiche les cinq collèges publics les plus proches à vol d'oiseau ; ce ne sont pas forcément les collèges de secteur.</p>
     <p>Les secteurs de recrutement des collèges seront ajoutés dans une prochaine version. Les collèges privés n'ont pas de secteur.</p>
     <p id="resume-donnees"></p>
 
@@ -73,6 +74,17 @@
       </tbody>
     </table>
     <p>Fond de carte : OpenFreeMap, à partir des données OpenStreetMap.</p>
+
+    <h3 id="adresses">Services d'adresses</h3>
+    <p>La recherche d'adresses interroge deux services publics de la Géoplateforme, l'infrastructure de données géographiques opérée par l'IGN. Les adresses proviennent de la Base Adresse Nationale (BAN), publiée sous Licence Ouverte 2.0.</p>
+    <table class="sources">
+      <thead><tr><th scope="col">Service</th><th scope="col">Rôle sur la carte</th></tr></thead>
+      <tbody>
+        <tr><td>Autocomplétion de la Géoplateforme<br><code>data.geopf.fr/geocodage/completion</code></td><td>Propose des adresses pendant la saisie, limitées aux départements de Paris, des Yvelines, de l'Essonne, des Hauts-de-Seine et du Val-d'Oise.</td></tr>
+        <tr><td>Géocodage de la Géoplateforme<br><code>data.geopf.fr/geocodage/search</code></td><td>Service de secours, utilisé si l'autocomplétion ne répond pas. Les résultats hors des cinq départements sont écartés.</td></tr>
+      </tbody>
+    </table>
+    <p>Seul le texte tapé dans le champ est envoyé à ces services, à partir de la troisième lettre ; la carte ne conserve rien. Les services sont gratuits et sans clé, dans la limite de 50 requêtes par seconde par adresse IP. La distance entre l'adresse et les collèges est ensuite calculée dans le navigateur, à vol d'oiseau. Documentation des services : <a href="https://www.data.gouv.fr/dataservices/api-geoplateforme-geocodage">API Géoplateforme – Géocodage</a>.</p>
 
     <h2 id="licences">Licences et code</h2>
     <p>Les données de l'Éducation nationale sont publiées sous Licence Ouverte 2.0, qui autorise leur réutilisation à condition d'en citer la source. Le code de cette carte est public sur <a href="https://github.com/Elmetayer/colleges_lycees.github.io">GitHub</a>.</p>

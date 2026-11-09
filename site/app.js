@@ -406,6 +406,203 @@
     document.body.classList.remove("fiche-ouverte");
   }
 
+  // ---------------------------------------------------------------- recherche
+  // Un seul champ : collèges et communes cherchés dans les données chargées,
+  // adresses via le service de géocodage de l'IGN (Géoplateforme).
+  const GEOCODAGE_COMPLETION = "https://data.geopf.fr/geocodage/completion/";
+  const GEOCODAGE_RECHERCHE = "https://data.geopf.fr/geocodage/search";
+  const DEPS = ["75", "78", "91", "92", "95"];
+  const normaliser = (t) => String(t || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  let repereAdresse = null;
+
+  // Centre la carte sur un point en laissant de la place à la fiche (en bas sur mobile, à droite sur ordinateur).
+  function centrer(coord, zoom) {
+    const mobile = window.innerWidth < 760;
+    carte.flyTo({ center: coord, zoom, duration: 600,
+      padding: mobile ? { top: 20, bottom: Math.round(window.innerHeight * 0.55), left: 0, right: 0 } : { top: 0, bottom: 0, left: 340, right: 420 } });
+  }
+
+  function distanceKm(a, b) {
+    const R = 6371, rad = Math.PI / 180;
+    const dLat = (b[1] - a[1]) * rad, dLon = (b[0] - a[0]) * rad;
+    const h = Math.sin(dLat / 2) ** 2 + Math.cos(a[1] * rad) * Math.cos(b[1] * rad) * Math.sin(dLon / 2) ** 2;
+    return 2 * R * Math.asin(Math.sqrt(h));
+  }
+
+  function chercherLocal(q) {
+    const mots = normaliser(q).split(" ").filter(Boolean);
+    if (!mots.length) return { colleges: [], communes: [] };
+    const colleges = [], communes = new Map();
+    donnees.features.forEach((f) => {
+      const p = f.properties;
+      const texte = normaliser(p.nom + " " + p.commune);
+      if (mots.every((m) => texte.includes(m))) {
+        const nomN = normaliser(p.nom).replace(/^college /, "");
+        colleges.push({ f, rang: nomN.startsWith(mots[0]) ? 0 : 1 });
+      }
+      const com = normaliser(p.commune);
+      if (mots.every((m) => com.includes(m))) {
+        const cle = p.commune + "|" + p.dep;
+        if (!communes.has(cle)) communes.set(cle, { nom: p.commune, departement: p.departement, rang: com.startsWith(mots[0]) ? 0 : 1, features: [] });
+        communes.get(cle).features.push(f);
+      }
+    });
+    colleges.sort((a, b) => a.rang - b.rang || a.f.properties.nom.localeCompare(b.f.properties.nom, "fr"));
+    const listeCom = [...communes.values()].sort((a, b) => a.rang - b.rang || a.nom.localeCompare(b.nom, "fr"));
+    return { colleges: colleges.slice(0, 5).map((c) => c.f), communes: listeCom.slice(0, 3) };
+  }
+
+  // Adresses : service d'autocomplétion, puis recherche classique en secours.
+  async function chercherAdresses(q, signal) {
+    try {
+      const url = `${GEOCODAGE_COMPLETION}?text=${encodeURIComponent(q)}&type=StreetAddress&maximumResponses=5&terr=${DEPS.join(",")}`;
+      const r = await fetch(url, { signal });
+      if (!r.ok) throw new Error(r.status);
+      const j = await r.json();
+      const res = (j.results || []).filter((a) => num(a.x) && num(a.y)).map((a) => ({
+        libelle: a.fulltext, detail: a.zipcode && String(a.fulltext).includes(a.zipcode) ? "" : [a.zipcode, a.city].filter(Boolean).join(" "), coord: [a.x, a.y],
+      }));
+      if (res.length) return res;
+    } catch (e) { if (e.name === "AbortError") throw e; }
+    const r = await fetch(`${GEOCODAGE_RECHERCHE}?q=${encodeURIComponent(q)}&limit=8&index=address`, { signal });
+    if (!r.ok) throw new Error(r.status);
+    const j = await r.json();
+    return (j.features || [])
+      .filter((f) => DEPS.includes(String(f.properties.postcode || f.properties.citycode || "").slice(0, 2)))
+      .slice(0, 5)
+      .map((f) => ({ libelle: f.properties.label, detail: f.properties.context || "", coord: f.geometry.coordinates }));
+  }
+
+  function initRecherche() {
+    const champ = $("recherche"), liste = $("suggestions");
+    let options = [], actif = -1, minuteur = null, controleur = null, local = { colleges: [], communes: [] }, adresses = [], etatAdresses = "";
+
+    function fermerListe() {
+      liste.hidden = true; champ.setAttribute("aria-expanded", "false"); champ.removeAttribute("aria-activedescendant"); actif = -1;
+    }
+    function rendre() {
+      options = [];
+      let html = "";
+      const groupe = (titre, items) => {
+        if (!items.length) return;
+        html += `<li class="groupe" role="presentation">${titre}</li>`;
+        items.forEach((it) => {
+          const i = options.length;
+          options.push(it);
+          html += `<li role="option" id="sugg-${i}" data-i="${i}" aria-selected="false">${echapper(it.libelle)}${it.detail ? `<small>${echapper(it.detail)}</small>` : ""}</li>`;
+        });
+      };
+      groupe("Collèges", local.colleges.map((f) => ({ type: "college", f, libelle: f.properties.nom, detail: `${f.properties.commune} (${f.properties.departement})` })));
+      groupe("Communes", local.communes.map((c) => ({ type: "commune", c, libelle: c.nom, detail: `${c.departement}, ${c.features.length} collège${c.features.length > 1 ? "s" : ""}` })));
+      groupe("Adresses", adresses.map((a) => ({ type: "adresse", a, libelle: a.libelle, detail: a.detail })));
+      if (etatAdresses) html += `<li class="info" role="presentation">${etatAdresses}</li>`;
+      if (!html) html = `<li class="info" role="presentation">Aucun résultat. Essayez le nom d'un collège, une commune ou une adresse avec son numéro.</li>`;
+      liste.innerHTML = html;
+      liste.hidden = false;
+      champ.setAttribute("aria-expanded", "true");
+      actif = -1;
+    }
+    function surligner(i) {
+      liste.querySelectorAll('[role="option"]').forEach((el) => el.setAttribute("aria-selected", "false"));
+      actif = i;
+      if (i < 0) { champ.removeAttribute("aria-activedescendant"); return; }
+      const el = $("sugg-" + i);
+      el.setAttribute("aria-selected", "true");
+      el.scrollIntoView({ block: "nearest" });
+      champ.setAttribute("aria-activedescendant", el.id);
+    }
+    function choisir(it) {
+      fermerListe();
+      champ.value = it.libelle;
+      champ.blur();
+      if (it.type === "college") {
+        centrer(it.f.geometry.coordinates, Math.max(carte.getZoom(), 14));
+        ouvrirFiche(it.f.properties);
+      } else if (it.type === "commune") {
+        const b = new maplibregl.LngLatBounds();
+        it.c.features.forEach((f) => b.extend(f.geometry.coordinates));
+        carte.fitBounds(b, { padding: 80, maxZoom: 15, duration: 600 });
+        fermerFiche();
+      } else {
+        montrerAdresse(it.a);
+      }
+    }
+    champ.addEventListener("input", () => {
+      const q = champ.value.trim();
+      clearTimeout(minuteur);
+      if (controleur) controleur.abort();
+      if (q.length < 2) { fermerListe(); return; }
+      local = chercherLocal(q);
+      adresses = [];
+      etatAdresses = q.length >= 3 ? "Recherche des adresses…" : "";
+      rendre();
+      if (q.length < 3) return;
+      minuteur = setTimeout(async () => {
+        controleur = new AbortController();
+        try {
+          adresses = await chercherAdresses(q, controleur.signal);
+          etatAdresses = "";
+        } catch (e) {
+          if (e.name === "AbortError") return;
+          adresses = [];
+          etatAdresses = "La recherche d'adresses ne répond pas pour le moment. Les collèges et les communes restent cherchables.";
+        }
+        if (champ.value.trim() === q) rendre();
+      }, 300);
+    });
+    champ.addEventListener("keydown", (e) => {
+      if (liste.hidden && e.key !== "Escape") return;
+      if (e.key === "ArrowDown") { e.preventDefault(); if (options.length) surligner((actif + 1) % options.length); }
+      else if (e.key === "ArrowUp") { e.preventDefault(); if (options.length) surligner(actif <= 0 ? options.length - 1 : actif - 1); }
+      else if (e.key === "Enter") { e.preventDefault(); const it = options[actif >= 0 ? actif : 0]; if (it) choisir(it); }
+      else if (e.key === "Escape") { e.stopPropagation(); fermerListe(); }
+    });
+    liste.addEventListener("mousedown", (e) => e.preventDefault());  // garde le focus dans le champ
+    liste.addEventListener("click", (e) => {
+      const el = e.target.closest('[role="option"]');
+      if (el) choisir(options[Number(el.dataset.i)]);
+    });
+    champ.addEventListener("blur", () => setTimeout(fermerListe, 100));
+    champ.addEventListener("focus", () => { if (champ.value.trim().length >= 2 && options.length) { liste.hidden = false; champ.setAttribute("aria-expanded", "true"); } });
+  }
+
+  // Adresse choisie : repère sur la carte et liste des collèges publics les plus proches.
+  function montrerAdresse(a) {
+    if (!repereAdresse) {
+      const el = document.createElement("div");
+      el.className = "repere-adresse";
+      el.setAttribute("aria-hidden", "true");
+      repereAdresse = new maplibregl.Marker({ element: el });
+    }
+    repereAdresse.setLngLat(a.coord).addTo(carte);
+    centrer(a.coord, 14);
+    const proches = donnees.features
+      .filter((f) => f.properties.secteur === "public")
+      .map((f) => ({ f, d: distanceKm(a.coord, f.geometry.coordinates) }))
+      .sort((x, y) => x.d - y.d)
+      .slice(0, 5);
+    ficheCourante = null;
+    $("fiche-contenu").innerHTML = `
+      <h2 id="fiche-nom">${echapper(a.libelle)}</h2>
+      <p class="lieu">Collèges publics les plus proches, à vol d'oiseau</p>
+      <ul class="proches">
+        ${proches.map((x, i) => `<li><button type="button" data-proche="${i}">
+          <span>${echapper(x.f.properties.nom)}<small>${echapper(x.f.properties.commune)}</small></span>
+          <span class="distance">${x.d < 1 ? fr(x.d * 1000, 0).replace(/\s/g, " ") + " m" : fr(x.d, 1) + " km"}</span>
+        </button></li>`).join("")}
+      </ul>
+      <p class="avertissement">Le collège le plus proche n'est pas forcément le collège de secteur. Les secteurs de recrutement seront ajoutés prochainement à la carte.</p>`;
+    $("fiche-contenu").querySelectorAll("[data-proche]").forEach((b) => b.addEventListener("click", () => {
+      const f = proches[Number(b.dataset.proche)].f;
+      centrer(f.geometry.coordinates, Math.max(carte.getZoom(), 14));
+      ouvrirFiche(f.properties);
+    }));
+    const fiche = $("fiche");
+    fiche.hidden = false;
+    document.body.classList.add("fiche-ouverte");
+    fiche.scrollTop = 0;
+  }
+
   // ---------------------------------------------------------------- démarrage
   function remplirSelecteur() {
     const sel = $("indicateur");
@@ -446,6 +643,7 @@
     remplirSelecteur();
     appliquer();
     cadrer();
+    initRecherche();
     etat.textContent = "";
     carte.on("click", "colleges", (e) => ouvrirFiche(e.features[0].properties));
     carte.on("mouseenter", "colleges", () => (carte.getCanvas().style.cursor = "pointer"));
