@@ -290,6 +290,9 @@ def load_eval6e(df: pd.DataFrame, uais: set[str]) -> pd.DataFrame:
     for c in (pick(df, r"caracteristique", required=False), c_matiere, pick(df, r"libelle_secteur", required=False)):
         if c:
             log(f"  valeurs de {c} : {d[c].value_counts().head(15).to_dict()}")
+    c_carac = pick(df, r"caracteristique", required=False)
+    if c_carac:
+        d = d[d[c_carac].fillna("").map(norm).isin(["ensemble", "total", "tous"])]
     if c_matiere:
         c_score = pick(df, r"score_moyen|moyenne", exclude=r"ecart|academ|depart|national|france")
         log(f"  format long : matière={c_matiere} score={c_score}")
@@ -415,6 +418,13 @@ def main() -> int:
     log(f"\n== terminé : {len(feats)} collèges écrits dans {out}")
     couverture = {k: sum(1 for f in feats if k in f["properties"]) for k in ("taux_reussite", "va_reussite", "note_ecrit", "ips", "eval_fr")}
     log(f"   couverture des indicateurs : {couverture}")
+    for k in ("taux_reussite", "taux_mentions", "va_reussite", "note_ecrit", "ips", "eval_fr", "eval_ma", "score"):
+        v = pd.Series([f["properties"][k] for f in feats if k in f["properties"]], dtype=float)
+        if len(v):
+            log(f"   {k:14s} n={len(v):4d} min={v.min():.1f} médiane={v.median():.1f} max={v.max():.1f}")
+    exemple = next((f["properties"] for f in feats if "ips" in f["properties"] and "taux_reussite" in f["properties"]), None)
+    if exemple:
+        log(f"   exemple : {json.dumps({k: v for k, v in exemple.items() if k != 'hist'}, ensure_ascii=False)}")
     if problemes:
         log("   problèmes :\n   - " + "\n   - ".join(problemes))
     return 0
