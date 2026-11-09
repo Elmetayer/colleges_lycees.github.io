@@ -90,6 +90,36 @@ def contours() -> gpd.GeoDataFrame:
     return g[["code", "nom", "geometry"]]
 
 
+def contours_complementaires(codes: list[str]) -> gpd.GeoDataFrame | None:
+    """Communes hors des 5 départements (Eure-et-Loir...) ou communes déléguées absentes de la liste."""
+    feats = []
+    for c in codes:
+        trouve = None
+        for url in (f"https://geo.api.gouv.fr/communes/{c}?fields=code,nom&format=geojson&geometry=contour",
+                    f"https://geo.api.gouv.fr/communes?code={c}&type=commune-deleguee,commune-associee&fields=code,nom&format=geojson&geometry=contour"):
+            try:
+                r = H.get(url, timeout=60)
+                if r.status_code != 200:
+                    continue
+                j = r.json()
+                fs = j.get("features", [j] if j.get("type") == "Feature" else [])
+                fs = [f for f in fs if f.get("geometry")]
+                if fs:
+                    trouve = fs[0]
+                    trouve["properties"]["code"] = c
+                    break
+            except Exception:  # noqa: BLE001
+                continue
+        log(f"  contour {c} : {'trouvé' if trouve else 'introuvable'}")
+        if trouve:
+            feats.append(trouve)
+    if not feats:
+        return None
+    g = gpd.GeoDataFrame.from_features(feats, crs=4326).to_crs(L93)
+    g["geometry"] = g.geometry.buffer(0)
+    return g[["code", "nom", "geometry"]]
+
+
 def ban(dep: str, communes: set[str]) -> pd.DataFrame:
     url = f"https://adresse.data.gouv.fr/data/ban/adresses/latest/csv/adresses-{dep}.csv.gz"
     r = H.get(url, timeout=600)
@@ -199,7 +229,7 @@ def concordance(nom: str, off: gpd.GeoDataFrame, ours: gpd.GeoDataFrame, noms: d
     if "uai" not in off.columns:
         # Paris : rattacher par le nom du collège
         cle = lambda s: norm_voie(s).replace("COLLEGE ", "").strip()
-        par_nom = {cle(n): u for u, n in noms.items()}
+        par_nom = {cle(n): u for u, n in noms.items() if u.startswith("075")}
         col = next((c for c in ("lib_etab_1", "libelle") if c in off.columns), None)
         if not col:
             log(f"  ! {nom} : pas de colonne de nom")
@@ -243,7 +273,13 @@ def main() -> int:
     geo_com = dict(zip(com["code"], com.geometry))
     manquantes = sorted(set(df["code_insee"]) - set(geo_com))
     if manquantes:
-        log(f"  ! communes sans contour : {manquantes[:20]} ({len(manquantes)})")
+        log(f"  communes sans contour dans la liste : {manquantes}")
+        compl = contours_complementaires(manquantes)
+        if compl is not None:
+            geo_com.update(dict(zip(compl["code"], compl.geometry)))
+        encore = sorted(set(df["code_insee"]) - set(geo_com))
+        if encore:
+            log(f"  ! communes toujours sans contour : {encore}")
 
     nb = df.groupby("code_insee")["uai"].nunique()
     uniques, multiples = nb[nb == 1].index, nb[nb > 1].index
