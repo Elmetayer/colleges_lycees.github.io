@@ -146,3 +146,4 @@ select {
 }
 
 .page-doc [id] { scroll-margin-top: calc(var(--barre-h) + 16px); }
+.chiffres[hidden] { display: none; }
