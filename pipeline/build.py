@@ -78,11 +78,33 @@ class ColonneIntrouvable(KeyError):
     pass
 
 
+def _alternatives(pattern: str) -> list[str]:
+    """Découpe 'a|b(c|d)|e' en ['a', 'b(c|d)', 'e'] (alternatives de premier niveau)."""
+    parts, depth, cur = [], 0, ""
+    for ch in pattern:
+        if ch == "(":
+            depth += 1
+        elif ch == ")":
+            depth -= 1
+        if ch == "|" and depth == 0:
+            parts.append(cur)
+            cur = ""
+        else:
+            cur += ch
+    parts.append(cur)
+    return parts
+
+
 def pick(df: pd.DataFrame, include: str, exclude: str | None = None, required: bool = True) -> str | None:
-    """Renvoie la première colonne dont le nom normalisé correspond à `include`."""
-    for col in df.columns:
-        if re.search(include, col) and not (exclude and re.search(exclude, col)):
-            return col
+    """Renvoie la colonne correspondant à `include`.
+
+    Les alternatives sont essayées dans l'ordre : 'nature_uai_libe|^nature' préfère
+    nature_uai_libe même si nature_uai apparaît avant dans le fichier.
+    """
+    for alt in _alternatives(include):
+        for col in df.columns:
+            if re.search(alt, col) and not (exclude and re.search(exclude, col)):
+                return col
     if required:
         raise ColonneIntrouvable(f"aucune colonne ne correspond à /{include}/ parmi : {list(df.columns)}")
     return None
@@ -185,6 +207,9 @@ def load_etablissements(df: pd.DataFrame) -> pd.DataFrame:
     c_lon = pick(df, r"^longitude$")
     c_adr = pick(df, r"^adresse_uai$|adresse", required=False)
     c_cp = pick(df, r"code_postal", required=False)
+    c_etat = pick(df, r"etat_etablissement_libe", required=False)
+    if c_etat:
+        df = df[df[c_etat].fillna("").map(norm).str.startswith("ouvert")]
     out = pd.DataFrame({
         "uai": df[c_uai].str.strip().str.upper(),
         "nom": df[c_nom].str.strip(),
