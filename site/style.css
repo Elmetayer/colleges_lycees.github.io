@@ -209,3 +209,9 @@ details.valeurs .historique { margin-top: 4px; }
   .page-carte .barre { flex-wrap: wrap; align-content: center; row-gap: 6px; padding-top: 6px; padding-bottom: 8px; }
   .page-carte .recherche { order: 3; flex-basis: 100%; max-width: none; margin: 0; }
 }
+
+/* ---------- secteurs */
+.voir-zones { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; font-size: 0.95rem; margin-top: 2px; }
+.voir-zones input { width: 18px; height: 18px; accent-color: var(--encre); margin: 0; }
+.proches li.secteur-adresse { border-bottom: 2px solid var(--encre); margin-bottom: 6px; }
+.proches .etiquette { display: inline-block; font-size: 0.78rem; font-weight: 700; color: #fff; background: var(--encre); border-radius: 4px; padding: 1px 6px; margin-bottom: 2px; }
