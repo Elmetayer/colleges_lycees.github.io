@@ -35,6 +35,9 @@ jobs:
         continue-on-error: true
         run: python pipeline/secteurs.py --out site/data
 
+      - name: Version des fichiers (évite le cache du navigateur après une mise à jour)
+        run: sed -i "s/__VERSION__/${GITHUB_SHA::7}/g" site/*.html
+
       - name: Résumé
         run: |
           echo "### Données générées" >> "$GITHUB_STEP_SUMMARY"
