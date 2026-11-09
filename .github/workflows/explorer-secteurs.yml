@@ -1,21 +1,25 @@
-name: Explorer les données de sectorisation (temporaire)
+name: Essai des secteurs (temporaire)
 
 on:
   push:
     branches: ["jalon-3-*"]
-    paths: ["pipeline/explorer_secteurs.py", ".github/workflows/explorer-secteurs.yml"]
   workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
-  explorer:
+  essai:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install pandas requests
-      - run: python pipeline/explorer_secteurs.py
+          cache: pip
+          cache-dependency-path: pipeline/requirements.txt
+      - run: pip install -r pipeline/requirements.txt
+      - run: python pipeline/build.py --out site/data
+      - run: python pipeline/secteurs.py --out site/data
+      - name: Données pour vérification
+        run: tar czf - -C site/data secteurs.geojson meta.json colleges.geojson | base64 -w 0 | sed 's/^/DEBUGDATA:/'; echo
