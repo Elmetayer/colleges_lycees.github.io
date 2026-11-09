@@ -400,6 +400,27 @@ def main() -> int:
     geo = {"type": "FeatureCollection", "features": feats}
     (out / "colleges.geojson").write_text(json.dumps(geo, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
 
+    def medianes():
+        """Médiane de chaque indicateur par année, sur les collèges des deux académies."""
+        m = {"brevet": {}, "ips": {}, "eval6e": {}}
+        iv, ip, ev = results["ivac"], results["ips"], results["eval6e"]
+        if iv is not None and len(iv):
+            for sess, g in iv.groupby("session"):
+                m["brevet"][sess] = {
+                    "taux_reussite": round_or_none(g["taux_reussite"].median()),
+                    "taux_mentions": round_or_none(g["taux_mentions"].median()),
+                    "va_reussite": round_or_none(g["va_reussite"].median()),
+                    "note_ecrit": round_or_none(g["note_ecrit"].median(), 2),
+                    "va_note": round_or_none(g["va_note"].median(), 2),
+                }
+        if ip is not None and len(ip):
+            for an, g in ip.groupby("annee"):
+                m["ips"][an] = round_or_none(g["ips"].median())
+        if ev is not None and len(ev):
+            for an, g in ev.groupby("annee"):
+                m["eval6e"][an] = {"fr": round_or_none(g["fr"].median()), "ma": round_or_none(g["ma"].median())}
+        return m
+
     def periodes(df, col):
         return sorted(df[col].unique().tolist()) if df is not None and len(df) else []
 
@@ -408,6 +429,7 @@ def main() -> int:
         "perimetre": {"academies": ["Paris", "Versailles"], "departements": DEPARTEMENTS},
         "colleges": {"total": len(feats), "publics": int((etabs["secteur"] == "public").sum()), "prives": int((etabs["secteur"] == "privé").sum())},
         "periodes": {"brevet": periodes(results["ivac"], "session"), "ips": periodes(results["ips"], "annee"), "eval6e": periodes(results["eval6e"], "annee")},
+        "medianes": medianes(),
         "sources": [{"cle": k, "titre": s["titre"], "page": s.get("page"), "mise_a_jour": s.get("maj")} for k, s in resolved.items()],
         "problemes": problemes,
     }
