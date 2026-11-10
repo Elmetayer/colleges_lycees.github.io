@@ -3,6 +3,7 @@
 Télécharge les jeux open data de l'Éducation nationale, garde les collèges des
 cinq départements concernés, calcule les indicateurs et écrit :
   - <out>/colleges.geojson : un point par collège avec ses indicateurs
+  - <out>/lycees.geojson   : un point par lycée (voie générale et technologique, voie pro)
   - <out>/meta.json        : date de génération, sessions, sources
 
 Usage : python pipeline/build.py --out site/data
@@ -22,6 +23,9 @@ from pathlib import Path
 
 import pandas as pd
 import requests
+
+sys.path.insert(0, str(Path(__file__).parent))
+import lycees  # noqa: E402
 
 DEPARTEMENTS = {"75": "Paris", "78": "Yvelines", "91": "Essonne", "92": "Hauts-de-Seine", "95": "Val-d'Oise"}
 ACADEMIE_PAR_DEP = {"75": "Paris", "78": "Versailles", "91": "Versailles", "92": "Versailles", "95": "Versailles"}
@@ -54,6 +58,28 @@ SOURCES = {
         "titre": "Résultats consolidés aux évaluations nationales de début de sixième par établissement",
         "explore_id": None,
         "datagouv": "6831448743bcf0349285887e",
+        "obligatoire": False,
+    },
+    # Lycées : on lit directement le CSV publié sur data.gouv.fr (noms de colonnes vérifiés).
+    "ival_gt": {
+        "titre": "Indicateurs de valeur ajoutée des lycées d'enseignement général et technologique",
+        "explore_id": None,
+        "datagouv": "6707515c84dfa4012c3ecd45",
+        "csv_direct": True,
+        "obligatoire": False,
+    },
+    "ival_pro": {
+        "titre": "Indicateurs de valeur ajoutée des lycées d'enseignement professionnel",
+        "explore_id": None,
+        "datagouv": "6707516684dfa4012c3ecd47",
+        "csv_direct": True,
+        "obligatoire": False,
+    },
+    "ips_lycees": {
+        "titre": "Indices de position sociale des lycées (à partir de 2023)",
+        "explore_id": None,
+        "datagouv": "664d720768d6ab64e06740f0",
+        "csv_direct": True,
         "obligatoire": False,
     },
 }
@@ -141,7 +167,7 @@ def resolve(key: str) -> dict:
             src["page"] = meta.get("page")
             src["maj"] = meta.get("last_update") or meta.get("last_modified")
             src["titre"] = meta.get("title") or src["titre"]
-            if not src["explore_id"]:
+            if not src["explore_id"] and not src.get("csv_direct"):
                 for res in meta.get("resources", []):
                     m = re.search(r"data\.education\.gouv\.fr/(?:api/explore/v2\.1/catalog/datasets|explore/dataset|api/records/1\.0/download)/?(?:\?dataset=)?([A-Za-z0-9_\-]+)", res.get("url", ""))
                     if m:
@@ -222,8 +248,13 @@ def load_etablissements(df: pd.DataFrame) -> pd.DataFrame:
         "adresse": df[c_adr].fillna("").str.strip() if c_adr else "",
         "cp": df[c_cp].fillna("").str.strip() if c_cp else "",
     })
-    out = out[out["dep"].isin(DEPARTEMENTS) & out["nature"].str.contains("college")]
+    out = out[out["dep"].isin(DEPARTEMENTS)]
     out = out.dropna(subset=["lat", "lon"]).drop_duplicates("uai")
+    return out
+
+
+def colleges_de(etabs: pd.DataFrame) -> pd.DataFrame:
+    out = etabs[etabs["nature"].str.contains("college")]
     log(f"  {len(out)} collèges géolocalisés dans les 5 départements "
         f"({(out['secteur'] == 'public').sum()} publics, {(out['secteur'] == 'privé').sum()} privés)")
     return out
@@ -381,7 +412,8 @@ def main() -> int:
             problemes.append(f"{key} : téléchargement impossible ({exc})")
 
     log("\n== traitement")
-    etabs = load_etablissements(frames["etablissements"])
+    tous = load_etablissements(frames["etablissements"])
+    etabs = colleges_de(tous)
     uais = set(etabs["uai"])
     results = {}
     for key, fn in (("ivac", load_ivac), ("ips", load_ips), ("eval6e", load_eval6e)):
@@ -425,12 +457,16 @@ def main() -> int:
     def periodes(df, col):
         return sorted(df[col].unique().tolist()) if df is not None and len(df) else []
 
+    log("\n== lycées")
+    lyc_meta = lycees.construire(tous, frames, out, problemes, DEPARTEMENTS, ACADEMIE_PAR_DEP)
+
     meta = {
         "genere_le": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "perimetre": {"academies": ["Paris", "Versailles"], "departements": DEPARTEMENTS},
         "colleges": {"total": len(feats), "publics": int((etabs["secteur"] == "public").sum()), "prives": int((etabs["secteur"] == "privé").sum())},
         "periodes": {"brevet": periodes(results["ivac"], "session"), "ips": periodes(results["ips"], "annee"), "eval6e": periodes(results["eval6e"], "annee")},
         "medianes": medianes(),
+        "lycees": lyc_meta,
         "sources": [{"cle": k, "titre": s["titre"], "page": s.get("page"), "mise_a_jour": s.get("maj")} for k, s in resolved.items()],
         "problemes": problemes,
     }
