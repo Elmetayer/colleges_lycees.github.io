@@ -173,10 +173,10 @@ def resolve(key: str) -> dict:
                     if m:
                         src["explore_id"] = m.group(1)
                         break
-                if not src["explore_id"]:
-                    csv = [res for res in meta.get("resources", []) if (res.get("format") or "").lower() == "csv"]
-                    if csv:
-                        src["url_csv"] = csv[0]["url"]
+            if not src["explore_id"]:
+                csv = [res for res in meta.get("resources", []) if (res.get("format") or "").lower() == "csv"]
+                if csv:
+                    src["url_csv"] = csv[0]["url"]
         except Exception as exc:  # noqa: BLE001
             log(f"  ! data.gouv.fr indisponible pour {key} : {exc}")
     if src["explore_id"]:
