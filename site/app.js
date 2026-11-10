@@ -1,4 +1,4 @@
-/* Carte scolaire : collèges des académies de Paris et de Versailles. */
+/* Carte scolaire : collèges et lycées des académies de Paris et de Versailles, en calques. */
 (function () {
   "use strict";
 
@@ -18,27 +18,62 @@
   }, (window.PARAMETRES && window.PARAMETRES.valeurAjoutee) || {});
   const remplir = (modele, valeurs) => modele.replace(/\{(\w+)\}/g, (m, k) => (k in valeurs ? valeurs[k] : m));
 
-  // Indicateurs proposés. "doc" pointe vers la section de documentation.
+  // Indicateurs proposés pour chaque calque. "doc" pointe vers la section de documentation.
+  const pct1 = (v) => fr(v, 1) + " %", pct0 = (v) => fr(v, 0) + " %";
   const INDICATEURS = [
-    { cle: "taux_reussite", nom: "Réussite au brevet", type: "seq", fmt: (v) => fr(v, 1) + " %", doc: "brevet" },
-    { cle: "taux_mentions", nom: "Mentions au brevet", type: "seq", fmt: (v) => fr(v, 1) + " %", doc: "brevet" },
+    { cle: "taux_reussite", nom: "Réussite au brevet", type: "seq", fmt: pct1, doc: "brevet" },
+    { cle: "taux_mentions", nom: "Mentions au brevet", type: "seq", fmt: pct1, doc: "brevet" },
     { cle: "note_ecrit", nom: "Note aux écrits du brevet", type: "seq", fmt: (v) => fr(v, 1) + " / 20", doc: "brevet" },
     { cle: "va_reussite", nom: "Valeur ajoutée (réussite)", type: "div", fmt: signe, doc: "valeur-ajoutee", unite: "points",
       note: "Écart entre la réussite obtenue et celle attendue au vu du profil des élèves." },
     { cle: "va_note", nom: "Valeur ajoutée (note écrite)", type: "div", fmt: signe, doc: "valeur-ajoutee", unite: "point",
       note: "Écart entre la note obtenue et celle attendue au vu du profil des élèves." },
-    { cle: "ips", nom: "Indice de position sociale (IPS)", type: "seq", fmt: (v) => fr(v, 1), doc: "ips",
+    { cle: "ips", nom: "Indice de position sociale (IPS)", court: "IPS", type: "seq", fmt: (v) => fr(v, 1), doc: "ips",
       note: "Plus l'IPS est élevé, plus le milieu social des élèves est favorisé." },
     { cle: "eval_fr", nom: "Évaluations 6e (français)", type: "seq", fmt: (v) => fr(v, 0), doc: "evaluations" },
     { cle: "eval_ma", nom: "Évaluations 6e (maths)", type: "seq", fmt: (v) => fr(v, 0), doc: "evaluations" },
-    { cle: "score", nom: "Score agrégé", type: "seq", fmt: (v) => fr(v, 1), doc: "score",
+    { cle: "score", nom: "Score agrégé", court: "Score au brevet", type: "seq", fmt: (v) => fr(v, 1), doc: "score",
       note: "Moyenne des taux de réussite, de mentions et de mentions très bien. À lire avec précaution." },
   ];
+  const GT = "Voie générale et technologique", PRO = "Voie professionnelle", SOCIAL = "Milieu social", SYNTHESE = "Synthèse";
+  const NOTE_VA = "Écart entre le résultat obtenu et celui attendu au vu du profil des élèves.";
+  const NOTE_ACCES = "Part des élèves de seconde qui obtiennent le bac en restant dans le lycée.";
+  const INDICATEURS_LYCEES = [
+    { cle: "gt_reussite", groupe: GT, nom: "Réussite au bac", court: "Réussite au bac GT", type: "seq", fmt: pct0 },
+    { cle: "gt_mentions", groupe: GT, nom: "Mentions au bac", court: "Mentions au bac GT", type: "seq", fmt: pct0 },
+    { cle: "gt_acces", groupe: GT, nom: "Accès de la seconde au bac", court: "Accès au bac GT", type: "seq", fmt: pct0, note: NOTE_ACCES },
+    { cle: "gt_va_reussite", groupe: GT, nom: "Valeur ajoutée (réussite)", court: "Valeur ajoutée GT", type: "div", fmt: signe0, unite: "points", note: NOTE_VA },
+    { cle: "gt_va_acces", groupe: GT, nom: "Valeur ajoutée (accès au bac)", court: "Valeur ajoutée accès GT", type: "div", fmt: signe0, unite: "points", note: NOTE_VA },
+    { cle: "pro_reussite", groupe: PRO, nom: "Réussite au bac pro", court: "Réussite au bac pro", type: "seq", fmt: pct0 },
+    { cle: "pro_mentions", groupe: PRO, nom: "Mentions au bac pro", court: "Mentions au bac pro", type: "seq", fmt: pct0 },
+    { cle: "pro_acces", groupe: PRO, nom: "Accès de la seconde au bac pro", court: "Accès au bac pro", type: "seq", fmt: pct0, note: NOTE_ACCES },
+    { cle: "pro_va_reussite", groupe: PRO, nom: "Valeur ajoutée (réussite)", court: "Valeur ajoutée pro", type: "div", fmt: signe0, unite: "points", note: NOTE_VA },
+    { cle: "pro_va_acces", groupe: PRO, nom: "Valeur ajoutée (accès au bac)", court: "Valeur ajoutée accès pro", type: "div", fmt: signe0, unite: "points", note: NOTE_VA },
+    { cle: "ips", groupe: SOCIAL, nom: "IPS du lycée", court: "IPS du lycée", type: "seq", fmt: (v) => fr(v, 1),
+      note: "Plus l'IPS est élevé, plus le milieu social des élèves est favorisé." },
+    { cle: "ips_gt", groupe: SOCIAL, nom: "IPS de la voie générale et techno", court: "IPS voie GT", type: "seq", fmt: (v) => fr(v, 1) },
+    { cle: "ips_pro", groupe: SOCIAL, nom: "IPS de la voie pro", court: "IPS voie pro", type: "seq", fmt: (v) => fr(v, 1) },
+    { cle: "score", groupe: SYNTHESE, nom: "Score de la voie générale", court: "Score voie générale", type: "seq", fmt: (v) => fr(v, 1),
+      note: "Moyenne des taux de réussite, de mentions et de mentions très bien au bac général. À lire avec précaution." },
+  ];
+
+  // Les trois calques. Chaque type d'établissement a sa forme : cercle (écoles),
+  // carré (collèges), triangle (lycées), de plus en plus grands.
+  const CALQUES = [
+    { cle: "colleges", nom: "Collèges", pluriel: "collèges", forme: "carre", indicateurs: INDICATEURS, defaut: "taux_reussite",
+      zones: { libelle: "Secteurs des collèges publics",
+        note: "Les secteurs sont ceux des collèges publics. Ils restent affichés quand seuls les privés sont visibles, avec la couleur de leur collège." } },
+    { cle: "lycees", nom: "Lycées", pluriel: "lycées", forme: "triangle", indicateurs: INDICATEURS_LYCEES, defaut: "ips",
+      zones: { libelle: "Secteurs des lycées", indisponible: true,
+        note: "Non publiés en open data : l'affectation en lycée passe par Affelnet, avec des règles propres à chaque académie." } },
+    { cle: "ecoles", nom: "Écoles", pluriel: "écoles", forme: "cercle", bientot: true },
+  ];
+  const calque = (cle) => CALQUES.find((c) => c.cle === cle);
 
   const $ = (id) => document.getElementById(id);
   const etat = $("etat");
-  let donnees = null;
-  let indicateur = INDICATEURS[0];
+  let donnees = null;          // collèges (GeoJSON)
+  const sources = {};          // données chargées par calque
 
   function fr(v, nd) {
     return Number(v).toLocaleString("fr-FR", { minimumFractionDigits: nd, maximumFractionDigits: nd });
@@ -46,6 +81,9 @@
   function signe(v) {
     const s = fr(Math.abs(v), 1);
     return (v > 0 ? "+" : v < 0 ? "−" : "") + s;
+  }
+  function signe0(v) {
+    return (v > 0 ? "+" : v < 0 ? "−" : "") + fr(Math.abs(v), 0);
   }
   function quantile(sorted, q) {
     if (!sorted.length) return 0;
@@ -55,6 +93,24 @@
   function echapper(s) {
     return String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   }
+
+  // ---------------------------------------------------------------- réglages des calques
+  // Gardés d'une visite à l'autre dans le navigateur (sans effet si le stockage est bloqué).
+  const CLE_STOCKAGE = "carte-scolaire-calques-v1";
+  const reglages = {};
+  (function chargerReglages() {
+    let lu = {};
+    try { lu = JSON.parse(localStorage.getItem(CLE_STOCKAGE) || "{}") || {}; } catch (e) { lu = {}; }
+    CALQUES.filter((c) => !c.bientot).forEach((c) => {
+      const r = Object.assign({ actif: true, indicateur: c.defaut, public: true, prive: true, zones: true }, lu[c.cle] || {});
+      if (!c.indicateurs.some((i) => i.cle === r.indicateur)) r.indicateur = c.defaut;
+      reglages[c.cle] = r;
+    });
+  })();
+  function sauverReglages() {
+    try { localStorage.setItem(CLE_STOCKAGE, JSON.stringify(reglages)); } catch (e) { /* stockage indisponible */ }
+  }
+  const indicateurDe = (c) => c.indicateurs.find((i) => i.cle === reglages[c.cle].indicateur) || c.indicateurs[0];
 
   // ---------------------------------------------------------------- carte
   // Si le fond de carte ne répond pas, on garde au moins les points sur un fond uni.
@@ -73,14 +129,54 @@
   carte.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
   carte.addControl(new maplibregl.GeolocateControl({ positionOptions: { enableHighAccuracy: true } }), "top-right");
 
+  // Formes : images « champ de distance » (SDF), que MapLibre peut colorer selon l'indicateur
+  // et entourer d'un contour (halo) dont l'épaisseur dépend du secteur public ou privé.
+  // Tailles en pixels à icon-size 1 : cercle 10, carré 13, triangle 22 de côté.
+  const FORMES = {
+    cercle: { demi: 5, d: (x, y) => Math.hypot(x, y) - 5 },
+    carre: { demi: 6.5, d: (x, y) => {
+      const r = 1.5, qx = Math.abs(x) - (6.5 - r), qy = Math.abs(y) - (6.5 - r);
+      return Math.hypot(Math.max(qx, 0), Math.max(qy, 0)) + Math.min(Math.max(qx, qy), 0) - r;
+    } },
+    triangle: { demi: 11, d: (x, y) => {
+      // Triangle équilatéral pointe en haut, centré sur son centre de gravité (formule d'I. Quilez).
+      const R = 11, k = Math.sqrt(3);
+      let px = Math.abs(x) - R, py = -y + R / k;
+      if (px + k * py > 0) { const nx = (px - k * py) / 2, ny = (-k * px - py) / 2; px = nx; py = ny; }
+      px -= Math.min(Math.max(px, -2 * R), 0);
+      return -Math.hypot(px, py) * Math.sign(py);
+    } },
+  };
+  function ajouterFormes() {
+    const ratio = 2, marge = 7;
+    Object.entries(FORMES).forEach(([nom, f]) => {
+      if (carte.hasImage("forme-" + nom)) return;
+      const cote = Math.ceil((f.demi + marge) * 2), S = cote * ratio, data = new Uint8ClampedArray(S * S * 4);
+      for (let j = 0; j < S; j++) for (let i = 0; i < S; i++) {
+        const x = (i + 0.5) / ratio - cote / 2, y = (j + 0.5) / ratio - cote / 2;
+        data[(j * S + i) * 4 + 3] = Math.max(0, Math.min(255, Math.round(255 * (0.75 - f.d(x, y) / 8))));
+      }
+      carte.addImage("forme-" + nom, { width: S, height: S, data }, { pixelRatio: ratio, sdf: true });
+    });
+  }
+  // Petite icône de la forme, pour le panneau et les légendes.
+  function iconeForme(forme, { couleur = "#7e03a8", prive = false, taille = 22, gris = false } = {}) {
+    const fill = gris ? "#c9cede" : couleur;
+    const trait = prive && !gris ? 'stroke="#1e2f6b" stroke-width="2.5"' : 'stroke="#ffffff" stroke-width="1.5"';
+    const fig = forme === "cercle" ? `<circle cx="11" cy="11" r="7" fill="${fill}" ${trait}/>`
+      : forme === "carre" ? `<rect x="3.5" y="3.5" width="15" height="15" rx="2" fill="${fill}" ${trait}/>`
+      : `<path d="M11 2.5 L20 18.5 L2 18.5 Z" fill="${fill}" ${trait} stroke-linejoin="round"/>`;
+    return `<svg class="forme" width="${taille}" height="${taille}" viewBox="0 0 22 22" aria-hidden="true">${fig}</svg>`;
+  }
+
   // Échelles séquentielles : les couleurs sont posées sur les quantiles (5 %, 25 %, médiane,
-  // 75 %, 95 %) pour que chaque teinte couvre à peu près autant de collèges et que les écarts
+  // 75 %, 95 %) pour que chaque teinte couvre à peu près autant d'établissements et que les écarts
   // restent lisibles même quand les valeurs sont serrées.
-  function domaine(ind) {
-    const vals = donnees.features.map((f) => f.properties[ind.cle]).filter((v) => typeof v === "number").sort((a, b) => a - b);
+  function domaine(ind, features) {
+    const vals = features.map((f) => f.properties[ind.cle]).filter((v) => typeof v === "number").sort((a, b) => a - b);
     if (ind.type === "div") {
-      // Zone neutre : entre -seuil et +seuil, le collège fait à peu près ce qui était attendu.
-      const s = Number(VA.seuils[ind.cle]) || 0;
+      // Zone neutre : entre -seuil et +seuil, l'établissement fait à peu près ce qui était attendu.
+      const s = Number(VA.seuils[ind.cle] ?? 2) || 0;
       const m = Math.max(Math.abs(quantile(vals, 0.05)), Math.abs(quantile(vals, 0.95)), s * 2) || 1;
       return {
         stops: [-m, -s, 0, s, m], m, s, n: vals.length,
@@ -94,8 +190,8 @@
     return { stops, n: vals.length };
   }
 
-  function couleur(ind) {
-    const d = domaine(ind);
+  function couleur(ind, features) {
+    const d = domaine(ind, features);
     const pal = ind.type === "div" ? DIVERGENTE : ECHELLE;
     if (ind.type === "div") {
       const val = ["get", ind.cle];
@@ -109,40 +205,211 @@
     return { expr: ["case", ["has", ind.cle], ["interpolate", ["linear"], ["get", ind.cle], ...stops], ABSENT], d, pal };
   }
 
-  function filtre() {
+  function filtreSecteur(r) {
     const secteurs = [];
-    if ($("voir-public").checked) secteurs.push("public");
-    if ($("voir-prive").checked) secteurs.push("privé");
+    if (r.public) secteurs.push("public");
+    if (r.prive) secteurs.push("privé");
     return ["in", ["get", "secteur"], ["literal", secteurs]];
   }
 
-  function appliquer() {
-    const { expr, d, pal } = couleur(indicateur);
-    carte.setPaintProperty("colleges", "circle-color", expr);
-    carte.setFilter("colleges", filtre());
-    if (carte.getLayer("secteurs-fond")) {
+  // Calque de points d'un type d'établissement : sa forme, colorée selon l'indicateur.
+  function ajouterCalqueCarte(c, avant) {
+    carte.addSource(c.cle, { type: "geojson", data: sources[c.cle] });
+    const prive = ["==", ["get", "secteur"], "privé"];
+    carte.addLayer({
+      id: c.cle, type: "symbol", source: c.cle,
+      layout: {
+        "icon-image": "forme-" + c.forme,
+        "icon-size": ["interpolate", ["linear"], ["zoom"], 8, 0.55, 11, 0.85, 13, 1, 16, 1.4],
+        "icon-allow-overlap": true, "icon-ignore-placement": true,
+      },
+      paint: {
+        "icon-color": ABSENT,
+        "icon-halo-color": ["case", prive, "#1e2f6b", "#ffffff"],
+        "icon-halo-width": ["interpolate", ["linear"], ["zoom"], 8, ["case", prive, 1.3, 0.6], 13, ["case", prive, 2.4, 1]],
+      },
+    }, avant);
+  }
+
+  // Légende d'un calque : courte (dégradé et bornes) et notes (affichées avec les réglages).
+  function legende(c, ind, d, pal) {
+    const features = sources[c.cle].features;
+    const manquants = features.length - d.n;
+    const sans = manquants > 0 ? `<p class="note">En gris : ${manquants} ${c.pluriel} sans donnée.</p>` : "";
+    if (ind.type === "div") {
+      const pos = (x) => (((x + d.m) / (2 * d.m)) * 100).toFixed(1) + "%";
+      const p100 = (k) => Math.round((100 * k) / (d.n || 1));
+      return {
+        courte: `<div class="degrade" style="background:linear-gradient(90deg,${pal[0]} 0%,${pal[1]} ${pos(-d.s)},${pal[2]} ${pos(-d.s)},${pal[2]} ${pos(d.s)},${pal[3]} ${pos(d.s)},${pal[4]} 100%)"></div>` +
+          `<div class="bornes"><span>${ind.fmt(-d.m)}</span><span>${echapper(VA.libelles.proche)}</span><span>${ind.fmt(d.m)}</span></div>`,
+        notes: `<p class="note">${ind.note || ""} ${echapper(remplir(VA.texteZone, { min: ind.fmt(-d.s), max: ind.fmt(d.s), unite: ind.unite }))}</p>` +
+          `<p class="note">${echapper(remplir(VA.texteRepartition, { dessous: p100(d.dessous), proches: p100(d.proches), dessus: p100(d.dessus), etablissements: c.pluriel }))}</p>` + sans,
+      };
+    }
+    return {
+      courte: `<div class="degrade" style="background:linear-gradient(90deg,${pal.join(",")})"></div>` +
+        `<div class="bornes"><span>${ind.fmt(d.stops[0])}</span><span>${ind.fmt(d.stops[2])}</span><span>${ind.fmt(d.stops[4])}</span></div>`,
+      notes: `<p class="note">La teinte du milieu correspond à la médiane : la moitié des ${c.pluriel} est au-dessus.</p>` +
+        (ind.note ? `<p class="note">${ind.note}</p>` : "") + sans,
+    };
+  }
+
+  function appliquerCalque(c) {
+    if (!sources[c.cle] || !carte.getLayer(c.cle)) return;
+    const r = reglages[c.cle], ind = indicateurDe(c);
+    const { expr, d, pal } = couleur(ind, sources[c.cle].features);
+    carte.setPaintProperty(c.cle, "icon-color", expr);
+    carte.setFilter(c.cle, filtreSecteur(r));
+    carte.setLayoutProperty(c.cle, "visibility", r.actif ? "visible" : "none");
+    if (c.cle === "colleges" && carte.getLayer("secteurs-fond")) {
       carte.setPaintProperty("secteurs-fond", "fill-color", expr);
-      const vis = $("voir-zones").checked ? "visible" : "none";
+      const vis = r.actif && r.zones ? "visible" : "none";
       ["secteurs-fond", "secteurs-contour", "secteurs-surligne"].forEach((id) => carte.setLayoutProperty(id, "visibility", vis));
     }
-    const manquants = donnees.features.length - d.n;
-    if (indicateur.type === "div") {
-      const pos = (x) => (((x + d.m) / (2 * d.m)) * 100).toFixed(1) + "%";
-      const pct = (k) => Math.round((100 * k) / d.n);
-      $("legende").innerHTML =
-        `<div class="degrade" style="background:linear-gradient(90deg,${pal[0]} 0%,${pal[1]} ${pos(-d.s)},${pal[2]} ${pos(-d.s)},${pal[2]} ${pos(d.s)},${pal[3]} ${pos(d.s)},${pal[4]} 100%)"></div>` +
-        `<div class="bornes"><span>${indicateur.fmt(-d.m)}</span><span>${echapper(VA.libelles.proche)}</span><span>${indicateur.fmt(d.m)}</span></div>` +
-        `<p class="note">${indicateur.note} ${echapper(remplir(VA.texteZone, { min: indicateur.fmt(-d.s), max: indicateur.fmt(d.s), unite: indicateur.unite }))}</p>` +
-        `<p class="note">${echapper(remplir(VA.texteRepartition, { dessous: pct(d.dessous), proches: pct(d.proches), dessus: pct(d.dessus) }))}</p>` +
-        (manquants > 0 ? `<p class="note">En gris foncé : ${manquants} collège${manquants > 1 ? "s" : ""} sans donnée.</p>` : "");
-      return;
+    const l = legende(c, ind, d, pal);
+    const el = document.querySelector(`.calque[data-calque="${c.cle}"]`);
+    if (!el) return;
+    el.querySelector(".calque-legende").innerHTML = r.actif
+      ? `<div class="legende-ligne">${iconeForme(c.forme, { taille: 16 })}<div class="legende-corps"><span class="legende-nom">${echapper(ind.court || ind.nom)}</span>${l.courte}</div></div>`
+      : "";
+    el.querySelector(".legende-notes").innerHTML = l.notes;
+  }
+
+  // ---------------------------------------------------------------- panneau des calques
+  const estMobile = () => window.innerWidth < 760;
+
+  function resume(c) {
+    const r = reglages[c.cle];
+    if (!r.actif) return "Masqués";
+    const ind = indicateurDe(c);
+    const morceaux = [ind.court || ind.nom];
+    morceaux.push(r.public && r.prive ? "publics et privés" : r.public ? "publics" : r.prive ? "privés" : "aucun établissement");
+    if (c.zones && !c.zones.indisponible && r.zones) morceaux.push("zones");
+    return morceaux.join(", ");
+  }
+
+  function optionsIndicateurs(c) {
+    const dispo = c.indicateurs.filter((i) => sources[c.cle].features.some((f) => typeof f.properties[i.cle] === "number"));
+    const opt = (i) => `<option value="${i.cle}"${i.cle === reglages[c.cle].indicateur ? " selected" : ""}>${echapper(i.nom)}</option>`;
+    if (!dispo.some((i) => i.groupe)) return dispo.map(opt).join("");
+    const groupes = [...new Set(dispo.map((i) => i.groupe))];
+    return groupes.map((g) => `<optgroup label="${echapper(g)}">${dispo.filter((i) => i.groupe === g).map(opt).join("")}</optgroup>`).join("");
+  }
+
+  function construirePanneau() {
+    const html = CALQUES.map((c) => {
+      if (c.bientot || !sources[c.cle]) {
+        const raison = c.bientot ? "Bientôt disponible" : "Données indisponibles pour le moment";
+        return `<section class="calque calque-inactif" data-calque="${c.cle}">
+          <div class="calque-tete">
+            <div class="calque-ouvrir">${iconeForme(c.forme, { gris: true })}<span class="calque-titres"><span class="calque-nom">${c.nom}</span><span class="calque-resume">${raison}</span></span></div>
+            <button type="button" class="interrupteur" role="switch" aria-checked="false" disabled aria-label="Afficher les ${c.pluriel} (${raison.toLowerCase()})"></button>
+          </div>
+        </section>`;
+      }
+      const r = reglages[c.cle], id = "reglages-" + c.cle;
+      const z = c.zones;
+      return `<section class="calque" data-calque="${c.cle}">
+        <div class="calque-tete">
+          <button type="button" class="calque-ouvrir" aria-expanded="false" aria-controls="${id}">
+            ${iconeForme(c.forme)}
+            <span class="calque-titres"><span class="calque-nom">${c.nom}</span><span class="calque-resume"></span></span>
+            <svg class="chevron" width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <button type="button" class="interrupteur" role="switch" data-reglage="actif" aria-checked="${r.actif}" aria-label="Afficher les ${c.pluriel}"></button>
+        </div>
+        <div class="calque-legende" aria-live="polite"></div>
+        <div class="calque-reglages" id="${id}" hidden>
+          <label class="champ" for="indicateur-${c.cle}">Couleur selon</label>
+          <select id="indicateur-${c.cle}" data-reglage="indicateur">${optionsIndicateurs(c)}</select>
+          <div class="champ">Établissements</div>
+          <div class="puces" role="group" aria-label="Établissements affichés">
+            <button type="button" data-reglage="public" aria-pressed="${r.public}">${iconeForme(c.forme, { taille: 18 })}Publics</button>
+            <button type="button" data-reglage="prive" aria-pressed="${r.prive}">${iconeForme(c.forme, { taille: 18, prive: true })}Privés sous contrat</button>
+          </div>
+          ${z ? `<div class="champ">Zones</div>
+          <div class="ligne-zones${z.indisponible ? " indisponible" : ""}">
+            <span>${z.libelle}</span>
+            <button type="button" class="interrupteur" role="switch" data-reglage="zones" aria-checked="${z.indisponible ? "false" : r.zones}"${z.indisponible ? " disabled" : ""} aria-label="${z.libelle}"></button>
+          </div>
+          <p class="note">${z.note}</p>` : ""}
+          <div class="legende-notes"></div>
+        </div>
+      </section>`;
+    }).join("");
+    $("calques").innerHTML = html + `<p class="cle-contour">${iconeForme("carre", { taille: 16 })} contour fin : public
+      ${iconeForme("carre", { taille: 16, prive: true })} contour épais : privé sous contrat</p>`;
+    majPanneau();
+    // Sur ordinateur, les réglages des calques affichés sont ouverts d'emblée.
+    if (!estMobile()) CALQUES.forEach((c) => { if (reglages[c.cle] && reglages[c.cle].actif && sources[c.cle]) ouvrirReglages(c.cle, true); });
+  }
+
+  function majPanneau() {
+    CALQUES.forEach((c) => {
+      const el = document.querySelector(`.calque[data-calque="${c.cle}"]:not(.calque-inactif)`);
+      if (!el) return;
+      const r = reglages[c.cle];
+      el.querySelector(".calque-resume").textContent = resume(c);
+      el.querySelector('[data-reglage="actif"]').setAttribute("aria-checked", String(r.actif));
+      el.querySelectorAll(".puces [data-reglage]").forEach((b) => b.setAttribute("aria-pressed", String(r[b.dataset.reglage])));
+      const z = el.querySelector('[data-reglage="zones"]:not([disabled])');
+      if (z) z.setAttribute("aria-checked", String(r.zones));
+      el.classList.toggle("masque", !r.actif);
+      appliquerCalque(c);
+    });
+    const n = CALQUES.filter((c) => reglages[c.cle] && reglages[c.cle].actif && sources[c.cle]).length;
+    $("compte").textContent = n === 0 ? "aucun affiché" : n === 1 ? "1 affiché" : `${n} affichés`;
+  }
+
+  function ouvrirReglages(cle, ouvrir) {
+    const el = document.querySelector(`.calque[data-calque="${cle}"]`);
+    if (!el || el.classList.contains("calque-inactif")) return;
+    const bouton = el.querySelector(".calque-ouvrir");
+    if (ouvrir && estMobile()) {
+      // Sur mobile, un seul calque ouvert à la fois pour garder la carte visible.
+      document.querySelectorAll('.calque .calque-ouvrir[aria-expanded="true"]').forEach((b) => {
+        if (b !== bouton) { b.setAttribute("aria-expanded", "false"); $(b.getAttribute("aria-controls")).hidden = true; }
+      });
     }
-    $("legende").innerHTML =
-      `<div class="degrade" style="background:linear-gradient(90deg,${pal.join(",")})"></div>` +
-      `<div class="bornes"><span>${indicateur.fmt(d.stops[0])}</span><span>${indicateur.fmt(d.stops[2])}</span><span>${indicateur.fmt(d.stops[4])}</span></div>` +
-      (indicateur.type === "seq" ? `<p class="note">La teinte du milieu correspond à la médiane : la moitié des collèges est au-dessus.</p>` : "") +
-      (indicateur.note ? `<p class="note">${indicateur.note}</p>` : "") +
-      (manquants > 0 ? `<p class="note">En gris : ${manquants} collège${manquants > 1 ? "s" : ""} sans donnée.</p>` : "");
+    bouton.setAttribute("aria-expanded", String(ouvrir));
+    $(bouton.getAttribute("aria-controls")).hidden = !ouvrir;
+    el.classList.toggle("ouvert", ouvrir);
+  }
+
+  function initPanneau() {
+    const zone = $("calques");
+    zone.addEventListener("click", (e) => {
+      const ouvrir = e.target.closest(".calque-ouvrir");
+      if (ouvrir && ouvrir.tagName === "BUTTON") {
+        ouvrirReglages(ouvrir.closest(".calque").dataset.calque, ouvrir.getAttribute("aria-expanded") !== "true");
+        $("panneau").classList.remove("replie");
+        $("panneau-tete").setAttribute("aria-expanded", "true");
+        return;
+      }
+      const b = e.target.closest("button[data-reglage]");
+      if (!b || b.disabled) return;
+      const cle = b.closest(".calque").dataset.calque, k = b.dataset.reglage;
+      reglages[cle][k] = !reglages[cle][k];
+      sauverReglages();
+      majPanneau();
+    });
+    zone.addEventListener("change", (e) => {
+      const sel = e.target.closest("select[data-reglage]");
+      if (!sel) return;
+      const cle = sel.closest(".calque").dataset.calque;
+      reglages[cle].indicateur = sel.value;
+      sauverReglages();
+      majPanneau();
+    });
+    // Le titre « Calques » replie ou déplie tout le panneau (utile sur mobile).
+    $("panneau-tete").addEventListener("click", () => {
+      const replie = $("panneau").classList.toggle("replie");
+      $("panneau-tete").setAttribute("aria-expanded", String(!replie));
+    });
+    // Les contrôles de la carte (attribution) restent au-dessus du panneau sur mobile.
+    if (window.ResizeObserver) new ResizeObserver(() => {
+      document.documentElement.style.setProperty("--panneau-h", $("panneau").offsetHeight + "px");
+    }).observe($("panneau"));
   }
 
   // ---------------------------------------------------------------- fiche
@@ -411,6 +678,29 @@
     afficherOnglet();
   });
 
+  // Fiche lycée : chiffres clés (la fiche détaillée, avec graphiques, viendra ensuite).
+  function ouvrirFicheLycee(p) {
+    surlignerSecteur(null);
+    ficheCourante = null;
+    const secteur = p.secteur === "public" ? "public" : "privé sous contrat";
+    const chiffres = [];
+    const ajouter = (titre, v, detail) => { chiffres.push(`<div class="chiffre"><dt>${titre}</dt><dd>${v}${detail ? ` <small>${echapper(detail)}</small>` : ""}</dd></div>`); };
+    if (num(p.gt_reussite)) ajouter("Réussite au bac général et techno", fr(p.gt_reussite, 0) + " %", p.session_gt);
+    if (num(p.pro_reussite)) ajouter("Réussite au bac pro", fr(p.pro_reussite, 0) + " %", p.session_pro);
+    if (num(p.ips)) ajouter("IPS du lycée", fr(p.ips, 1), p.annee_ips);
+    if (num(p.score)) ajouter("Score de la voie générale", fr(p.score, 1), num(p.rang) ? `${p.rang}e sur ${fr(p.nb, 0)}` : p.session_score);
+    $("fiche-contenu").innerHTML = `
+      <h2 id="fiche-nom">${echapper(p.nom)}</h2>
+      <p class="lieu">${echapper(p.type || "Lycée")} ${secteur}, ${echapper(p.commune)} (${echapper(p.departement)})</p>
+      ${chiffres.length ? `<dl class="chiffres">${chiffres.join("")}</dl>` : "<p>Aucun indicateur n'est publié pour ce lycée.</p>"}
+      <p class="renvoi"><a href="documentation.html#indicateurs">Comprendre ces indicateurs</a></p>`;
+    const fiche = $("fiche");
+    fiche.hidden = false;
+    document.body.classList.add("fiche-ouverte");
+    fiche.scrollTop = 0;
+    $("fermer").focus({ preventScroll: true });
+  }
+
   function fermerFiche() {
     surlignerSecteur(null);
     $("fiche").hidden = true;
@@ -430,7 +720,7 @@
   function centrer(coord, zoom) {
     const mobile = window.innerWidth < 760;
     carte.flyTo({ center: coord, zoom, duration: 600,
-      padding: mobile ? { top: 20, bottom: Math.round(window.innerHeight * 0.55), left: 0, right: 0 } : { top: 0, bottom: 0, left: 340, right: 420 } });
+      padding: mobile ? { top: 20, bottom: Math.round(window.innerHeight * 0.55), left: 0, right: 0 } : { top: 0, bottom: 0, left: 380, right: 420 } });
   }
 
   function distanceKm(a, b) {
@@ -655,72 +945,58 @@
       carte.addLayer({ id: "secteurs-fond", type: "fill", source: "secteurs", paint: { "fill-color": ABSENT, "fill-opacity": 0.35 } }, "colleges");
       carte.addLayer({ id: "secteurs-contour", type: "line", source: "secteurs", paint: { "line-color": "#1e2f6b", "line-width": ["interpolate", ["linear"], ["zoom"], 9, 0.3, 14, 1.2], "line-opacity": 0.55 } }, "colleges");
       carte.addLayer({ id: "secteurs-surligne", type: "line", source: "secteurs", filter: ["==", ["get", "uai"], ""], paint: { "line-color": "#1e2f6b", "line-width": 3 } }, "colleges");
-      appliquer();
+      appliquerCalque(calque("colleges"));
       if (ficheCourante) surlignerSecteur(ficheCourante.p.uai);
     }).catch((e) => console.warn("Secteurs indisponibles", e));
   }
 
   // ---------------------------------------------------------------- démarrage
-  function remplirSelecteur() {
-    const sel = $("indicateur");
-    const dispo = INDICATEURS.filter((i) => donnees.features.some((f) => typeof f.properties[i.cle] === "number"));
-    sel.innerHTML = dispo.map((i) => `<option value="${i.cle}">${i.nom}</option>`).join("");
-    indicateur = dispo[0] || INDICATEURS[0];
-    sel.addEventListener("change", () => {
-      indicateur = INDICATEURS.find((i) => i.cle === sel.value);
-      appliquer();
-    });
-  }
-
   function cadrer() {
     const b = new maplibregl.LngLatBounds();
     donnees.features.forEach((f) => b.extend(f.geometry.coordinates));
-    if (!b.isEmpty()) carte.fitBounds(b, { padding: { top: 40, bottom: window.innerWidth < 760 ? 220 : 40, left: window.innerWidth < 760 ? 20 : 360, right: 40 }, duration: 0 });
+    if (!b.isEmpty()) carte.fitBounds(b, { padding: { top: 40, bottom: estMobile() ? 260 : 40, left: estMobile() ? 20 : 400, right: 40 }, duration: 0 });
   }
 
+  const charger = (url) => fetch(url).then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); });
+  initPanneau();
   Promise.all([
-    fetch("data/colleges.geojson").then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); }),
+    charger("data/colleges.geojson"),
+    charger("data/lycees.geojson").catch((e) => { console.warn("Lycées indisponibles", e); return null; }),
     new Promise((res) => carte.on("load", res)),
     fetch("data/meta.json").then((r) => (r.ok ? r.json() : {})).catch(() => ({})),
-  ]).then(([geo, , meta]) => {
+  ]).then(([geo, lyc, , meta]) => {
     donnees = geo;
+    sources.colleges = geo;
+    if (lyc) sources.lycees = lyc;
     if (meta && meta.medianes) medianes = Object.assign(medianes, meta.medianes);
-    carte.addSource("colleges", { type: "geojson", data: geo });
-    carte.addLayer({
-      id: "colleges",
-      type: "circle",
-      source: "colleges",
-      paint: {
-        "circle-radius": ["interpolate", ["linear"], ["zoom"], 8, 3.5, 12, 7, 15, 11],
-        "circle-color": ABSENT,
-        "circle-stroke-color": "#1e2f6b",
-        "circle-stroke-width": ["case", ["==", ["get", "secteur"], "privé"], 2, 0.5],
-      },
-    });
-    remplirSelecteur();
-    appliquer();
+    ajouterFormes();
+    ajouterCalqueCarte(calque("colleges"));
+    if (lyc) ajouterCalqueCarte(calque("lycees"));  // au-dessus des collèges
+    construirePanneau();
     cadrer();
     initRecherche();
     chargerSecteurs();
     etat.textContent = "";
+    const couches = () => ["lycees", "colleges"].filter((id) => carte.getLayer(id));
     carte.on("click", (e) => {
-      const pt = carte.queryRenderedFeatures(e.point, { layers: ["colleges"] })[0];
-      if (pt) { ouvrirFiche(pt.properties); return; }
-      if (!carte.getLayer("secteurs-fond") || !$("voir-zones").checked) return;
+      // Petite marge autour du doigt : les formes sont petites sur mobile.
+      const zone = [[e.point.x - 6, e.point.y - 6], [e.point.x + 6, e.point.y + 6]];
+      const pt = carte.queryRenderedFeatures(zone, { layers: couches() })[0];
+      if (pt) { if (pt.layer.id === "lycees") ouvrirFicheLycee(pt.properties); else ouvrirFiche(pt.properties); return; }
+      if (!carte.getLayer("secteurs-fond") || carte.getLayoutProperty("secteurs-fond", "visibility") === "none") return;
       const z = carte.queryRenderedFeatures(e.point, { layers: ["secteurs-fond"] })[0];
       const f = z && donnees.features.find((x) => x.properties.uai === z.properties.uai);
       if (f) ouvrirFiche(f.properties);
     });
-    carte.on("mouseenter", "colleges", () => (carte.getCanvas().style.cursor = "pointer"));
-    carte.on("mouseleave", "colleges", () => (carte.getCanvas().style.cursor = ""));
+    couches().forEach((id) => {
+      carte.on("mouseenter", id, () => (carte.getCanvas().style.cursor = "pointer"));
+      carte.on("mouseleave", id, () => (carte.getCanvas().style.cursor = ""));
+    });
   }).catch((err) => {
-    etat.textContent = "Les données des collèges n'ont pas pu être chargées. Rechargez la page ; si le problème continue, les données sont peut-être en cours de mise à jour.";
+    etat.textContent = "Les données n'ont pas pu être chargées. Rechargez la page ; si le problème continue, les données sont peut-être en cours de mise à jour.";
     console.error(err);
   });
 
-  $("voir-public").addEventListener("change", () => donnees && appliquer());
-  $("voir-prive").addEventListener("change", () => donnees && appliquer());
-  $("voir-zones").addEventListener("change", () => donnees && appliquer());
   $("fermer").addEventListener("click", fermerFiche);
   document.addEventListener("keydown", (e) => { if (e.key === "Escape") fermerFiche(); });
 })();
