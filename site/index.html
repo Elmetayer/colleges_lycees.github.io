@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Carte scolaire</title>
-  <meta name="description" content="Collèges des académies de Paris et de Versailles et leurs indicateurs : IPS, brevet, valeur ajoutée, évaluations de 6e.">
+  <meta name="description" content="Collèges et lycées des académies de Paris et de Versailles et leurs indicateurs : IPS, brevet, bac, valeur ajoutée, évaluations de 6e.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Literata:opsz,wght@7..72,500;7..72,650&display=swap" rel="stylesheet">
@@ -24,19 +24,16 @@
     <a class="lien-doc" href="documentation.html">Documentation</a>
   </header>
 
-  <main id="carte" aria-label="Carte des collèges"></main>
+  <main id="carte" aria-label="Carte des collèges et des lycées"></main>
 
-  <section class="panneau" id="panneau" aria-label="Réglages de la carte">
-    <label class="champ" for="indicateur">Couleur des collèges</label>
-    <select id="indicateur"></select>
-    <div class="legende" id="legende" aria-live="polite"></div>
-    <fieldset class="secteurs">
-      <legend class="sr-only">Établissements affichés</legend>
-      <label><input type="checkbox" id="voir-public" checked> Public</label>
-      <label><input type="checkbox" id="voir-prive" checked> Privé sous contrat <span class="pastille-prive" aria-hidden="true"></span></label>
-    </fieldset>
-    <label class="voir-zones"><input type="checkbox" id="voir-zones" checked> Secteurs des collèges publics</label>
-    <p class="etat" id="etat">Chargement des collèges…</p>
+  <section class="panneau" id="panneau" aria-label="Calques de la carte">
+    <button type="button" class="panneau-tete" id="panneau-tete" aria-expanded="true" aria-controls="calques">
+      <span class="panneau-titre">Calques</span>
+      <span class="compte" id="compte"></span>
+      <svg class="chevron" width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+    <div class="calques" id="calques"></div>
+    <p class="etat" id="etat">Chargement des établissements…</p>
   </section>
 
   <aside class="fiche" id="fiche" hidden aria-labelledby="fiche-nom">
