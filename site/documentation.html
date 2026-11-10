@@ -24,11 +24,11 @@
     <p>La carte présente les collèges et les lycées publics et privés sous contrat des académies de Paris et de Versailles : Paris, les Yvelines, l'Essonne, les Hauts-de-Seine et le Val-d'Oise.</p>
     <p>Chaque type d'établissement forme un calque, que l'on affiche ou masque et que l'on règle séparément : indicateur de couleur, établissements publics ou privés, zones. La forme indique le type : un carré pour un collège, un triangle pour un lycée (et, plus tard, un cercle pour une école). La couleur suit l'indicateur choisi pour le calque, avec sa propre légende. Un contour fin et blanc signale un établissement public, un contour épais et foncé un établissement privé sous contrat. Une forme grise signale un établissement pour lequel l'indicateur n'est pas publié.</p>
     <p>Les couleurs vont du jaune (valeurs les plus basses) au bleu nuit (les plus hautes). Elles sont réparties selon le classement des collèges et non selon l'écart brut entre valeurs : la teinte du milieu correspond à la médiane, et chaque passage de teinte regroupe environ un quart des collèges. Les écarts restent ainsi visibles même quand les valeurs sont proches. Pour la valeur ajoutée, la même logique s'applique autour de zéro : orange pour une valeur négative, violet pour une valeur positive, gris très clair pour un écart faible (voir plus bas).</p>
-    <p>Le champ de recherche en haut de la carte trouve un collège par son nom, une commune ou une adresse. Pour une adresse, la carte affiche les cinq collèges publics les plus proches à vol d'oiseau ; ce ne sont pas forcément les collèges de secteur.</p>
-    <p>Les zones colorées sont les secteurs de recrutement des collèges publics, de la couleur de leur collège. Toucher une zone ouvre la fiche du collège ; la case « Secteurs des collèges publics » les masque. Les collèges privés n'ont pas de secteur.</p>
+    <p>Le champ de recherche en haut de la carte trouve un collège ou un lycée par son nom, une commune ou une adresse. Pour une adresse, la carte indique le collège de secteur quand il est connu, les collèges publics les plus proches et les trois lycées publics les plus proches, à vol d'oiseau.</p>
+    <p>Les zones colorées sont les secteurs de recrutement des collèges publics, de la couleur de leur collège. Toucher une zone ouvre la fiche du collège ; la case « Secteurs des collèges publics » les masque. Les collèges privés n'ont pas de secteur. Les zones d'affectation des lycées ne sont pas publiées en open data : l'affectation passe par la procédure Affelnet, avec des règles propres à chaque académie.</p>
     <p id="resume-donnees"></p>
 
-    <h2 id="indicateurs">Les indicateurs</h2>
+    <h2 id="indicateurs">Les indicateurs des collèges</h2>
     <p>Tous les indicateurs viennent de la DEPP, le service statistique du ministère de l'Éducation nationale. La carte affiche pour chaque collège la valeur la plus récente ; la fiche du collège donne l'historique disponible.</p>
     <p>Dans la fiche, un graphique montre l'évolution d'un indicateur au fil des années ; les boutons au-dessus permettent de passer d'un indicateur à l'autre. Chaque courbe du collège (trait plein) est accompagnée de sa médiane en pointillés de la même couleur : la médiane des collèges publics et privés des académies de Paris et de Versailles pour la même année, au-dessus de laquelle se trouve la moitié des collèges. Quand deux mesures n'ont pas la même unité (un pourcentage et une note sur 20, par exemple), elles sont tracées dans deux graphiques superposés qui partagent les mêmes années. Les valeurs exactes restent disponibles sous le graphique, dans « Valeurs par année ».</p>
 
@@ -59,6 +59,29 @@
     <p class="formule">Score = moyenne du taux de réussite, du taux de mentions et du taux de mentions très bien au brevet, pour la dernière session disponible.</p>
     <p>Le rang classe les collèges des deux académies ayant un score pour la même session, du plus élevé au plus bas. Ce score ne tient pas compte du profil des élèves : il suit de près l'IPS et ne mesure pas la qualité de l'enseignement. Pour comparer des collèges au public différent, la valeur ajoutée est plus pertinente.</p>
 
+    <h2 id="lycees">Les indicateurs des lycées</h2>
+    <p>Les lycées sont décrits par voie : la <b>voie générale et technologique</b> (bac général et bacs technologiques STI2D, STMG, ST2S, STL, STD2A, STHR, S2TMD) et la <b>voie professionnelle</b> (bac pro). Un lycée polyvalent a les deux. Dans la fiche, la voie générale et technologique est tracée en bleu foncé, la voie professionnelle en magenta ; chaque courbe a sa médiane en pointillés, calculée sur les lycées des deux académies qui ont des résultats dans la même voie et la même année. Les données couvrent les huit dernières sessions du bac.</p>
+
+    <h3 id="lycees-bac">Réussite et mentions au bac</h3>
+    <ul>
+      <li><b>Réussite</b> : part des candidats admis, toutes séries de la voie confondues.</li>
+      <li><b>Mentions</b> : part des candidats ayant obtenu une mention.</li>
+    </ul>
+    <p>La fiche détaille la dernière session par série pour la voie générale et technologique (candidats, réussite, mentions, valeur ajoutée), et par domaine de spécialité pour la voie professionnelle (production, services et leurs sous-domaines).</p>
+
+    <h3 id="lycees-acces">Accès de la seconde au bac</h3>
+    <p>Probabilité qu'un élève entré en seconde dans le lycée obtienne le bac en y faisant toute sa scolarité, éventuellement en redoublant. Cet indicateur complète le taux de réussite : un lycée qui pousse ses élèves fragiles à partir avant la terminale peut afficher une forte réussite au bac mais un accès plus faible.</p>
+
+    <h3 id="lycees-va">Valeur ajoutée</h3>
+    <p>Comme pour les collèges, la DEPP compare les résultats du lycée à ceux qu'on pouvait attendre au vu de ses élèves (âge, sexe, milieu social, résultats au brevet). Elle est publiée pour la réussite, les mentions et l'accès au bac, dans chaque voie. Sur la carte, les écarts compris entre <span data-param="seuil-lycee">−2 et +2</span> points sont regroupés en gris très clair, « <span data-param="libelle-proche">proche de l'attendu</span> ».</p>
+
+    <h3 id="lycees-ips">Indice de position sociale</h3>
+    <p>L'IPS des lycées est publié depuis la rentrée 2023, séparément pour la voie générale et technologique, la voie professionnelle, le lycée entier et les formations post-bac (BTS, classes préparatoires). Les élèves de voie professionnelle viennent en moyenne de milieux moins favorisés : comparer les IPS d'une même voie est plus juste que comparer deux lycées entiers.</p>
+
+    <h3 id="lycees-score">Score de la voie générale (optionnel)</h3>
+    <p class="formule">Score = moyenne du taux de réussite, du taux de mentions et du taux de mentions très bien au bac général, pour la dernière session disponible.</p>
+    <p>Le taux de mentions très bien compte les mentions très bien avec et sans félicitations du jury, rapportées au nombre de candidats du bac général. Le rang classe les lycées des deux académies ayant un score pour la même session. Comme celui des collèges, ce score ne tient pas compte du profil des élèves et suit de près l'IPS ; la valeur ajoutée est plus pertinente pour comparer des lycées au public différent. Il n'est pas calculable avant la session 2021, première du nouveau bac général.</p>
+
     <h2 id="secteurs">Secteurs des collèges</h2>
     <p>Les secteurs sont reconstitués à partir de la <b>carte scolaire des collèges publics</b> publiée par le ministère de l'Éducation nationale, qui rassemble les fichiers utilisés par les services départementaux pour affecter les élèves en 6e. Ce fichier ne contient pas de zones dessinées : il liste, commune par commune, les voies et les numéros rattachés à chaque collège.</p>
     <ul>
@@ -72,7 +95,7 @@
     <ul>
       <li>Les données ont un décalage d'un an ou plus : les résultats d'une session sont publiés plusieurs mois après l'examen.</li>
       <li>Un indicateur isolé résume mal un établissement. Croiser l'IPS, les résultats et la valeur ajoutée donne une image plus juste.</li>
-      <li>Les petites variations d'une année sur l'autre sont fréquentes, surtout dans les collèges aux effectifs réduits.</li>
+      <li>Les petites variations d'une année sur l'autre sont fréquentes, surtout dans les établissements aux effectifs réduits.</li>
     </ul>
 
     <h2 id="sources">Sources</h2>
@@ -112,6 +135,7 @@
         if (va.seuils && va.seuils.va_reussite != null) poser("seuil-reussite", borne(va.seuils.va_reussite));
         if (va.seuils && va.seuils.va_note != null) poser("seuil-note", borne(va.seuils.va_note));
         if (va.libelles && va.libelles.proche) poser("libelle-proche", va.libelles.proche);
+        if (va.seuils && va.seuils.gt_va_reussite != null) poser("seuil-lycee", borne(va.seuils.gt_va_reussite));
       }
       const date = (s) => s ? new Date(s).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" }) : "Non renseignée";
       const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -129,7 +153,8 @@
         const liste = (a) => a && a.length ? a.join(", ") : "aucune";
         document.getElementById("resume-donnees").textContent =
           `Données générées le ${date(m.genere_le)} : ${c.total} collèges (${c.publics} publics, ${c.prives} privés). ` +
-          `Sessions du brevet : ${liste(p.brevet)}. IPS : ${liste(p.ips)}. Évaluations de 6e : ${liste(p.eval6e)}.`;
+          `Sessions du brevet : ${liste(p.brevet)}. IPS : ${liste(p.ips)}. Évaluations de 6e : ${liste(p.eval6e)}.` +
+          (m.lycees ? ` ${m.lycees.total} lycées (${m.lycees.publics} publics, ${m.lycees.prives} privés). Sessions du bac : ${liste(m.lycees.periodes.gt)}. IPS des lycées : ${liste(m.lycees.periodes.ips)}.` : "");
       }).catch(() => {
         document.getElementById("liste-sources").innerHTML = "<tr><td colspan='2'>La liste des sources n'a pas pu être chargée.</td></tr>";
       });

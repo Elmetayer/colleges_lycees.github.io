@@ -115,7 +115,7 @@ select {
 .puces button[aria-pressed="false"] { opacity: 0.75; }
 .puces button[aria-pressed="true"]::after { content: "✓"; }
 .cle-contour { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; margin: 4px 0 0; padding-top: 8px; border-top: 1px solid var(--trait); font-size: 0.8rem; color: var(--encre-douce); }
-.cle-contour .forme:nth-of-type(2) { margin-left: 10px; }
+.cle-contour span { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; margin-right: 12px; }
 .ligne-zones { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 40px; }
 .ligne-zones.indisponible span { color: #8a93ad; }
 
@@ -282,3 +282,14 @@ details.valeurs .historique { margin-top: 4px; }
 /* ---------- secteurs */
 .proches li.secteur-adresse { border-bottom: 2px solid var(--encre); margin-bottom: 6px; }
 .proches .etiquette { display: inline-block; font-size: 0.78rem; font-weight: 700; color: #fff; background: var(--encre); border-radius: 4px; padding: 1px 6px; margin-bottom: 2px; }
+
+/* ---------- fiche lycée */
+.cles { display: flex; gap: 8px; margin: 0 0 16px; }
+.cles > div { flex: 1; min-width: 0; padding: 8px 10px; border: 1px solid var(--trait); border-radius: 10px; background: #fff; }
+.cles dt { font-size: 0.78rem; color: var(--encre-douce); line-height: 1.25; }
+.cles dd { margin: 0; font-size: 1.1rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.cles dd.detail { font-size: 0.78rem; font-weight: 400; color: var(--encre-douce); }
+.historique.detail { margin-top: 14px; }
+.historique.detail caption { text-align: left; font-weight: 700; padding-bottom: 4px; }
+.historique.detail tr.sous th { padding-left: 14px; font-weight: 400; color: var(--encre-douce); }
+.historique.detail tr.sous td { color: var(--encre-douce); }

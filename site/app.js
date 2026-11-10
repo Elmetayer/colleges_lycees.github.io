@@ -337,8 +337,8 @@
         </div>
       </section>`;
     }).join("");
-    $("calques").innerHTML = html + `<p class="cle-contour">${iconeForme("carre", { taille: 16 })} contour fin : public
-      ${iconeForme("carre", { taille: 16, prive: true })} contour épais : privé sous contrat</p>`;
+    $("calques").innerHTML = html + `<p class="cle-contour"><span>${iconeForme("carre", { taille: 16 })} contour fin : public</span>
+      <span>${iconeForme("carre", { taille: 16, prive: true })} contour épais : privé sous contrat</span></p>`;
     majPanneau();
     // Sur ordinateur, les réglages des calques affichés sont ouverts d'emblée.
     if (!estMobile()) CALQUES.forEach((c) => { if (reglages[c.cle] && reglages[c.cle].actif && sources[c.cle]) ouvrirReglages(c.cle, true); });
@@ -415,7 +415,9 @@
   // ---------------------------------------------------------------- fiche
   // La fiche montre un graphique d'évolution à la fois ; des boutons changent d'indicateur.
   let medianes = { brevet: {}, ips: {}, eval6e: {} };
-  let ongletChoisi = "brevet";
+  let medianesLycees = { gt: {}, pro: {}, ips: {} };
+  // Onglet choisi, gardé pour la fiche suivante du même type.
+  const ongletsChoisis = { college: "brevet", lycee: "gt" };
   let ficheCourante = null;
   const ENCRE = "#1e2f6b", MAGENTA = "#cc4778", MAGENTA_TEXTE = "#a8335f", MEDIANE = "#8a93ad", BANDE = "#ece9f2";
 
@@ -488,7 +490,8 @@
       for (let i = 1; i < fins.length; i++) if (fins[i].y - fins[i - 1].y < 15) fins[i].y = fins[i - 1].y + 15;
       fins.forEach((f) => { svg += `<text x="${W - R + 8}" y="${(f.y + 4).toFixed(1)}" style="fill:${f.couleur};font-weight:700">${echapper(f.txt)}</text>`; });
     });
-    g.labels.forEach((l, i) => { svg += `<text x="${x(i).toFixed(1)}" y="${H - 8}" text-anchor="middle">${echapper(l)}</text>`; });
+    // Au-delà de 6 années, une étiquette sur deux (la dernière toujours affichée).
+    g.labels.forEach((l, i) => { if (n <= 6 || (n - 1 - i) % 2 === 0) svg += `<text x="${x(i).toFixed(1)}" y="${H - 8}" text-anchor="middle">${echapper(l)}</text>`; });
     return svg + "</svg>";
   }
 
@@ -624,9 +627,171 @@
     return res;
   }
 
+  // Onglets de la fiche lycée. Voie générale et technologique en bleu foncé, voie pro en magenta,
+  // chaque courbe avec sa médiane (lycées des deux académies, même voie, même année).
+  function tableauDetail(titre, colonnes, lignes) {
+    if (!lignes || !lignes.length) return "";
+    const th = colonnes.map((c) => `<th scope="col">${c.nom}</th>`).join("");
+    const tr = lignes.map((l) => `<tr${l.sous ? ' class="sous"' : ""}>` + colonnes.map((c, i) => {
+      const v = l[c.cle];
+      const txt = v === null || v === undefined || v === "" ? "–" : (c.fmt ? c.fmt(v) : echapper(v));
+      return i === 0 ? `<th scope="row">${txt}</th>` : `<td>${txt}</td>`;
+    }).join("") + "</tr>").join("");
+    return `<table class="historique detail"><caption>${titre}</caption><thead><tr>${th}</tr></thead><tbody>${tr}</tbody></table>`;
+  }
+
+  function ongletsLycee(p, hist) {
+    const pct = (v) => fr(v, 0) + " %";
+    const tickPct = (t) => fr(t, 0) + " %";
+    const tickSigne = (t) => (t > 0 ? "+" : t < 0 ? "−" : "") + fr(Math.abs(t), 0);
+    const M = medianesLycees;
+    const gt = hist.gt || [], pro = hist.pro || [], ip = hist.ips || [], sc = hist.score || [];
+    const decrire = (lignes, cleA, cle, fmt) => lignes.map((r) => `${r[cleA]} ${num(r[cle]) ? fmt(r[cle]) : "non publié"}`).join(", ");
+    // Axe commun aux deux voies : toutes les sessions présentes dans l'une ou l'autre.
+    const sessions = [...new Set(gt.concat(pro).map((r) => r.session))].sort();
+    const parSession = (lignes) => new Map(lignes.map((r) => [r.session, r]));
+    const gS = parSession(gt), pS = parSession(pro);
+    const serie = (m, cle) => sessions.map((s) => (m.get(s) || {})[cle]);
+    const med = (voie, cle, liste) => (liste || sessions).map((s) => ((M[voie] || {})[s] || {})[cle]);
+    const res = [];
+    const VOIES = [
+      { cle: "gt", m: gS, lignes: gt, nom: "voie GT", couleur: ENCRE },
+      { cle: "pro", m: pS, lignes: pro, nom: "voie pro", couleur: MAGENTA, texte: MAGENTA_TEXTE },
+    ];
+
+    // Bac général et technologique, puis bac pro : réussite et mentions.
+    [
+      { voie: VOIES[0], cle: "gt", nom: "Bac général", titre: "Bac général et technologique",
+        detail: () => tableauDetail(`Par série, session ${gt[gt.length - 1].session}`,
+          [{ cle: "nom", nom: "Série" }, { cle: "presents", nom: "Candidats", fmt: (v) => fr(v, 0) }, { cle: "reussite", nom: "Réussite", fmt: pct },
+            { cle: "mentions", nom: "Mentions", fmt: pct }, { cle: "va", nom: "VA", fmt: signe0 }], hist.series_gt) },
+      { voie: VOIES[1], cle: "pro", nom: "Bac pro", titre: "Bac professionnel",
+        detail: () => tableauDetail(`Par domaine, session ${pro[pro.length - 1].session}`,
+          [{ cle: "nom", nom: "Domaine" }, { cle: "presents", nom: "Candidats", fmt: (v) => fr(v, 0) }, { cle: "reussite", nom: "Réussite", fmt: pct }],
+          (hist.domaines_pro || []).flatMap((d) => [d].concat((d.details || []).map((x) => Object.assign({ sous: true }, x))))) },
+    ].forEach((o) => {
+      const L = o.voie.lignes;
+      if (!L.some((r) => num(r.reussite))) return;
+      const d = dernier(L, "reussite"), m = (M[o.voie.cle] || {})[d.session] || {};
+      const contexte = [];
+      if (num(d.mentions)) contexte.push(`Mentions : ${pct(d.mentions)}.`);
+      if (num(d.presents)) contexte.push(`${fr(d.presents, 0)} candidats.`);
+      const meds = [];
+      if (num(m.reussite)) meds.push(`réussite ${pct(m.reussite)}`);
+      if (num(m.mentions)) meds.push(`mentions ${pct(m.mentions)}`);
+      if (meds.length) contexte.push(`Médianes : ${meds.join(", ")}.`);
+      const lab = L.map((r) => r.session);
+      res.push({
+        cle: o.cle, nom: o.nom, titre: o.titre,
+        valeur: pct(d.reussite), unite: `réussite ${d.session}`, contexte: contexte.join(" "),
+        graphe: { labels: lab,
+          aria: `${o.titre}. Réussite : ${decrire(L, "session", "reussite", pct)}. Mentions : ${decrire(L, "session", "mentions", pct)}.`,
+          panneaux: [{ tick: tickPct, echelle: { plancher: 0, plafond: 100, etendueMin: 20 }, series: [
+            { vals: L.map((r) => r.reussite), med: med(o.voie.cle, "reussite", lab), couleur: ENCRE, nom: "réussite" },
+            { vals: L.map((r) => r.mentions), med: med(o.voie.cle, "mentions", lab), couleur: MAGENTA, texte: MAGENTA_TEXTE, nom: "mentions" },
+          ] }] },
+        detail: o.detail(),
+        table: tableau([{ cle: "session", nom: "Session" }, { cle: "reussite", nom: "Réussite", fmt: pct }, { cle: "mentions", nom: "Mentions", fmt: pct },
+          { cle: "presents", nom: "Candidats", fmt: (v) => fr(v, 0) }], L),
+      });
+    });
+
+    // Accès de la seconde au bac, les deux voies sur le même graphique.
+    const voiesAcces = VOIES.filter((v) => v.lignes.some((r) => num(r.acces)));
+    if (voiesAcces.length) {
+      const v0 = voiesAcces[0], d = dernier(v0.lignes, "acces");
+      const contexte = ["Part des élèves de seconde qui obtiennent le bac en restant dans le lycée."];
+      voiesAcces.slice(1).forEach((v) => { const x = dernier(v.lignes, "acces"); contexte.push(`Voie pro : ${pct(x.acces)} en ${x.session}.`); });
+      res.push({
+        cle: "acces", nom: "Accès au bac", titre: "Accès de la seconde au bac",
+        valeur: pct(d.acces), unite: `${v0.nom}, ${d.session}`, contexte: contexte.join(" "),
+        graphe: { labels: sessions,
+          aria: "Taux d'accès de la seconde au bac. " + voiesAcces.map((v) => `${v.nom} : ${decrire(v.lignes, "session", "acces", pct)}.`).join(" "),
+          panneaux: [{ tick: tickPct, echelle: { plancher: 0, plafond: 100, etendueMin: 20 }, series: voiesAcces.map((v) => (
+            { vals: serie(v.m, "acces"), med: med(v.cle, "acces"), couleur: v.couleur, texte: v.texte, nom: v.nom })) }] },
+        table: tableau([{ cle: "session", nom: "Session" }, { cle: "gt", nom: "Voie GT", fmt: pct }, { cle: "pro", nom: "Voie pro", fmt: pct }],
+          sessions.map((s) => ({ session: s, gt: (gS.get(s) || {}).acces, pro: (pS.get(s) || {}).acces }))),
+      });
+    }
+
+    // Valeur ajoutée : un panneau pour la réussite, un pour l'accès au bac.
+    const aVA = (cle) => VOIES.filter((v) => v.lignes.some((r) => num(r[cle])));
+    if (aVA("va_reussite").length || aVA("va_acces").length) {
+      const s = Number(VA.seuils.gt_va_reussite ?? 2);
+      const v0 = aVA("va_reussite")[0] || aVA("va_acces")[0];
+      const cleV = aVA("va_reussite").length ? "va_reussite" : "va_acces";
+      const d = dernier(v0.lignes, cleV);
+      const contexte = [];
+      VOIES.forEach((v) => {
+        const x = dernier(v.lignes, "va_reussite");
+        if (x) contexte.push(`Réussite ${v.nom} : ${signe0(x.va_reussite)}, ${lectureVA(v.cle + "_va_reussite", x.va_reussite)}.`);
+      });
+      contexte.push(`Zones grisées : écart faible (${tickSigne(-s)} à ${tickSigne(s)} points).`);
+      const panneau = (cle, titre) => ({ titre, tick: tickSigne, bande: [-s, s], zero: true, echelle: { sym: true, demiMin: Math.max(s * 3, 6) },
+        series: aVA(cle).map((v) => ({ vals: serie(v.m, cle), med: med(v.cle, cle), couleur: v.couleur, texte: v.texte, nom: v.nom })) });
+      res.push({
+        cle: "va", nom: "Valeur ajoutée", titre: "Valeur ajoutée",
+        valeur: signe0(d[cleV]), unite: `${cleV === "va_reussite" ? "réussite" : "accès"} ${v0.nom}, ${d.session}`, contexte: contexte.join(" "),
+        graphe: { labels: sessions,
+          aria: "Valeur ajoutée. " + VOIES.map((v) => `Réussite ${v.nom} : ${decrire(v.lignes, "session", "va_reussite", signe0)}. Accès ${v.nom} : ${decrire(v.lignes, "session", "va_acces", signe0)}.`).join(" "),
+          panneaux: [aVA("va_reussite").length && panneau("va_reussite", "Sur la réussite (points de %)"), aVA("va_acces").length && panneau("va_acces", "Sur l'accès au bac (points de %)")].filter(Boolean) },
+        table: tableau([{ cle: "session", nom: "Session" }, { cle: "gr", nom: "Réussite GT", fmt: signe0 }, { cle: "ga", nom: "Accès GT", fmt: signe0 },
+          { cle: "gm", nom: "Mentions GT", fmt: signe0 }, { cle: "pr", nom: "Réussite pro", fmt: signe0 }, { cle: "pa", nom: "Accès pro", fmt: signe0 }],
+          sessions.map((x) => { const g = gS.get(x) || {}, q = pS.get(x) || {}; return { session: x, gr: g.va_reussite, ga: g.va_acces, gm: g.va_mentions, pr: q.va_reussite, pa: q.va_acces }; })),
+      });
+    }
+
+    // IPS : voie GT et voie pro ; à défaut, IPS du lycée entier.
+    if (ip.some((r) => num(r.etab) || num(r.gt) || num(r.pro))) {
+      const ans = ip.map((r) => r.annee);
+      const medI = (cle) => ans.map((a) => ((M.ips || {})[a] || {})[cle]);
+      const series = [];
+      if (ip.some((r) => num(r.gt))) series.push({ vals: ip.map((r) => r.gt), med: medI("gt"), couleur: ENCRE, nom: "voie GT" });
+      if (ip.some((r) => num(r.pro))) series.push({ vals: ip.map((r) => r.pro), med: medI("pro"), couleur: MAGENTA, texte: MAGENTA_TEXTE, nom: "voie pro" });
+      if (!series.length) series.push({ vals: ip.map((r) => r.etab), med: medI("etab"), couleur: ENCRE, nom: "lycée" });
+      const d = ip[ip.length - 1], m = (M.ips || {})[d.annee] || {};
+      const principal = num(d.gt) ? ["gt", "voie GT"] : num(d.pro) ? ["pro", "voie pro"] : ["etab", "lycée"];
+      const contexte = [];
+      if (num(d.gt) && num(d.pro)) contexte.push(`Voie pro : ${fr(d.pro, 1)}.`);
+      if (num(d.etab)) contexte.push(`Lycée entier : ${fr(d.etab, 1)}${num(m.etab) ? ` (médiane ${fr(m.etab, 1)})` : ""}.`);
+      if (num(d.postbac)) contexte.push(`Post-bac : ${fr(d.postbac, 1)}.`);
+      if (num(d.et_gt)) contexte.push(`Écart-type voie GT : ${fr(d.et_gt, 1)}.`);
+      res.push({
+        cle: "ips", nom: "IPS", titre: "Indice de position sociale",
+        valeur: fr(d[principal[0]], 1), unite: `${principal[1]}, ${d.annee}`, contexte: contexte.join(" "),
+        graphe: { labels: ans.map(anneeCourte),
+          aria: `IPS par année. ${series.map((x) => `${x.nom} : ${x.vals.map((v, i) => `${ans[i]} ${num(v) ? fr(v, 1) : "non publié"}`).join(", ")}`).join(". ")}.`,
+          panneaux: [{ tick: (t) => fr(t, 0), echelle: { etendueMin: 20 }, series }] },
+        table: tableau([{ cle: "annee", nom: "Année" }, { cle: "gt", nom: "Voie GT", fmt: (v) => fr(v, 1) }, { cle: "pro", nom: "Voie pro", fmt: (v) => fr(v, 1) },
+          { cle: "etab", nom: "Lycée", fmt: (v) => fr(v, 1) }, { cle: "postbac", nom: "Post-bac", fmt: (v) => fr(v, 1) }], ip),
+      });
+    }
+
+    // Score de la voie générale.
+    if (sc.some((r) => num(r.score))) {
+      const d = dernier(sc, "score"), m = ((M.gt || {})[d.session] || {}).score;
+      const contexte = [];
+      if (num(d.rang)) contexte.push(`${d.rang}e sur ${fr(d.nb, 0)} lycées des deux académies en ${d.session}.`);
+      if (num(m)) contexte.push(`Médiane : ${fr(m, 1)}.`);
+      contexte.push("Moyenne des taux de réussite, de mentions et de mentions très bien au bac général : à lire avec précaution.");
+      const lab = sc.map((r) => r.session);
+      res.push({
+        cle: "score", nom: "Score", titre: "Score de la voie générale",
+        valeur: fr(d.score, 1), unite: d.session, contexte: contexte.join(" "),
+        graphe: { labels: lab, aria: `Score de la voie générale par session : ${decrire(sc, "session", "score", (v) => fr(v, 1))}.`,
+          panneaux: [{ tick: (t) => fr(t, 0), echelle: { plancher: 0, plafond: 100, etendueMin: 20 }, series: [
+            { vals: sc.map((r) => r.score), med: med("gt", "score", lab), couleur: ENCRE, nom: "score" },
+          ] }] },
+        table: tableau([{ cle: "session", nom: "Session" }, { cle: "score", nom: "Score", fmt: (v) => fr(v, 1) }, { cle: "tb", nom: "Mentions TB", fmt: (v) => fr(v, 1) + " %" },
+          { cle: "rang", nom: "Rang", fmt: (v) => fr(v, 0) }, { cle: "nb", nom: "Sur", fmt: (v) => fr(v, 0) }], sc),
+      });
+    }
+    return res;
+  }
+
   function afficherOnglet() {
     const liste = ficheCourante.onglets;
-    const o = liste.find((x) => x.cle === ongletChoisi) || liste[0];
+    const o = liste.find((x) => x.cle === ongletsChoisis[ficheCourante.type]) || liste[0];
     document.querySelectorAll("#fiche .onglets button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.onglet === o.cle)));
     const avecMediane = o.graphe.panneaux.some((pan) => pan.series.some((s) => s.med && s.med.some(num)));
     $("fiche-graphe").innerHTML = `
@@ -637,9 +802,10 @@
       <p class="graphe-contexte">${echapper(o.contexte)}</p>
       <div class="graphe">${graphique(o.graphe)}</div>
       <div class="legende-graphe" aria-hidden="true">
-        <span><svg width="22" height="8" viewBox="0 0 22 8"><path d="M1 4H21" stroke="${ENCRE}" stroke-width="2.5" stroke-linecap="round"/></svg>Trait plein : ce collège</span>
+        <span><svg width="22" height="8" viewBox="0 0 22 8"><path d="M1 4H21" stroke="${ENCRE}" stroke-width="2.5" stroke-linecap="round"/></svg>Trait plein : ${ficheCourante.type === "lycee" ? "ce lycée" : "ce collège"}</span>
         ${avecMediane ? `<span><svg width="22" height="8" viewBox="0 0 22 8"><path d="M1 4H21" stroke="${ENCRE}" stroke-opacity="0.55" stroke-width="2" stroke-dasharray="4 3"/></svg>Pointillés de même couleur : médiane Paris et Versailles</span>` : ""}
       </div>
+      ${o.detail || ""}
       <details class="valeurs"><summary>Valeurs par année</summary>${o.table}</details>`;
   }
 
@@ -651,7 +817,7 @@
     surlignerSecteur(p.uai);
     const hist = JSON.parse(p.hist || "{}");
     const liste = onglets(p, hist);
-    ficheCourante = { p, onglets: liste };
+    ficheCourante = { type: "college", p, onglets: liste };
     const type = p.secteur === "public" ? "Collège public" : "Collège privé sous contrat";
     $("fiche-contenu").innerHTML = `
       <h2 id="fiche-nom">${echapper(p.nom)}</h2>
@@ -674,26 +840,33 @@
   $("fiche-contenu").addEventListener("click", (e) => {
     const b = e.target.closest("button[data-onglet]");
     if (!b || !ficheCourante) return;
-    ongletChoisi = b.dataset.onglet;  // gardé pour la fiche suivante
+    ongletsChoisis[ficheCourante.type] = b.dataset.onglet;  // gardé pour la fiche suivante
     afficherOnglet();
   });
 
-  // Fiche lycée : chiffres clés (la fiche détaillée, avec graphiques, viendra ensuite).
+  // Fiche lycée : effectifs, puis un graphique par indicateur, comme pour les collèges.
   function ouvrirFicheLycee(p) {
     surlignerSecteur(null);
-    ficheCourante = null;
+    const hist = JSON.parse(p.hist || "{}");
+    const liste = ongletsLycee(p, hist);
+    ficheCourante = { type: "lycee", p, onglets: liste };
     const secteur = p.secteur === "public" ? "public" : "privé sous contrat";
     const chiffres = [];
-    const ajouter = (titre, v, detail) => { chiffres.push(`<div class="chiffre"><dt>${titre}</dt><dd>${v}${detail ? ` <small>${echapper(detail)}</small>` : ""}</dd></div>`); };
-    if (num(p.gt_reussite)) ajouter("Réussite au bac général et techno", fr(p.gt_reussite, 0) + " %", p.session_gt);
-    if (num(p.pro_reussite)) ajouter("Réussite au bac pro", fr(p.pro_reussite, 0) + " %", p.session_pro);
-    if (num(p.ips)) ajouter("IPS du lycée", fr(p.ips, 1), p.annee_ips);
-    if (num(p.score)) ajouter("Score de la voie générale", fr(p.score, 1), num(p.rang) ? `${p.rang}e sur ${fr(p.nb, 0)}` : p.session_score);
+    if (num(p.eff_gt)) chiffres.push(["Voie générale et techno", fr(p.eff_gt, 0), "élèves"]);
+    if (num(p.eff_pro)) chiffres.push(["Voie professionnelle", fr(p.eff_pro, 0), "élèves"]);
+    if (num(p.score)) chiffres.push(["Score voie générale", fr(p.score, 1), num(p.rang) ? `${p.rang}e sur ${fr(p.nb, 0)}` : p.session_score]);
     $("fiche-contenu").innerHTML = `
       <h2 id="fiche-nom">${echapper(p.nom)}</h2>
       <p class="lieu">${echapper(p.type || "Lycée")} ${secteur}, ${echapper(p.commune)} (${echapper(p.departement)})</p>
-      ${chiffres.length ? `<dl class="chiffres">${chiffres.join("")}</dl>` : "<p>Aucun indicateur n'est publié pour ce lycée.</p>"}
-      <p class="renvoi"><a href="documentation.html#indicateurs">Comprendre ces indicateurs</a></p>`;
+      ${chiffres.length ? `<dl class="cles">${chiffres.map(([t, v, d]) => `<div><dt>${t}</dt><dd>${v}</dd><dd class="detail">${echapper(d || "")}</dd></div>`).join("")}</dl>` : ""}
+      ${liste.length ? `
+        <div class="onglets" role="group" aria-label="Indicateur affiché">
+          ${liste.map((o) => `<button type="button" data-onglet="${o.cle}" aria-pressed="false">${o.nom}</button>`).join("")}
+        </div>
+        <div id="fiche-graphe" aria-live="polite"></div>` :
+        `<p>Aucun indicateur n'est publié pour ce lycée. C'est souvent le cas des établissements récents, à petit effectif, ou sans classe de terminale.</p>`}
+      <p class="renvoi"><a href="documentation.html#lycees">Comprendre ces indicateurs</a></p>`;
+    if (liste.length) afficherOnglet();
     const fiche = $("fiche");
     fiche.hidden = false;
     document.body.classList.add("fiche-ouverte");
@@ -730,27 +903,38 @@
     return 2 * R * Math.asin(Math.sqrt(h));
   }
 
+  // Nom sans le type en tête (« Lycée polyvalent Louis Bascan » -> « louis bascan »), pour classer les résultats.
+  const PREFIXE = /^(college|lycee)( (polyvalent|professionnel|general et technologique|general|technologique|des metiers|agricole|d enseignement general et technologique))? /;
+
   function chercherLocal(q) {
     const mots = normaliser(q).split(" ").filter(Boolean);
-    if (!mots.length) return { colleges: [], communes: [] };
-    const colleges = [], communes = new Map();
-    donnees.features.forEach((f) => {
-      const p = f.properties;
-      const texte = normaliser(p.nom + " " + p.commune);
-      if (mots.every((m) => texte.includes(m))) {
-        const nomN = normaliser(p.nom).replace(/^college /, "");
-        colleges.push({ f, rang: nomN.startsWith(mots[0]) ? 0 : 1 });
-      }
-      const com = normaliser(p.commune);
-      if (mots.every((m) => com.includes(m))) {
-        const cle = p.commune + "|" + p.dep;
-        if (!communes.has(cle)) communes.set(cle, { nom: p.commune, departement: p.departement, rang: com.startsWith(mots[0]) ? 0 : 1, features: [] });
-        communes.get(cle).features.push(f);
-      }
+    const vide = { colleges: [], lycees: [], communes: [] };
+    if (!mots.length) return vide;
+    const trouves = { colleges: [], lycees: [] }, communes = new Map();
+    ["colleges", "lycees"].forEach((type) => {
+      if (!sources[type]) return;
+      sources[type].features.forEach((f) => {
+        const p = f.properties;
+        if (mots.every((m) => normaliser(p.nom + " " + p.commune).includes(m))) {
+          trouves[type].push({ f, rang: normaliser(p.nom).replace(PREFIXE, "").startsWith(mots[0]) ? 0 : 1 });
+        }
+        const com = normaliser(p.commune);
+        if (mots.every((m) => com.includes(m))) {
+          const cle = p.commune + "|" + p.dep;
+          if (!communes.has(cle)) communes.set(cle, { nom: p.commune, departement: p.departement, rang: com.startsWith(mots[0]) ? 0 : 1, features: [], colleges: 0, lycees: 0 });
+          const c = communes.get(cle);
+          c.features.push(f);
+          c[type]++;
+        }
+      });
     });
-    colleges.sort((a, b) => a.rang - b.rang || a.f.properties.nom.localeCompare(b.f.properties.nom, "fr"));
+    const tri = (a, b) => a.rang - b.rang || a.f.properties.nom.localeCompare(b.f.properties.nom, "fr");
     const listeCom = [...communes.values()].sort((a, b) => a.rang - b.rang || a.nom.localeCompare(b.nom, "fr"));
-    return { colleges: colleges.slice(0, 5).map((c) => c.f), communes: listeCom.slice(0, 3) };
+    return {
+      colleges: trouves.colleges.sort(tri).slice(0, 4).map((c) => c.f),
+      lycees: trouves.lycees.sort(tri).slice(0, 4).map((c) => c.f),
+      communes: listeCom.slice(0, 3),
+    };
   }
 
   // Adresses : service d'autocomplétion, puis recherche classique en secours.
@@ -776,7 +960,7 @@
 
   function initRecherche() {
     const champ = $("recherche"), liste = $("suggestions");
-    let options = [], actif = -1, minuteur = null, controleur = null, local = { colleges: [], communes: [] }, adresses = [], etatAdresses = "";
+    let options = [], actif = -1, minuteur = null, controleur = null, local = { colleges: [], lycees: [], communes: [] }, adresses = [], etatAdresses = "";
 
     function fermerListe() {
       liste.hidden = true; champ.setAttribute("aria-expanded", "false"); champ.removeAttribute("aria-activedescendant"); actif = -1;
@@ -794,10 +978,12 @@
         });
       };
       groupe("Collèges", local.colleges.map((f) => ({ type: "college", f, libelle: f.properties.nom, detail: `${f.properties.commune} (${f.properties.departement})` })));
-      groupe("Communes", local.communes.map((c) => ({ type: "commune", c, libelle: c.nom, detail: `${c.departement}, ${c.features.length} collège${c.features.length > 1 ? "s" : ""}` })));
+      groupe("Lycées", local.lycees.map((f) => ({ type: "lycee", f, libelle: f.properties.nom, detail: `${f.properties.commune} (${f.properties.departement})` })));
+      const nb = (n, mot) => (n ? `${n} ${mot}${n > 1 ? "s" : ""}` : "");
+      groupe("Communes", local.communes.map((c) => ({ type: "commune", c, libelle: c.nom, detail: [c.departement, nb(c.colleges, "collège"), nb(c.lycees, "lycée")].filter(Boolean).join(", ") })));
       groupe("Adresses", adresses.map((a) => ({ type: "adresse", a, libelle: a.libelle, detail: a.detail })));
       if (etatAdresses) html += `<li class="info" role="presentation">${etatAdresses}</li>`;
-      if (!html) html = `<li class="info" role="presentation">Aucun résultat. Essayez le nom d'un collège, une commune ou une adresse avec son numéro.</li>`;
+      if (!html) html = `<li class="info" role="presentation">Aucun résultat. Essayez le nom d'un collège ou d'un lycée, une commune ou une adresse avec son numéro.</li>`;
       liste.innerHTML = html;
       liste.hidden = false;
       champ.setAttribute("aria-expanded", "true");
@@ -819,6 +1005,9 @@
       if (it.type === "college") {
         centrer(it.f.geometry.coordinates, Math.max(carte.getZoom(), 14));
         ouvrirFiche(it.f.properties);
+      } else if (it.type === "lycee") {
+        centrer(it.f.geometry.coordinates, Math.max(carte.getZoom(), 14));
+        ouvrirFicheLycee(it.f.properties);
       } else if (it.type === "commune") {
         const b = new maplibregl.LngLatBounds();
         it.c.features.forEach((f) => b.extend(f.geometry.coordinates));
@@ -846,7 +1035,7 @@
         } catch (e) {
           if (e.name === "AbortError") return;
           adresses = [];
-          etatAdresses = "La recherche d'adresses ne répond pas pour le moment. Les collèges et les communes restent cherchables.";
+          etatAdresses = "La recherche d'adresses ne répond pas pour le moment. Les établissements et les communes restent cherchables.";
         }
         if (champ.value.trim() === q) rendre();
       }, 300);
@@ -886,6 +1075,11 @@
     const proches = (deSecteur ? [deSecteur] : []).concat(tous.filter((x) => x !== deSecteur).slice(0, deSecteur ? 4 : 5));
     surlignerSecteur(uaiSecteur);
     ficheCourante = null;
+    const distance = (d) => (d < 1 ? fr(d * 1000, 0).replace(/\s/g, " ") + " m" : fr(d, 1) + " km");
+    const lycees = sources.lycees ? sources.lycees.features
+      .filter((f) => f.properties.secteur === "public")
+      .map((f) => ({ f, d: distanceKm(a.coord, f.geometry.coordinates) }))
+      .sort((x, y) => x.d - y.d).slice(0, 3) : [];
     $("fiche-contenu").innerHTML = `
       <h2 id="fiche-nom">${echapper(a.libelle)}</h2>
       <p class="lieu">${deSecteur ? "Collège de secteur et collèges publics les plus proches" : "Collèges publics les plus proches"}, distances à vol d'oiseau</p>
@@ -897,7 +1091,20 @@
       </ul>
       <p class="avertissement">${deSecteur
         ? "Le secteur est reconstitué à partir de la carte scolaire officielle et peut différer à la marge, notamment en limite de secteur. Pour une inscription, la réponse qui fait foi est celle de l'inspection académique."
-        : "Aucun secteur n'a été trouvé pour cette adresse. Le collège le plus proche n'est pas forcément le collège de secteur."}</p>`;
+        : "Aucun secteur n'a été trouvé pour cette adresse. Le collège le plus proche n'est pas forcément le collège de secteur."}</p>
+      ${lycees.length ? `<h3>Lycées publics les plus proches</h3>
+      <ul class="proches">
+        ${lycees.map((x, i) => `<li><button type="button" data-lycee="${i}">
+          <span>${echapper(x.f.properties.nom)}<small>${echapper(x.f.properties.commune)}</small></span>
+          <span class="distance">${distance(x.d)}</span>
+        </button></li>`).join("")}
+      </ul>
+      <p class="avertissement">L'affectation en lycée passe par Affelnet : le lycée le plus proche n'est pas forcément celui obtenu.</p>` : ""}`;
+    $("fiche-contenu").querySelectorAll("[data-lycee]").forEach((b) => b.addEventListener("click", () => {
+      const f = lycees[Number(b.dataset.lycee)].f;
+      centrer(f.geometry.coordinates, Math.max(carte.getZoom(), 14));
+      ouvrirFicheLycee(f.properties);
+    }));
     $("fiche-contenu").querySelectorAll("[data-proche]").forEach((b) => b.addEventListener("click", () => {
       const f = proches[Number(b.dataset.proche)].f;
       centrer(f.geometry.coordinates, Math.max(carte.getZoom(), 14));
@@ -946,7 +1153,7 @@
       carte.addLayer({ id: "secteurs-contour", type: "line", source: "secteurs", paint: { "line-color": "#1e2f6b", "line-width": ["interpolate", ["linear"], ["zoom"], 9, 0.3, 14, 1.2], "line-opacity": 0.55 } }, "colleges");
       carte.addLayer({ id: "secteurs-surligne", type: "line", source: "secteurs", filter: ["==", ["get", "uai"], ""], paint: { "line-color": "#1e2f6b", "line-width": 3 } }, "colleges");
       appliquerCalque(calque("colleges"));
-      if (ficheCourante) surlignerSecteur(ficheCourante.p.uai);
+      if (ficheCourante && ficheCourante.type === "college") surlignerSecteur(ficheCourante.p.uai);
     }).catch((e) => console.warn("Secteurs indisponibles", e));
   }
 
@@ -969,6 +1176,7 @@
     sources.colleges = geo;
     if (lyc) sources.lycees = lyc;
     if (meta && meta.medianes) medianes = Object.assign(medianes, meta.medianes);
+    if (meta && meta.lycees && meta.lycees.medianes) medianesLycees = Object.assign(medianesLycees, meta.lycees.medianes);
     ajouterFormes();
     ajouterCalqueCarte(calque("colleges"));
     if (lyc) ajouterCalqueCarte(calque("lycees"));  // au-dessus des collèges
