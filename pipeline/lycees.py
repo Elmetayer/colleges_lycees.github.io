@@ -41,6 +41,9 @@ DOMAINES_PRO = [
 ]
 
 
+HISTORIQUE = 8
+
+
 def _outils():
     # Import tardif : build.py importe ce module.
     import build
@@ -231,7 +234,8 @@ def construire(tous: pd.DataFrame, frames: dict, out_dir, problemes: list, depar
             problemes.append(f"{key} : {exc}")
             lus[key] = None
     gt, pro, ips = lus["ival_gt"], lus["ival_pro"], lus["ips_lycees"]
-    by = lambda df: {k: g.sort_values(df.columns[1]) for k, g in df.groupby("uai")} if df is not None and len(df) else {}
+    # Historique limité aux HISTORIQUE dernières sessions (les plus anciennes alourdissent la fiche sans l'éclairer).
+    by = lambda df: {k: g.sort_values(df.columns[1]).tail(HISTORIQUE) for k, g in df.groupby("uai")} if df is not None and len(df) else {}
     gt_by, pro_by, ips_by = by(gt), by(pro), by(ips)
 
     feats = []
@@ -292,6 +296,8 @@ def construire(tous: pd.DataFrame, frames: dict, out_dir, problemes: list, depar
             m[an] = {c: r(g[c].median(), 1) for c in cols}
         return m
 
+    recentes = lambda df, c: df[df[c].isin(sorted(df[c].unique())[-HISTORIQUE:])] if df is not None and len(df) else df
+    gt, pro = recentes(gt, "session"), recentes(pro, "session")
     voie = ["reussite", "mentions", "acces", "va_reussite", "va_mentions", "va_acces"]
     medianes = {"gt": med(gt, voie + ["score"], "session"), "pro": med(pro, voie, "session"),
                 "ips": med(ips, ["gt", "pro", "etab"], "annee")}
