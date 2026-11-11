@@ -1,10 +1,12 @@
-"""Prépare les données de la carte scolaire (académies de Paris et de Versailles).
+"""Prépare les données de la carte scolaire.
 
-Télécharge les jeux open data de l'Éducation nationale, garde les collèges des
-cinq départements concernés, calcule les indicateurs et écrit :
-  - <out>/colleges.geojson : un point par collège avec ses indicateurs
-  - <out>/lycees.geojson   : un point par lycée (voie générale et technologique, voie pro)
-  - <out>/meta.json        : date de génération, sessions, sources
+Télécharge les jeux open data de l'Éducation nationale, calcule les indicateurs et écrit :
+  - <out>/colleges.geojson         : un point par collège de France métropolitaine, avec
+                                     la dernière valeur de chaque indicateur (fichier léger)
+  - <out>/fiches/colleges-<dep>.json : historique des collèges d'un département, chargé
+                                     à l'ouverture d'une fiche
+  - <out>/lycees.geojson           : un point par lycée (académies de Paris et de Versailles)
+  - <out>/meta.json                : date de génération, sessions, médianes, sources
 
 Usage : python pipeline/build.py --out site/data
         python pipeline/build.py --out site/data --local-dir chemin/vers/csv  (tests hors ligne)
@@ -27,8 +29,11 @@ import requests
 sys.path.insert(0, str(Path(__file__).parent))
 import lycees  # noqa: E402
 
-DEPARTEMENTS = {"75": "Paris", "78": "Yvelines", "91": "Essonne", "92": "Hauts-de-Seine", "95": "Val-d'Oise"}
-ACADEMIE_PAR_DEP = {"75": "Paris", "78": "Versailles", "91": "Versailles", "92": "Versailles", "95": "Versailles"}
+# Collèges : France métropolitaine (Corse comprise). L'outre-mer viendra plus tard.
+METROPOLE = re.compile(r"\d{1,2}|2[AB]")
+# Lycées : périmètre du MVP, inchangé au jalon 6.
+DEPARTEMENTS_LYCEES = {"75": "Paris", "78": "Yvelines", "91": "Essonne", "92": "Hauts-de-Seine", "95": "Val-d'Oise"}
+ACADEMIE_LYCEES = {"75": "Paris", "78": "Versailles", "91": "Versailles", "92": "Versailles", "95": "Versailles"}
 
 EXPLORE = "https://data.education.gouv.fr/api/explore/v2.1/catalog/datasets"
 DATAGOUV = "https://www.data.gouv.fr/api/1/datasets"
@@ -141,9 +146,11 @@ def num(series: pd.Series) -> pd.Series:
 
 
 def dep_code(value) -> str:
-    """'075', '75', 75 -> '75' ; '2A' reste '2A'."""
-    v = str(value).strip()
-    return v.lstrip("0") if v.isdigit() else v
+    """'075', '75', 75 -> '75' ; '02A' et '2A' -> '2A' ; '971' reste '971'."""
+    v = str(value).strip().upper()
+    if v.isdigit():
+        return v.lstrip("0") or "0"
+    return v[1:] if len(v) == 3 and v[0] == "0" else v
 
 
 def round_or_none(x, nd=1):
@@ -234,6 +241,9 @@ def load_etablissements(df: pd.DataFrame) -> pd.DataFrame:
     c_adr = pick(df, r"^adresse_uai$|adresse", required=False)
     c_cp = pick(df, r"code_postal", required=False)
     c_etat = pick(df, r"etat_etablissement_libe", required=False)
+    c_ldep = pick(df, r"^libelle_departement$|libelle_dep", required=False)
+    c_acad = pick(df, r"^libelle_academie$|libelle_acad", required=False)
+    log(f"  colonnes retenues : département={c_dep} ({c_ldep}) académie={c_acad}")
     if c_etat:
         df = df[df[c_etat].fillna("").map(norm).str.startswith("ouvert")]
     out = pd.DataFrame({
@@ -243,24 +253,30 @@ def load_etablissements(df: pd.DataFrame) -> pd.DataFrame:
         "secteur": df[c_secteur].fillna("").map(lambda s: "public" if norm(s).startswith("pu") else "privé"),
         "commune": df[c_commune].str.replace(r"\s+", " ", regex=True).str.strip(),
         "dep": df[c_dep].map(dep_code),
+        "departement": df[c_ldep].fillna("").str.strip() if c_ldep else "",
+        "academie": df[c_acad].fillna("").str.strip() if c_acad else "",
         "lat": num(df[c_lat]),
         "lon": num(df[c_lon]),
         "adresse": df[c_adr].fillna("").str.strip() if c_adr else "",
         "cp": df[c_cp].fillna("").str.strip() if c_cp else "",
     })
-    out = out[out["dep"].isin(DEPARTEMENTS)]
+    out = out[out["dep"].map(lambda d: bool(METROPOLE.fullmatch(d)))]
+    out["departement"] = out["departement"].where(out["departement"] != "", out["dep"])
+    out["academie"] = out["academie"].where(out["academie"] != "", "Non renseignée")
     out = out.dropna(subset=["lat", "lon"]).drop_duplicates("uai")
     return out
 
 
 def colleges_de(etabs: pd.DataFrame) -> pd.DataFrame:
     out = etabs[etabs["nature"].str.contains("college")]
-    log(f"  {len(out)} collèges géolocalisés dans les 5 départements "
-        f"({(out['secteur'] == 'public').sum()} publics, {(out['secteur'] == 'privé').sum()} privés)")
+    log(f"  {len(out)} collèges géolocalisés en France métropolitaine "
+        f"({(out['secteur'] == 'public').sum()} publics, {(out['secteur'] == 'privé').sum()} privés), "
+        f"{out['dep'].nunique()} départements, {out['academie'].nunique()} académies")
+    log(f"  collèges par académie : {out['academie'].value_counts().to_dict()}")
     return out
 
 
-def load_ivac(df: pd.DataFrame, uais: set[str]) -> pd.DataFrame:
+def load_ivac(df: pd.DataFrame, uais: set[str], academies: dict[str, str]) -> pd.DataFrame:
     c_uai = pick(df, r"^uai$|numero_uai|^code_uai")
     c_session = pick(df, r"^session$|^annee|session")
     c_reussite = pick(df, r"taux_de_reussite.*_g$|taux_reussite.*_g$", exclude=r"attendu|^va|valeur|ecart")
@@ -286,10 +302,14 @@ def load_ivac(df: pd.DataFrame, uais: set[str]) -> pd.DataFrame:
         "va_note": num(d[c_va_note]) if c_va_note else float("nan"),
     })
     out = out.dropna(subset=["taux_reussite"]).drop_duplicates(["uai", "session"])
-    # Score optionnel : moyenne des trois taux bruts, rang parmi les collèges des deux académies.
+    # Score optionnel : moyenne des trois taux bruts. Rang national (France métropolitaine)
+    # et rang dans l'académie, pour la même session.
     out["score"] = out[["taux_reussite", "taux_mentions", "taux_tb"]].mean(axis=1, skipna=False)
+    out["academie"] = out["uai"].map(academies)
     out["rang"] = out.groupby("session")["score"].rank(ascending=False, method="min")
     out["nb_classes"] = out.groupby("session")["score"].transform("count")
+    out["rang_acad"] = out.groupby(["session", "academie"])["score"].rank(ascending=False, method="min")
+    out["nb_acad"] = out.groupby(["session", "academie"])["score"].transform("count")
     log(f"  {len(out)} lignes brevet, sessions {sorted(out['session'].unique())}")
     return out
 
@@ -348,14 +368,14 @@ def load_eval6e(df: pd.DataFrame, uais: set[str]) -> pd.DataFrame:
 
 # ---------------------------------------------------------------- export
 
-def build_features(etabs, ivac, ips, ev) -> list[dict]:
+def build_features(etabs, ivac, ips, ev) -> tuple[list[dict], dict[str, dict]]:
+    """Renvoie les points (dernière valeur de chaque indicateur) et les historiques par département."""
     by = lambda df: {k: g for k, g in df.groupby("uai")} if df is not None and len(df) else {}
     ivac_by, ips_by, ev_by = by(ivac), by(ips), by(ev)
-    feats = []
+    feats, fiches = [], {}
     for e in etabs.itertuples():
         p = {"uai": e.uai, "nom": e.nom, "commune": e.commune, "dep": e.dep,
-             "departement": DEPARTEMENTS[e.dep], "academie": ACADEMIE_PAR_DEP[e.dep],
-             "secteur": e.secteur, "adresse": f"{e.adresse}, {e.cp} {e.commune}".strip(", ")}
+             "departement": e.departement, "academie": e.academie, "secteur": e.secteur}
         hist = {}
         g = ivac_by.get(e.uai)
         if g is not None:
@@ -366,6 +386,7 @@ def build_features(etabs, ivac, ips, ev) -> list[dict]:
                 "taux_tb": round_or_none(r.taux_tb), "va_reussite": round_or_none(r.va_reussite),
                 "note_ecrit": round_or_none(r.note_ecrit, 2), "va_note": round_or_none(r.va_note, 2),
                 "score": round_or_none(r.score), "rang": round_or_none(r.rang, 0), "nb": round_or_none(r.nb_classes, 0),
+                "rang_acad": round_or_none(r.rang_acad, 0), "nb_acad": round_or_none(r.nb_acad, 0),
             } for r in g.itertuples()]
             last = hist["brevet"][-1]
             p["session_brevet"] = last["session"]
@@ -384,10 +405,15 @@ def build_features(etabs, ivac, ips, ev) -> list[dict]:
             p["eval_fr"] = hist["eval6e"][-1]["fr"]
             p["eval_ma"] = hist["eval6e"][-1]["ma"]
             p["annee_eval"] = hist["eval6e"][-1]["annee"]
-        p["hist"] = json.dumps(hist, ensure_ascii=False, separators=(",", ":"))
+        if hist:
+            fiches.setdefault(e.dep, {})[e.uai] = {
+                "adresse": f"{e.adresse}, {e.cp} {e.commune}".strip(", "),
+                "hist": {k: [{c: v for c, v in r.items() if v is not None} for r in rows] for k, rows in hist.items()},
+            }
         p = {k: v for k, v in p.items() if v is not None}  # MapLibre : absence = donnée manquante
-        feats.append({"type": "Feature", "geometry": {"type": "Point", "coordinates": [round(e.lon, 6), round(e.lat, 6)]}, "properties": p})
-    return feats
+        # 5 décimales (environ 1 m) suffisent et allègent le fichier national.
+        feats.append({"type": "Feature", "geometry": {"type": "Point", "coordinates": [round(e.lon, 5), round(e.lat, 5)]}, "properties": p})
+    return feats, fiches
 
 
 def main() -> int:
@@ -415,6 +441,7 @@ def main() -> int:
     tous = load_etablissements(frames["etablissements"])
     etabs = colleges_de(tous)
     uais = set(etabs["uai"])
+    academies = dict(zip(etabs["uai"], etabs["academie"]))
     results = {}
     for key, fn in (("ivac", load_ivac), ("ips", load_ips), ("eval6e", load_eval6e)):
         if key not in frames:
@@ -422,20 +449,32 @@ def main() -> int:
             continue
         log(f"-- {key}")
         try:
-            results[key] = fn(frames[key], uais)
+            results[key] = fn(frames[key], uais, academies) if key == "ivac" else fn(frames[key], uais)
         except ColonneIntrouvable as exc:
             log(f"  ! {key} ignoré : {exc}")
             problemes.append(f"{key} : {exc}")
             results[key] = None
 
-    feats = build_features(etabs, results["ivac"], results["ips"], results["eval6e"])
+    feats, fiches = build_features(etabs, results["ivac"], results["ips"], results["eval6e"])
     geo = {"type": "FeatureCollection", "features": feats}
-    (out / "colleges.geojson").write_text(json.dumps(geo, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    compact = lambda o: json.dumps(o, ensure_ascii=False, separators=(",", ":"))
+    (out / "colleges.geojson").write_text(compact(geo), encoding="utf-8")
+    dossier_fiches = out / "fiches"
+    dossier_fiches.mkdir(exist_ok=True)
+    for f in dossier_fiches.glob("colleges-*.json"):
+        f.unlink()
+    for dep, contenu in fiches.items():
+        (dossier_fiches / f"colleges-{dep}.json").write_text(compact(contenu), encoding="utf-8")
+    tailles = sorted(((f.stat().st_size, f.name) for f in dossier_fiches.glob("colleges-*.json")), reverse=True)
+    log(f"\n== tailles : colleges.geojson {(out / 'colleges.geojson').stat().st_size / 1e6:.2f} Mo ; "
+        f"{len(tailles)} fichiers de fiches, total {sum(t for t, _ in tailles) / 1e6:.2f} Mo, "
+        f"plus gros : {', '.join(f'{n} {t / 1e3:.0f} ko' for t, n in tailles[:3])}")
 
-    def medianes():
-        """Médiane de chaque indicateur par année, sur les collèges des deux académies."""
+    def medianes(filtre=None):
+        """Médiane de chaque indicateur par année, sur les collèges retenus par `filtre` (tous par défaut)."""
         m = {"brevet": {}, "ips": {}, "eval6e": {}}
-        iv, ip, ev = results["ivac"], results["ips"], results["eval6e"]
+        garder = lambda df: df if df is None or filtre is None else df[df["uai"].isin(filtre)]
+        iv, ip, ev = garder(results["ivac"]), garder(results["ips"]), garder(results["eval6e"])
         if iv is not None and len(iv):
             for sess, g in iv.groupby("session"):
                 m["brevet"][sess] = {
@@ -458,14 +497,20 @@ def main() -> int:
         return sorted(df[col].unique().tolist()) if df is not None and len(df) else []
 
     log("\n== lycées")
-    lyc_meta = lycees.construire(tous, frames, out, problemes, DEPARTEMENTS, ACADEMIE_PAR_DEP)
+    tous_lycees = tous[tous["dep"].isin(DEPARTEMENTS_LYCEES)]
+    lyc_meta = lycees.construire(tous_lycees, frames, out, problemes, DEPARTEMENTS_LYCEES, ACADEMIE_LYCEES)
 
     meta = {
         "genere_le": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        "perimetre": {"academies": ["Paris", "Versailles"], "departements": DEPARTEMENTS},
+        "perimetre": {
+            "colleges": "France métropolitaine",
+            "lycees": {"academies": ["Paris", "Versailles"], "departements": DEPARTEMENTS_LYCEES},
+        },
         "colleges": {"total": len(feats), "publics": int((etabs["secteur"] == "public").sum()), "prives": int((etabs["secteur"] == "privé").sum())},
         "periodes": {"brevet": periodes(results["ivac"], "session"), "ips": periodes(results["ips"], "annee"), "eval6e": periodes(results["eval6e"], "annee")},
+        # Médianes nationales (France métropolitaine) et par académie (fiches des collèges).
         "medianes": medianes(),
+        "medianes_academies": {a: medianes(set(g["uai"])) for a, g in etabs.groupby("academie")},
         "lycees": lyc_meta,
         "sources": [{"cle": k, "titre": s["titre"], "page": s.get("page"), "mise_a_jour": s.get("maj")} for k, s in resolved.items()],
         "problemes": problemes,
@@ -478,10 +523,13 @@ def main() -> int:
     for k in ("taux_reussite", "taux_mentions", "va_reussite", "note_ecrit", "ips", "eval_fr", "eval_ma", "score"):
         v = pd.Series([f["properties"][k] for f in feats if k in f["properties"]], dtype=float)
         if len(v):
-            log(f"   {k:14s} n={len(v):4d} min={v.min():.1f} médiane={v.median():.1f} max={v.max():.1f}")
+            log(f"   {k:14s} n={len(v):5d} min={v.min():.1f} médiane={v.median():.1f} max={v.max():.1f}")
     exemple = next((f["properties"] for f in feats if "ips" in f["properties"] and "taux_reussite" in f["properties"]), None)
     if exemple:
-        log(f"   exemple : {json.dumps({k: v for k, v in exemple.items() if k != 'hist'}, ensure_ascii=False)}")
+        log(f"   exemple : {json.dumps(exemple, ensure_ascii=False)}")
+    sans = {k: sum(1 for f in feats if k not in f["properties"]) for k in ("taux_reussite", "ips")}
+    par_dep = pd.Series([f["properties"]["dep"] for f in feats if "taux_reussite" not in f["properties"]]).value_counts().head(8).to_dict()
+    log(f"   collèges sans indicateur : {sans} ; départements les plus touchés (brevet) : {par_dep}")
     if problemes:
         log("   problèmes :\n   - " + "\n   - ".join(problemes))
     return 0
