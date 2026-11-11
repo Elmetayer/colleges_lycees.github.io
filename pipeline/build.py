@@ -5,7 +5,8 @@ Télécharge les jeux open data de l'Éducation nationale, calcule les indicateu
                                      la dernière valeur de chaque indicateur (fichier léger)
   - <out>/fiches/colleges-<dep>.json : historique des collèges d'un département, chargé
                                      à l'ouverture d'une fiche
-  - <out>/lycees.geojson           : un point par lycée (académies de Paris et de Versailles)
+  - <out>/lycees.geojson           : un point par lycée de France métropolitaine (fichier léger)
+  - <out>/fiches/lycees-<dep>.json : historique des lycées d'un département
   - <out>/meta.json                : date de génération, sessions, médianes, sources
 
 Usage : python pipeline/build.py --out site/data
@@ -29,11 +30,8 @@ import requests
 sys.path.insert(0, str(Path(__file__).parent))
 import lycees  # noqa: E402
 
-# Collèges : France métropolitaine (Corse comprise). L'outre-mer viendra plus tard.
+# Collèges et lycées : France métropolitaine (Corse comprise). L'outre-mer viendra plus tard.
 METROPOLE = re.compile(r"\d{1,2}|2[AB]")
-# Lycées : périmètre du MVP, inchangé au jalon 6.
-DEPARTEMENTS_LYCEES = {"75": "Paris", "78": "Yvelines", "91": "Essonne", "92": "Hauts-de-Seine", "95": "Val-d'Oise"}
-ACADEMIE_LYCEES = {"75": "Paris", "78": "Versailles", "91": "Versailles", "92": "Versailles", "95": "Versailles"}
 
 EXPLORE = "https://data.education.gouv.fr/api/explore/v2.1/catalog/datasets"
 DATAGOUV = "https://www.data.gouv.fr/api/1/datasets"
@@ -497,15 +495,11 @@ def main() -> int:
         return sorted(df[col].unique().tolist()) if df is not None and len(df) else []
 
     log("\n== lycées")
-    tous_lycees = tous[tous["dep"].isin(DEPARTEMENTS_LYCEES)]
-    lyc_meta = lycees.construire(tous_lycees, frames, out, problemes, DEPARTEMENTS_LYCEES, ACADEMIE_LYCEES)
+    lyc_meta = lycees.construire(tous, frames, out, problemes)
 
     meta = {
         "genere_le": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        "perimetre": {
-            "colleges": "France métropolitaine",
-            "lycees": {"academies": ["Paris", "Versailles"], "departements": DEPARTEMENTS_LYCEES},
-        },
+        "perimetre": {"colleges": "France métropolitaine", "lycees": "France métropolitaine"},
         "colleges": {"total": len(feats), "publics": int((etabs["secteur"] == "public").sum()), "prives": int((etabs["secteur"] == "privé").sum())},
         "periodes": {"brevet": periodes(results["ivac"], "session"), "ips": periodes(results["ips"], "annee"), "eval6e": periodes(results["eval6e"], "annee")},
         # Médianes nationales (France métropolitaine) et par académie (fiches des collèges).

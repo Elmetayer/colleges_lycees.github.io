@@ -1,11 +1,13 @@
-"""Données des lycées (académies de Paris et de Versailles).
+"""Données des lycées (France métropolitaine).
 
 Appelé par build.py. Lit trois jeux open data déjà téléchargés :
   - ival_gt    : indicateurs de valeur ajoutée des lycées généraux et technologiques
   - ival_pro   : indicateurs de valeur ajoutée des lycées professionnels
   - ips_lycees : indices de position sociale des lycées
-et écrit <out>/lycees.geojson. Renvoie le bloc "lycees" de meta.json
-(effectifs, périodes, médianes par voie).
+et écrit <out>/lycees.geojson (points légers, dernière valeur de chaque indicateur)
+et <out>/fiches/lycees-<dep>.json (historiques, chargés à l'ouverture d'une fiche).
+Renvoie le bloc "lycees" de meta.json (effectifs, périodes, médianes nationales
+et par académie, par voie).
 
 Un lycée polyvalent a le même UAI dans les deux jeux de valeur ajoutée :
 ses résultats de voie générale et technologique (GT) et de voie professionnelle
@@ -80,7 +82,7 @@ def valeur(df, ligne, *noms):
 
 # ---------------------------------------------------------------- lecture
 
-def lire_gt(df: pd.DataFrame, uais: set[str]) -> pd.DataFrame:
+def lire_gt(df: pd.DataFrame, uais: set[str], academies: dict[str, str] | None = None) -> pd.DataFrame:
     b = _outils()
     c_uai = b.pick(df, r"^uai$")
     c_an = b.pick(df, r"^annee$|^session$")
@@ -108,8 +110,12 @@ def lire_gt(df: pd.DataFrame, uais: set[str]) -> pd.DataFrame:
     out["g_mentions"] = n("taux_de_mentions_gnle")
     out["g_tb"] = (tb / pg * 100).where(pg > 0)
     out["score"] = out[["g_reussite", "g_mentions", "g_tb"]].mean(axis=1, skipna=False)
+    # Rang national (France métropolitaine) et rang dans l'académie, pour la même session.
+    out["academie"] = out["uai"].map(academies or {})
     out["rang"] = out.groupby("session")["score"].rank(ascending=False, method="min")
     out["nb_classes"] = out.groupby("session")["score"].transform("count")
+    out["rang_acad"] = out.groupby(["session", "academie"])["score"].rank(ascending=False, method="min")
+    out["nb_acad"] = out.groupby(["session", "academie"])["score"].transform("count")
     # Détail par série (servira pour la dernière session).
     for code, _ in SERIES_GT:
         out[f"s_{code}_p"] = n(f"presents_{code}")
@@ -213,7 +219,7 @@ def domaines_pro(row) -> list[dict]:
     return out
 
 
-def construire(tous: pd.DataFrame, frames: dict, out_dir, problemes: list, departements: dict, academies: dict) -> dict:
+def construire(tous: pd.DataFrame, frames: dict, out_dir, problemes: list) -> dict:
     b = _outils()
     lyc = tous.copy()
     lyc["type"] = lyc["nature"].map(type_lycee)
@@ -221,6 +227,8 @@ def construire(tous: pd.DataFrame, frames: dict, out_dir, problemes: list, depar
     b.log(f"  {len(lyc)} lycées géolocalisés ({(lyc['secteur'] == 'public').sum()} publics, "
           f"{(lyc['secteur'] == 'privé').sum()} privés) ; types : {lyc['type'].value_counts().to_dict()}")
     uais = set(lyc["uai"])
+    academies = dict(zip(lyc["uai"], lyc["academie"]))
+    b.log(f"  lycées par académie : {lyc['academie'].value_counts().to_dict()}")
 
     lus = {}
     for key, fn in (("ival_gt", lire_gt), ("ival_pro", lire_pro), ("ips_lycees", lire_ips)):
@@ -228,7 +236,7 @@ def construire(tous: pd.DataFrame, frames: dict, out_dir, problemes: list, depar
             lus[key] = None
             continue
         try:
-            lus[key] = fn(frames[key], uais)
+            lus[key] = fn(frames[key], uais, academies) if key == "ival_gt" else fn(frames[key], uais)
         except b.ColonneIntrouvable as exc:
             b.log(f"  ! {key} ignoré : {exc}")
             problemes.append(f"{key} : {exc}")
@@ -238,11 +246,10 @@ def construire(tous: pd.DataFrame, frames: dict, out_dir, problemes: list, depar
     by = lambda df: {k: g.sort_values(df.columns[1]).tail(HISTORIQUE) for k, g in df.groupby("uai")} if df is not None and len(df) else {}
     gt_by, pro_by, ips_by = by(gt), by(pro), by(ips)
 
-    feats = []
+    feats, fiches = [], {}
     for e in lyc.itertuples():
         p = {"uai": e.uai, "nom": e.nom, "type": e.type, "commune": e.commune, "dep": e.dep,
-             "departement": departements[e.dep], "academie": academies[e.dep], "secteur": e.secteur,
-             "adresse": f"{e.adresse}, {e.cp} {e.commune}".strip(", ")}
+             "departement": e.departement, "academie": e.academie, "secteur": e.secteur}
         hist = {}
         g = gt_by.get(e.uai)
         if g is not None:
@@ -255,6 +262,7 @@ def construire(tous: pd.DataFrame, frames: dict, out_dir, problemes: list, depar
             if last.get("effectifs"):
                 p["eff_gt"] = sum(v or 0 for v in last["effectifs"])
             sc = [{"session": x.session, "score": r(x.score, 1), "rang": r(x.rang), "nb": r(x.nb_classes),
+                   "rang_acad": r(x.rang_acad), "nb_acad": r(x.nb_acad),
                    "reussite": r(x.g_reussite), "mentions": r(x.g_mentions), "tb": r(x.g_tb, 1)}
                   for x in g.itertuples() if pd.notna(x.score)]
             if sc:
@@ -280,14 +288,25 @@ def construire(tous: pd.DataFrame, frames: dict, out_dir, problemes: list, depar
             p["ips"] = last.get("etab")
             p["ips_gt"] = last.get("gt")
             p["ips_pro"] = last.get("pro")
-        p["hist"] = json.dumps(hist, ensure_ascii=False, separators=(",", ":"))
+        if hist:
+            fiches.setdefault(e.dep, {})[e.uai] = {"adresse": f"{e.adresse}, {e.cp} {e.commune}".strip(", "), "hist": hist}
         p = {k: v for k, v in p.items() if v is not None}
-        feats.append({"type": "Feature", "geometry": {"type": "Point", "coordinates": [round(e.lon, 6), round(e.lat, 6)]}, "properties": p})
+        feats.append({"type": "Feature", "geometry": {"type": "Point", "coordinates": [round(e.lon, 5), round(e.lat, 5)]}, "properties": p})
 
-    (out_dir / "lycees.geojson").write_text(
-        json.dumps({"type": "FeatureCollection", "features": feats}, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    compact = lambda o: json.dumps(o, ensure_ascii=False, separators=(",", ":"))
+    (out_dir / "lycees.geojson").write_text(compact({"type": "FeatureCollection", "features": feats}), encoding="utf-8")
+    dossier = out_dir / "fiches"
+    dossier.mkdir(exist_ok=True)
+    for f in dossier.glob("lycees-*.json"):
+        f.unlink()
+    for dep, contenu in fiches.items():
+        (dossier / f"lycees-{dep}.json").write_text(compact(contenu), encoding="utf-8")
+    tailles = sorted(((f.stat().st_size, f.name) for f in dossier.glob("lycees-*.json")), reverse=True)
+    b.log(f"  tailles : lycees.geojson {(out_dir / 'lycees.geojson').stat().st_size / 1e6:.2f} Mo ; "
+          f"{len(tailles)} fichiers de fiches, total {sum(t for t, _ in tailles) / 1e6:.2f} Mo, "
+          f"plus gros : {', '.join(f'{n} {t / 1e3:.0f} ko' for t, n in tailles[:3])}")
 
-    # Médianes par voie et par année, sur les lycées des deux académies.
+    # Médianes par voie et par année : nationales (France métropolitaine) et par académie.
     def med(df, cols, cle):
         m = {}
         if df is None or not len(df):
@@ -299,8 +318,11 @@ def construire(tous: pd.DataFrame, frames: dict, out_dir, problemes: list, depar
     recentes = lambda df, c: df[df[c].isin(sorted(df[c].unique())[-HISTORIQUE:])] if df is not None and len(df) else df
     gt, pro = recentes(gt, "session"), recentes(pro, "session")
     voie = ["reussite", "mentions", "acces", "va_reussite", "va_mentions", "va_acces"]
-    medianes = {"gt": med(gt, voie + ["score"], "session"), "pro": med(pro, voie, "session"),
-                "ips": med(ips, ["gt", "pro", "etab"], "annee")}
+    def medianes_de(filtre=None):
+        garder = lambda df: df if df is None or filtre is None else df[df["uai"].isin(filtre)]
+        return {"gt": med(garder(gt), voie + ["score"], "session"), "pro": med(garder(pro), voie, "session"),
+                "ips": med(garder(ips), ["gt", "pro", "etab"], "annee")}
+    medianes = medianes_de()
     periodes = lambda df, c: sorted(df[c].unique().tolist()) if df is not None and len(df) else []
     meta = {
         "total": len(feats),
@@ -309,6 +331,7 @@ def construire(tous: pd.DataFrame, frames: dict, out_dir, problemes: list, depar
         "types": {k: int(v) for k, v in lyc["type"].value_counts().items()},
         "periodes": {"gt": periodes(gt, "session"), "pro": periodes(pro, "session"), "ips": periodes(ips, "annee")},
         "medianes": medianes,
+        "medianes_academies": {a: medianes_de(set(g["uai"])) for a, g in lyc.groupby("academie")},
     }
 
     couverture = {k: sum(1 for f in feats if k in f["properties"]) for k in ("gt_reussite", "pro_reussite", "ips", "score")}
@@ -316,8 +339,8 @@ def construire(tous: pd.DataFrame, frames: dict, out_dir, problemes: list, depar
     for k in ("gt_reussite", "gt_acces", "pro_reussite", "ips", "ips_gt", "ips_pro", "score"):
         v = pd.Series([f["properties"][k] for f in feats if k in f["properties"]], dtype=float)
         if len(v):
-            b.log(f"   {k:12s} n={len(v):4d} min={v.min():.1f} médiane={v.median():.1f} max={v.max():.1f}")
+            b.log(f"   {k:12s} n={len(v):5d} min={v.min():.1f} médiane={v.median():.1f} max={v.max():.1f}")
     ex = next((f["properties"] for f in feats if f["properties"]["uai"] == "0782549X"), None)
     if ex:
-        b.log(f"   exemple Louis Bascan : {json.dumps({k: v for k, v in ex.items() if k != 'hist'}, ensure_ascii=False)}")
+        b.log(f"   exemple Louis Bascan : {json.dumps(ex, ensure_ascii=False)}")
     return meta
