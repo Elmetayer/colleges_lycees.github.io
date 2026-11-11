@@ -26,6 +26,8 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 import shapely
 from scipy.spatial import cKDTree
 from shapely.geometry import MultiPoint, shape
@@ -35,6 +37,9 @@ DEPS = ["75", "78", "91", "92", "95"]
 L93 = 2154
 H = requests.Session()
 H.headers["User-Agent"] = "carte-scolaire-colleges-lycees (github.com/Elmetayer/colleges_lycees.github.io)"
+# Les services publics (geo.api.gouv.fr, BAN) ont des coupures passagères : on réessaie avant d'abandonner.
+H.mount("https://", HTTPAdapter(max_retries=Retry(total=4, backoff_factor=2, status_forcelist=[429, 500, 502, 503, 504],
+                                                  allowed_methods=["GET"], raise_on_status=False)))
 
 
 def log(m):
@@ -120,10 +125,51 @@ def contours_complementaires(codes: list[str]) -> gpd.GeoDataFrame | None:
     return g[["code", "nom", "geometry"]]
 
 
+BAN = "https://adresse.data.gouv.fr/data/ban/adresses/"
+_ban_dossiers: list[str] | None = None
+
+
+def ban_urls(dep: str):
+    """Adresses possibles du fichier BAN d'un département, de la plus probable à la moins probable.
+
+    Le dossier « latest » a déjà disparu : on se rabat sur le millésime daté le plus récent
+    de l'index, puis sur les ressources déclarées sur data.gouv.fr.
+    """
+    global _ban_dossiers
+    nom = f"adresses-{dep}.csv.gz"
+    yield f"{BAN}latest/csv/{nom}"
+    if _ban_dossiers is None:
+        _ban_dossiers = []
+        try:
+            r = H.get(BAN, timeout=60)
+            r.raise_for_status()
+            _ban_dossiers = sorted(set(re.findall(r'href="(\d{4}-\d{2}-\d{2}|weekly|latest)/"', r.text)), reverse=True)
+            log(f"  dossiers BAN disponibles : {_ban_dossiers[:6]}")
+        except Exception as e:  # noqa: BLE001
+            log(f"  ! index BAN illisible : {e}")
+    for d in _ban_dossiers:
+        if d != "latest":
+            yield f"{BAN}{d}/csv/{nom}"
+    try:
+        r = H.get("https://www.data.gouv.fr/api/1/datasets/base-adresse-nationale/", timeout=60)
+        r.raise_for_status()
+        for res in r.json().get("resources", []):
+            if (res.get("url") or "").endswith("/" + nom):
+                yield res["url"]
+    except Exception as e:  # noqa: BLE001
+        log(f"  ! data.gouv.fr indisponible pour la BAN : {e}")
+
+
 def ban(dep: str, communes: set[str]) -> pd.DataFrame:
-    url = f"https://adresse.data.gouv.fr/data/ban/adresses/latest/csv/adresses-{dep}.csv.gz"
-    r = H.get(url, timeout=600)
-    r.raise_for_status()
+    r = None
+    for url in ban_urls(dep):
+        r = H.get(url, timeout=600)
+        if r.ok:
+            log(f"  BAN {dep} : {url}")
+            break
+        log(f"  BAN {dep} : {r.status_code} pour {url}")
+    if r is None or not r.ok:
+        raise RuntimeError(f"fichier BAN introuvable pour le département {dep}")
     b = pd.read_csv(io.BytesIO(gzip.decompress(r.content)), sep=";", dtype=str,
                     usecols=["numero", "nom_voie", "nom_afnor", "code_insee", "x", "y"])
     b = b[b["code_insee"].isin(communes)].copy()
