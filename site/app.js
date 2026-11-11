@@ -63,7 +63,7 @@
     { cle: "colleges", nom: "Collèges", pluriel: "collèges", forme: "carre", indicateurs: INDICATEURS, defaut: "taux_reussite",
       zones: { libelle: "Secteurs des collèges publics",
         note: "Les secteurs sont ceux des collèges publics. Ils restent affichés quand seuls les privés sont visibles, avec la couleur de leur collège." } },
-    { cle: "lycees", nom: "Lycées", pluriel: "lycées", forme: "triangle", indicateurs: INDICATEURS_LYCEES, defaut: "ips",
+    { cle: "lycees", nom: "Lycées", pluriel: "lycées", forme: "triangle", indicateurs: INDICATEURS_LYCEES, defaut: "ips", voies: true,
       zones: { libelle: "Secteurs des lycées", indisponible: true,
         note: "Non publiés en open data : l'affectation en lycée passe par Affelnet, avec des règles propres à chaque académie." } },
     { cle: "ecoles", nom: "Écoles", pluriel: "écoles", forme: "cercle", bientot: true },
@@ -102,7 +102,7 @@
     let lu = {};
     try { lu = JSON.parse(localStorage.getItem(CLE_STOCKAGE) || "{}") || {}; } catch (e) { lu = {}; }
     CALQUES.filter((c) => !c.bientot).forEach((c) => {
-      const r = Object.assign({ actif: true, indicateur: c.defaut, public: true, prive: true, zones: true }, lu[c.cle] || {});
+      const r = Object.assign({ actif: true, indicateur: c.defaut, public: true, prive: true, voie_gt: true, voie_pro: true, zones: true }, lu[c.cle] || {});
       if (!c.indicateurs.some((i) => i.cle === r.indicateur)) r.indicateur = c.defaut;
       reglages[c.cle] = r;
     });
@@ -212,6 +212,19 @@
     return ["in", ["get", "secteur"], ["literal", secteurs]];
   }
 
+  // Filière des lycées, d'après leur type dans l'annuaire de l'Éducation nationale.
+  // Les lycées polyvalents (et agricoles, que l'annuaire ne distingue pas) ont les deux voies :
+  // ils restent visibles tant qu'une des deux voies est cochée.
+  const TYPE_GT = "Lycée général et technologique", TYPE_PRO = "Lycée professionnel";
+  function filtreVoie(r) {
+    if (!r.voie_gt && !r.voie_pro) return false;
+    const caches = [];
+    if (!r.voie_gt) caches.push(TYPE_GT);
+    if (!r.voie_pro) caches.push(TYPE_PRO);
+    return ["!", ["in", ["get", "type"], ["literal", caches]]];
+  }
+  const filtreCalque = (c, r) => (c.voies ? ["all", filtreSecteur(r), filtreVoie(r)] : filtreSecteur(r));
+
   // Calque de points d'un type d'établissement : sa forme, colorée selon l'indicateur.
   function ajouterCalqueCarte(c, avant) {
     carte.addSource(c.cle, { type: "geojson", data: sources[c.cle] });
@@ -259,7 +272,7 @@
     const r = reglages[c.cle], ind = indicateurDe(c);
     const { expr, d, pal } = couleur(ind, sources[c.cle].features);
     carte.setPaintProperty(c.cle, "icon-color", expr);
-    carte.setFilter(c.cle, filtreSecteur(r));
+    carte.setFilter(c.cle, filtreCalque(c, r));
     carte.setLayoutProperty(c.cle, "visibility", r.actif ? "visible" : "none");
     if (c.cle === "colleges" && carte.getLayer("secteurs-fond")) {
       carte.setPaintProperty("secteurs-fond", "fill-color", expr);
@@ -284,6 +297,8 @@
     const ind = indicateurDe(c);
     const morceaux = [ind.court || ind.nom];
     morceaux.push(r.public && r.prive ? "publics et privés" : r.public ? "publics" : r.prive ? "privés" : "aucun établissement");
+    if (c.voies && r.voie_gt !== r.voie_pro) morceaux.push(r.voie_gt ? "voie générale et techno" : "voie pro");
+    if (c.voies && !r.voie_gt && !r.voie_pro) morceaux.push("aucune voie");
     if (c.zones && !c.zones.indisponible && r.zones) morceaux.push("zones");
     return morceaux.join(", ");
   }
@@ -327,6 +342,12 @@
             <button type="button" data-reglage="public" aria-pressed="${r.public}">${iconeForme(c.forme, { taille: 18 })}Publics</button>
             <button type="button" data-reglage="prive" aria-pressed="${r.prive}">${iconeForme(c.forme, { taille: 18, prive: true })}Privés sous contrat</button>
           </div>
+          ${c.voies ? `<div class="champ">Filière</div>
+          <div class="puces" role="group" aria-label="Filières affichées">
+            <button type="button" data-reglage="voie_gt" aria-pressed="${r.voie_gt}">Voie générale et techno</button>
+            <button type="button" data-reglage="voie_pro" aria-pressed="${r.voie_pro}">Voie pro</button>
+          </div>
+          <p class="note">Selon le type du lycée dans l'annuaire de l'Éducation nationale. Les lycées polyvalents et agricoles restent affichés tant qu'une des deux voies est cochée.</p>` : ""}
           ${z ? `<div class="champ">Zones</div>
           <div class="ligne-zones${z.indisponible ? " indisponible" : ""}">
             <span>${z.libelle}</span>
@@ -615,7 +636,7 @@
       if (num(m)) contexte.push(`Médiane : ${fr(m, 1)}.`);
       contexte.push("Moyenne des taux de réussite, de mentions et de mentions très bien : à lire avec précaution.");
       res.push({
-        cle: "score", nom: "Score", titre: "Score agrégé (optionnel)",
+        cle: "score", nom: "Score", titre: "Score",
         valeur: fr(d.score, 1), unite: d.session, contexte: contexte.join(" "),
         graphe: { labels: br.map((r) => r.session), aria: `Score agrégé par session : ${decrire(br, "session", "score", (v) => fr(v, 1))}.`,
           panneaux: [{ tick: (t) => fr(t, 0), echelle: { plancher: 0, plafond: 100, etendueMin: 20 }, series: [
