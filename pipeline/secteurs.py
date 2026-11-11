@@ -127,6 +127,7 @@ def contours_complementaires(codes: list[str]) -> gpd.GeoDataFrame | None:
 
 BAN = "https://adresse.data.gouv.fr/data/ban/adresses/"
 _ban_dossiers: list[str] | None = None
+_ban_liens: list[str] | None = None
 
 
 def ban_urls(dep: str):
@@ -150,12 +151,32 @@ def ban_urls(dep: str):
     for d in _ban_dossiers:
         if d != "latest":
             yield f"{BAN}{d}/csv/{nom}"
+    # La page « Données nationales » du site de la BAN donne les liens en vigueur.
+    global _ban_liens
+    if _ban_liens is None:
+        _ban_liens = []
+        try:
+            r = H.get("https://adresse.data.gouv.fr/donnees-nationales", timeout=60)
+            r.raise_for_status()
+            texte = r.text.replace("\\/", "/")
+            absolus = re.findall(r'https?://[^"\'\s<>]*?/data/ban/[^"\'\s<>]+', texte)
+            relatifs = ["https://adresse.data.gouv.fr" + x for x in re.findall(r'(?<=["\'])/data/ban/[^"\'\s<>]+', texte)]
+            _ban_liens = sorted(set(absolus + relatifs))
+            log(f"  liens BAN de la page Données nationales : {_ban_liens[:12]}")
+        except Exception as e:  # noqa: BLE001
+            log(f"  ! page Données nationales illisible : {e}")
+    for lien in _ban_liens:
+        m = re.search(r"(.*/)adresses-(?:[0-9AB]{2,3}|france)\.csv\.gz$", lien)
+        if m and "with-ids" not in lien:
+            yield f"{m.group(1)}{nom}"
     try:
         r = H.get("https://www.data.gouv.fr/api/1/datasets/base-adresse-nationale/", timeout=60)
         r.raise_for_status()
-        for res in r.json().get("resources", []):
-            if (res.get("url") or "").endswith("/" + nom):
-                yield res["url"]
+        ressources = [res.get("url") or "" for res in r.json().get("resources", [])]
+        log(f"  ressources data.gouv.fr de la BAN : {ressources[:12]}")
+        for url in ressources:
+            if url.endswith("/" + nom):
+                yield url
     except Exception as e:  # noqa: BLE001
         log(f"  ! data.gouv.fr indisponible pour la BAN : {e}")
 
