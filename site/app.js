@@ -1,4 +1,4 @@
-/* Carte scolaire : collèges et lycées des académies de Paris et de Versailles, en calques. */
+/* Carte scolaire : collèges de France métropolitaine et lycées des académies de Paris et de Versailles, en calques. */
 (function () {
   "use strict";
 
@@ -61,9 +61,11 @@
   // carré (collèges), triangle (lycées), de plus en plus grands.
   const CALQUES = [
     { cle: "colleges", nom: "Collèges", pluriel: "collèges", forme: "carre", indicateurs: INDICATEURS, defaut: "taux_reussite",
+      perimetre: "Collèges de France métropolitaine ; couleurs réparties sur l'ensemble de ces collèges.",
       zones: { libelle: "Secteurs des collèges publics",
-        note: "Les secteurs sont ceux des collèges publics. Ils restent affichés quand seuls les privés sont visibles, avec la couleur de leur collège." } },
+        note: "Les secteurs sont ceux des collèges publics. Ils restent affichés quand seuls les privés sont visibles, avec la couleur de leur collège. Pour l'instant, ils ne sont dessinés que dans les académies de Paris et de Versailles." } },
     { cle: "lycees", nom: "Lycées", pluriel: "lycées", forme: "triangle", indicateurs: INDICATEURS_LYCEES, defaut: "ips", voies: true,
+      perimetre: "Pour l'instant, seulement les lycées des académies de Paris et de Versailles.",
       zones: { libelle: "Secteurs des lycées", indisponible: true,
         note: "Non publiés en open data : l'affectation en lycée passe par Affelnet, avec des règles propres à chaque académie." } },
     { cle: "ecoles", nom: "Écoles", pluriel: "écoles", forme: "cercle", bientot: true },
@@ -244,6 +246,8 @@
     }, avant);
   }
 
+  const perimetre = (c) => (c.perimetre ? `<p class="note">${echapper(c.perimetre)}</p>` : "");
+
   // Légende d'un calque : courte (dégradé et bornes) et notes (affichées avec les réglages).
   function legende(c, ind, d, pal) {
     const features = sources[c.cle].features;
@@ -255,7 +259,7 @@
       return {
         courte: `<div class="degrade" style="background:linear-gradient(90deg,${pal[0]} 0%,${pal[1]} ${pos(-d.s)},${pal[2]} ${pos(-d.s)},${pal[2]} ${pos(d.s)},${pal[3]} ${pos(d.s)},${pal[4]} 100%)"></div>` +
           `<div class="bornes"><span>${ind.fmt(-d.m)}</span><span>${echapper(VA.libelles.proche)}</span><span>${ind.fmt(d.m)}</span></div>`,
-        notes: `<p class="note">${ind.note || ""} ${echapper(remplir(VA.texteZone, { min: ind.fmt(-d.s), max: ind.fmt(d.s), unite: ind.unite }))}</p>` +
+        notes: perimetre(c) + `<p class="note">${ind.note || ""} ${echapper(remplir(VA.texteZone, { min: ind.fmt(-d.s), max: ind.fmt(d.s), unite: ind.unite }))}</p>` +
           `<p class="note">${echapper(remplir(VA.texteRepartition, { dessous: p100(d.dessous), proches: p100(d.proches), dessus: p100(d.dessus), etablissements: c.pluriel }))}</p>` + sans,
       };
     }
@@ -263,7 +267,7 @@
       courte: `<div class="degrade" style="background:linear-gradient(90deg,${pal.join(",")})"></div>` +
         `<div class="bornes"><span>${ind.fmt(d.stops[0])}</span><span>${ind.fmt(d.stops[2])}</span><span>${ind.fmt(d.stops[4])}</span></div>`,
       notes: `<p class="note">La teinte du milieu correspond à la médiane : la moitié des ${c.pluriel} est au-dessus.</p>` +
-        (ind.note ? `<p class="note">${ind.note}</p>` : "") + sans,
+        (ind.note ? `<p class="note">${ind.note}</p>` : "") + sans + perimetre(c),
     };
   }
 
@@ -435,7 +439,12 @@
 
   // ---------------------------------------------------------------- fiche
   // La fiche montre un graphique d'évolution à la fois ; des boutons changent d'indicateur.
+  // Médianes nationales (France métropolitaine) et par académie : la fiche collège compare à son académie.
   let medianes = { brevet: {}, ips: {}, eval6e: {} };
+  let medianesAcademies = {};
+  const medianesCollege = (p) => Object.assign({ brevet: {}, ips: {}, eval6e: {} }, medianesAcademies[p.academie] || medianes);
+  // « académie de Lyon », « académie d'Aix-Marseille ».
+  const academieDe = (a) => (/^[aeiouyéèêâîô]/i.test(a || "") ? "d'" : "de ") + (a || "");
   let medianesLycees = { gt: {}, pro: {}, ips: {} };
   // Onglet choisi, gardé pour la fiche suivante du même type.
   const ongletsChoisis = { college: "brevet", lycee: "gt" };
@@ -529,6 +538,7 @@
 
   // Contenu de chaque onglet, à partir de l'historique du collège et des médianes.
   function onglets(p, hist) {
+    const medianes = medianesCollege(p);
     const pct = (v) => fr(v, 1) + " %";
     const signe1 = (v) => (v > 0 ? "+" : v < 0 ? "−" : "") + fr(Math.abs(v), 1);
     const tickSigne = (nd) => (t) => (t > 0 ? "+" : t < 0 ? "−" : "") + fr(Math.abs(t), nd);
@@ -548,7 +558,7 @@
       if (num(m.taux_reussite)) meds.push(`réussite ${pct(m.taux_reussite)}`);
       if (num(m.taux_mentions)) meds.push(`mentions ${pct(m.taux_mentions)}`);
       if (num(m.note_ecrit)) meds.push(`écrits ${fr(m.note_ecrit, 1)}`);
-      if (meds.length) contexte.push(`Médianes : ${meds.join(", ")}.`);
+      if (meds.length) contexte.push(`Médianes de l'académie : ${meds.join(", ")}.`);
       res.push({
         cle: "brevet", nom: "Brevet", titre: "Résultats au brevet",
         valeur: num(d.taux_reussite) ? pct(d.taux_reussite) : "–", unite: `réussite ${d.session}`, contexte: contexte.join(" "),
@@ -571,7 +581,7 @@
     if (ip.some((r) => num(r.ips))) {
       const d = dernier(ip, "ips"), m = medianes.ips[d.annee];
       const contexte = [];
-      if (num(m)) contexte.push(`Médiane des deux académies : ${fr(m, 1)}.`);
+      if (num(m)) contexte.push(`Médiane de l'académie : ${fr(m, 1)}.`);
       if (num(d.ecart_type)) contexte.push(`Écart-type : ${fr(d.ecart_type, 1)}.`);
       res.push({
         cle: "ips", nom: "IPS", titre: "Indice de position sociale",
@@ -615,7 +625,7 @@
       const meds = [];
       if (num(m.fr)) meds.push(`français ${fr(m.fr, 0)}`);
       if (num(m.ma)) meds.push(`maths ${fr(m.ma, 0)}`);
-      if (meds.length) contexte.push(`Médianes : ${meds.join(", ")}.`);
+      if (meds.length) contexte.push(`Médianes de l'académie : ${meds.join(", ")}.`);
       res.push({
         cle: "eval", nom: "Évaluations 6e", titre: "Évaluations de 6e",
         valeur: num(d.fr) ? fr(d.fr, 0) : "–", unite: `français ${d.annee}`, contexte: contexte.join(" "),
@@ -632,8 +642,9 @@
     if (br.some((r) => num(r.score))) {
       const d = dernier(br, "score"), m = (medianes.brevet[d.session] || {}).score;
       const contexte = [];
-      if (num(d.rang)) contexte.push(`${d.rang}e sur ${fr(d.nb, 0)} collèges des deux académies en ${d.session}.`);
-      if (num(m)) contexte.push(`Médiane : ${fr(m, 1)}.`);
+      if (num(d.rang)) contexte.push(`${d.rang}e sur ${fr(d.nb, 0)} collèges de France métropolitaine en ${d.session}` +
+        (num(d.rang_acad) ? `, ${d.rang_acad}e sur ${fr(d.nb_acad, 0)} dans l'académie ${academieDe(p.academie)}.` : "."));
+      if (num(m)) contexte.push(`Médiane de l'académie : ${fr(m, 1)}.`);
       contexte.push("Moyenne des taux de réussite, de mentions et de mentions très bien : à lire avec précaution.");
       res.push({
         cle: "score", nom: "Score", titre: "Score",
@@ -642,7 +653,8 @@
           panneaux: [{ tick: (t) => fr(t, 0), echelle: { plancher: 0, plafond: 100, etendueMin: 20 }, series: [
             { vals: col(br, "score"), med: medB("score"), couleur: ENCRE, nom: "score" },
           ] }] },
-        table: tableau([{ cle: "session", nom: "Session" }, { cle: "score", nom: "Score", fmt: (v) => fr(v, 1) }, { cle: "rang", nom: "Rang", fmt: (v) => fr(v, 0) }, { cle: "nb", nom: "Sur", fmt: (v) => fr(v, 0) }], br),
+        table: tableau([{ cle: "session", nom: "Session" }, { cle: "score", nom: "Score", fmt: (v) => fr(v, 1) }, { cle: "rang", nom: "Rang national", fmt: (v) => fr(v, 0) }, { cle: "nb", nom: "Sur", fmt: (v) => fr(v, 0) },
+          { cle: "rang_acad", nom: "Rang académie", fmt: (v) => fr(v, 0) }, { cle: "nb_acad", nom: "Sur", fmt: (v) => fr(v, 0) }], br),
       });
     }
     return res;
@@ -824,7 +836,7 @@
       <div class="graphe">${graphique(o.graphe)}</div>
       <div class="legende-graphe" aria-hidden="true">
         <span><svg width="22" height="8" viewBox="0 0 22 8"><path d="M1 4H21" stroke="${ENCRE}" stroke-width="2.5" stroke-linecap="round"/></svg>Trait plein : ${ficheCourante.type === "lycee" ? "ce lycée" : "ce collège"}</span>
-        ${avecMediane ? `<span><svg width="22" height="8" viewBox="0 0 22 8"><path d="M1 4H21" stroke="${ENCRE}" stroke-opacity="0.55" stroke-width="2" stroke-dasharray="4 3"/></svg>Pointillés de même couleur : médiane Paris et Versailles</span>` : ""}
+        ${avecMediane ? `<span><svg width="22" height="8" viewBox="0 0 22 8"><path d="M1 4H21" stroke="${ENCRE}" stroke-opacity="0.55" stroke-width="2" stroke-dasharray="4 3"/></svg>Pointillés de même couleur : ${ficheCourante.type === "lycee" ? "médiane Paris et Versailles" : `médiane de l'académie ${echapper(academieDe(ficheCourante.p.academie))}`}</span>` : ""}
       </div>
       ${o.detail || ""}
       <details class="valeurs"><summary>Valeurs par année</summary>${o.table}</details>`;
@@ -834,15 +846,44 @@
     if (carte.getLayer("secteurs-surligne")) carte.setFilter("secteurs-surligne", ["==", ["get", "uai"], uai || ""]);
   }
 
+  // Historiques des collèges, un fichier par département, chargé à la première fiche ouverte.
+  const fichesDep = new Map();
+  function chargerFiches(dep) {
+    if (!fichesDep.has(dep)) {
+      fichesDep.set(dep, fetch(`data/fiches/colleges-${encodeURIComponent(dep)}.json`)
+        .then((r) => (r.ok ? r.json() : r.status === 404 ? {} : Promise.reject(r.status)))
+        .catch((e) => { fichesDep.delete(dep); throw e; }));
+    }
+    return fichesDep.get(dep);
+  }
+
   function ouvrirFiche(p) {
     surlignerSecteur(p.uai);
-    const hist = JSON.parse(p.hist || "{}");
+    const type = p.secteur === "public" ? "Collège public" : "Collège privé sous contrat";
+    const tete = `
+      <h2 id="fiche-nom">${echapper(p.nom)}</h2>
+      <p class="lieu">${type}, ${echapper(p.commune)} (${echapper(p.departement)})</p>`;
+    ficheCourante = { type: "college", p, onglets: [] };
+    $("fiche-contenu").innerHTML = tete + `<p class="chargement">Chargement des indicateurs…</p>`;
+    const fiche = $("fiche");
+    fiche.hidden = false;
+    document.body.classList.add("fiche-ouverte");
+    fiche.scrollTop = 0;
+    $("fermer").focus({ preventScroll: true });
+    chargerFiches(p.dep).then((dep) => {
+      if (!ficheCourante || ficheCourante.p.uai !== p.uai) return;  // une autre fiche a été ouverte entre-temps
+      remplirFiche(p, tete, (dep[p.uai] || {}).hist || {});
+    }).catch((e) => {
+      console.warn("Fiches indisponibles", e);
+      if (ficheCourante && ficheCourante.p.uai === p.uai)
+        $("fiche-contenu").innerHTML = tete + `<p>Les indicateurs de ce collège n'ont pas pu être chargés. Vérifiez la connexion puis rouvrez la fiche.</p>`;
+    });
+  }
+
+  function remplirFiche(p, tete, hist) {
     const liste = onglets(p, hist);
     ficheCourante = { type: "college", p, onglets: liste };
-    const type = p.secteur === "public" ? "Collège public" : "Collège privé sous contrat";
-    $("fiche-contenu").innerHTML = `
-      <h2 id="fiche-nom">${echapper(p.nom)}</h2>
-      <p class="lieu">${type}, ${echapper(p.commune)} (${echapper(p.departement)})</p>
+    $("fiche-contenu").innerHTML = tete + `
       ${liste.length ? `
         <div class="onglets" role="group" aria-label="Indicateur affiché">
           ${liste.map((o) => `<button type="button" data-onglet="${o.cle}" aria-pressed="false">${o.nom}</button>`).join("")}
@@ -851,11 +892,6 @@
         `<p>Aucun indicateur n'est publié pour ce collège. C'est souvent le cas des établissements récents ou à petit effectif.</p>`}
       <p class="renvoi"><a href="documentation.html#indicateurs">Comprendre ces indicateurs</a></p>`;
     if (liste.length) afficherOnglet();
-    const fiche = $("fiche");
-    fiche.hidden = false;
-    document.body.classList.add("fiche-ouverte");
-    fiche.scrollTop = 0;
-    $("fermer").focus({ preventScroll: true });
   }
 
   $("fiche-contenu").addEventListener("click", (e) => {
@@ -1078,6 +1114,8 @@
   }
 
   // Adresse choisie : repère sur la carte et liste des collèges publics les plus proches.
+  const SECTEURS_DEPARTEMENTS = ["75", "78", "91", "92", "95"];
+  const LYCEES_RAYON_KM = 30;
   function montrerAdresse(a) {
     if (!repereAdresse) {
       const el = document.createElement("div");
@@ -1100,7 +1138,11 @@
     const lycees = sources.lycees ? sources.lycees.features
       .filter((f) => f.properties.secteur === "public")
       .map((f) => ({ f, d: distanceKm(a.coord, f.geometry.coordinates) }))
+      .filter((x) => x.d <= LYCEES_RAYON_KM)  // les lycées ne couvrent que Paris et Versailles pour l'instant
       .sort((x, y) => x.d - y.d).slice(0, 3) : [];
+    // Secteurs dessinés seulement dans certains départements (jalon 6 : extension progressive).
+    const depProche = tous.length ? tous[0].f.properties.dep : null;
+    const secteursIci = SECTEURS_DEPARTEMENTS.includes(depProche);
     $("fiche-contenu").innerHTML = `
       <h2 id="fiche-nom">${echapper(a.libelle)}</h2>
       <p class="lieu">${deSecteur ? "Collège de secteur et collèges publics les plus proches" : "Collèges publics les plus proches"}, distances à vol d'oiseau</p>
@@ -1112,7 +1154,9 @@
       </ul>
       <p class="avertissement">${deSecteur
         ? "Le secteur est reconstitué à partir de la carte scolaire officielle et peut différer à la marge, notamment en limite de secteur. Pour une inscription, la réponse qui fait foi est celle de l'inspection académique."
-        : "Aucun secteur n'a été trouvé pour cette adresse. Le collège le plus proche n'est pas forcément le collège de secteur."}</p>
+        : secteursIci
+          ? "Aucun secteur n'a été trouvé pour cette adresse. Le collège le plus proche n'est pas forcément le collège de secteur."
+          : "Les secteurs des collèges ne sont pas encore dessinés dans ce département. Le collège le plus proche n'est pas forcément le collège de secteur : la mairie ou le conseil départemental indiquent le collège de rattachement."}</p>
       ${lycees.length ? `<h3>Lycées publics les plus proches</h3>
       <ul class="proches">
         ${lycees.map((x, i) => `<li><button type="button" data-lycee="${i}">
@@ -1197,6 +1241,7 @@
     sources.colleges = geo;
     if (lyc) sources.lycees = lyc;
     if (meta && meta.medianes) medianes = Object.assign(medianes, meta.medianes);
+    if (meta && meta.medianes_academies) medianesAcademies = meta.medianes_academies;
     if (meta && meta.lycees && meta.lycees.medianes) medianesLycees = Object.assign(medianesLycees, meta.lycees.medianes);
     ajouterFormes();
     ajouterCalqueCarte(calque("colleges"));

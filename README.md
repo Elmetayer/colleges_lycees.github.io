@@ -1,19 +1,19 @@
 # Carte scolaire
 
-Carte des collèges des académies de Paris et de Versailles, avec leurs indicateurs : indice de position sociale (IPS), résultats au brevet, valeur ajoutée et évaluations de 6e. Pensée d'abord pour le téléphone.
+Carte des collèges de France métropolitaine et des lycées des académies de Paris et de Versailles, avec leurs indicateurs : indice de position sociale (IPS), résultats au brevet, valeur ajoutée et évaluations de 6e. Pensée d'abord pour le téléphone.
 
 Site : https://elmetayer.github.io/colleges_lycees.github.io/
 
 ## Organisation
 
 ```
-pipeline/build.py         télécharge l'open data, filtre les 5 départements, calcule les indicateurs
+pipeline/build.py         télécharge l'open data, calcule les indicateurs (collèges : France métropolitaine)
 pipeline/requirements.txt dépendances Python
 site/                     site statique publié sur GitHub Pages
   index.html, app.js      carte (MapLibre GL)
   parametres.js           réglages modifiables sans toucher au code (zone neutre de la valeur ajoutée, textes)
   documentation.html      sources et méthodes de calcul
-  data/                   fichiers générés par le script (non versionnés)
+  data/                   fichiers générés par le script (non versionnés) ; data/fiches/ : historiques par département
 .github/workflows/        construction et publication automatiques
 ```
 
