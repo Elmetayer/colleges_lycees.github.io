@@ -290,10 +290,10 @@ def construire(tous: pd.DataFrame, frames: dict, out_dir, problemes: list) -> di
             p["ips_pro"] = last.get("pro")
         if hist:
             fiches.setdefault(e.dep, {})[e.uai] = {"adresse": f"{e.adresse}, {e.cp} {e.commune}".strip(", "), "hist": hist}
-        p = {k: v for k, v in p.items() if v is not None}
+        p = b.sans_nan(p)
         feats.append({"type": "Feature", "geometry": {"type": "Point", "coordinates": [round(e.lon, 5), round(e.lat, 5)]}, "properties": p})
 
-    compact = lambda o: json.dumps(o, ensure_ascii=False, separators=(",", ":"))
+    compact = lambda o: json.dumps(o, ensure_ascii=False, separators=(",", ":"), allow_nan=False)
     (out_dir / "lycees.geojson").write_text(compact({"type": "FeatureCollection", "features": feats}), encoding="utf-8")
     dossier = out_dir / "fiches"
     dossier.mkdir(exist_ok=True)
