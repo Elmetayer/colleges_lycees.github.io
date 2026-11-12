@@ -151,6 +151,11 @@ def dep_code(value) -> str:
     return v[1:] if len(v) == 3 and v[0] == "0" else v
 
 
+def sans_nan(p: dict) -> dict:
+    """Retire les valeurs absentes (None, NaN) : un NaN écrit tel quel rend le GeoJSON illisible par le navigateur."""
+    return {k: v for k, v in p.items() if v is not None and not (isinstance(v, float) and v != v)}
+
+
 def round_or_none(x, nd=1):
     if x is None or pd.isna(x):
         return None
@@ -241,15 +246,17 @@ def load_etablissements(df: pd.DataFrame) -> pd.DataFrame:
     c_etat = pick(df, r"etat_etablissement_libe", required=False)
     c_ldep = pick(df, r"^libelle_departement$|libelle_dep", required=False)
     c_acad = pick(df, r"^libelle_academie$|libelle_acad", required=False)
+    c_denom = pick(df, r"^denomination_principale$", required=False)
+    c_patro = pick(df, r"^patronyme_uai$|^patronyme$", required=False)
     log(f"  colonnes retenues : département={c_dep} ({c_ldep}) académie={c_acad}")
     if c_etat:
         df = df[df[c_etat].fillna("").map(norm).str.startswith("ouvert")]
     out = pd.DataFrame({
         "uai": df[c_uai].str.strip().str.upper(),
-        "nom": df[c_nom].str.strip(),
+        "nom": df[c_nom].fillna("").str.strip(),
         "nature": df[c_nature].fillna("").map(norm),
         "secteur": df[c_secteur].fillna("").map(lambda s: "public" if norm(s).startswith("pu") else "privé"),
-        "commune": df[c_commune].str.replace(r"\s+", " ", regex=True).str.strip(),
+        "commune": df[c_commune].fillna("").str.replace(r"\s+", " ", regex=True).str.strip(),
         "dep": df[c_dep].map(dep_code),
         "departement": df[c_ldep].fillna("").str.strip() if c_ldep else "",
         "academie": df[c_acad].fillna("").str.strip() if c_acad else "",
@@ -259,6 +266,14 @@ def load_etablissements(df: pd.DataFrame) -> pd.DataFrame:
         "cp": df[c_cp].fillna("").str.strip() if c_cp else "",
     })
     out = out[out["dep"].map(lambda d: bool(METROPOLE.fullmatch(d)))]
+    # Nom manquant dans l'annuaire (quelques établissements) : dénomination + patronyme, sinon l'UAI.
+    sans_nom = out["nom"] == ""
+    if sans_nom.any():
+        rechange = ((df.loc[out.index, c_denom].fillna("") if c_denom else "") + " " +
+                    (df.loc[out.index, c_patro].fillna("") if c_patro else "")).str.strip() \
+            if (c_denom or c_patro) else pd.Series("", index=out.index)
+        out.loc[sans_nom, "nom"] = rechange[sans_nom].str.title().where(rechange[sans_nom] != "", "Établissement " + out.loc[sans_nom, "uai"])
+        log(f"  ! {int(sans_nom.sum())} établissements sans nom dans l'annuaire : {out.loc[sans_nom, ['uai', 'nom']].values.tolist()[:10]}")
     out["departement"] = out["departement"].where(out["departement"] != "", out["dep"])
     out["academie"] = out["academie"].where(out["academie"] != "", "Non renseignée")
     out = out.dropna(subset=["lat", "lon"]).drop_duplicates("uai")
@@ -408,7 +423,7 @@ def build_features(etabs, ivac, ips, ev) -> tuple[list[dict], dict[str, dict]]:
                 "adresse": f"{e.adresse}, {e.cp} {e.commune}".strip(", "),
                 "hist": {k: [{c: v for c, v in r.items() if v is not None} for r in rows] for k, rows in hist.items()},
             }
-        p = {k: v for k, v in p.items() if v is not None}  # MapLibre : absence = donnée manquante
+        p = sans_nan(p)  # MapLibre : absence = donnée manquante
         # 5 décimales (environ 1 m) suffisent et allègent le fichier national.
         feats.append({"type": "Feature", "geometry": {"type": "Point", "coordinates": [round(e.lon, 5), round(e.lat, 5)]}, "properties": p})
     return feats, fiches
@@ -455,7 +470,8 @@ def main() -> int:
 
     feats, fiches = build_features(etabs, results["ivac"], results["ips"], results["eval6e"])
     geo = {"type": "FeatureCollection", "features": feats}
-    compact = lambda o: json.dumps(o, ensure_ascii=False, separators=(",", ":"))
+    # allow_nan=False : un NaN oublié fait échouer le build (l'ancien site reste en ligne) au lieu de publier un fichier illisible.
+    compact = lambda o: json.dumps(o, ensure_ascii=False, separators=(",", ":"), allow_nan=False)
     (out / "colleges.geojson").write_text(compact(geo), encoding="utf-8")
     dossier_fiches = out / "fiches"
     dossier_fiches.mkdir(exist_ok=True)
