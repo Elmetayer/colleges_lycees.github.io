@@ -5,7 +5,7 @@ Source : fichier national « Carte scolaire des collèges publics » (DGESCO), d
   - Commune à plusieurs collèges : chaque adresse est rattachée à son collège selon les règles du
     fichier (voie, parité, numéros), puis la commune est découpée en zones autour des adresses
     (polygones de Voronoï découpés au contour de la commune). Adresses : Base Adresse Nationale,
-    ou à défaut adresses extraites du cadastre (cadastre.data.gouv.fr).
+    à défaut export régional de la BAN (Île-de-France) ou BANO (adresses OpenStreetMap, ODbL).
   - Paris, Lyon et Marseille sont traités par arrondissement.
 Contrôle : comparaison avec les zones officielles publiées par Paris et les Hauts-de-Seine.
 
@@ -212,32 +212,54 @@ def ban_urls(dep: str):
 _ban_hs = False  # la BAN a déjà échoué dans ce passage : inutile de la réinterroger pour chaque département
 
 
+_ban_ok: bool | None = None
+
+
+def ban_disponible() -> bool:
+    """La BAN nationale répond-elle ? (testé une fois par passage, sur le fichier de Paris)."""
+    global _ban_ok
+    if _ban_ok is None:
+        try:
+            r = H.head(f"{BAN}latest/csv/adresses-75.csv.gz", timeout=60, allow_redirects=True)
+            _ban_ok = r.ok
+        except requests.RequestException:
+            _ban_ok = False
+        log(f"  Base Adresse Nationale {'disponible' if _ban_ok else 'indisponible'}")
+    return _ban_ok
+
+
 def _lister(url: str) -> list[str]:
     r = H.get(url, timeout=60)
     r.raise_for_status()
     return re.findall(r'href="([^"?#]+)"', r.text)
 
 
-def cadastre_url(dep: str) -> str:
-    """Fichier des adresses extraites du cadastre d'un département (format BAL), trouvé dans l'index."""
-    base = "https://cadastre.data.gouv.fr/data/adresses-cadastre/latest/csv/"
-    for niveau in range(3):
-        liens = _lister(base)
-        fichiers = [l for l in liens if re.search(rf"(?:^|[-_/]){re.escape(dep)}\.csv(?:\.gz)?$", l)]
-        if fichiers:
-            return requests.compat.urljoin(base, fichiers[0])
-        dossiers = sorted({u for u in (requests.compat.urljoin(base, l) for l in liens if l.endswith("/"))
-                           if u.startswith(base) and u != base}, reverse=True)
-        log(f"  index cadastre {base} : {liens[:8]}")
-        if not dossiers:
-            break
-        base = requests.compat.urljoin(base, dossiers[0])
-    raise RuntimeError(f"fichier d'adresses du cadastre introuvable pour le département {dep}")
+# Exports de la BAN publiés par la région Île-de-France (même format que la BAN nationale).
+BAN_IDF = {
+    "75": "base-dadresses-nationale-ouverte-bano-paris", "77": "base-adresse-77", "78": "base-adresse-78",
+    "91": "base-adresse-91", "92": "base-adresse-92", "93": "base-adresse-93", "94": "base-adresse-94", "95": "base-adresse-95",
+}
 
 
-def _lire_adresses(contenu: bytes) -> pd.DataFrame:
+def sources_secours(dep: str):
+    """(nom de la source, URL, format) à essayer quand la BAN nationale ne répond pas."""
+    if dep in BAN_IDF:
+        yield ("Base Adresse Nationale (export Île-de-France)",
+               f"https://data.iledefrance.fr/api/explore/v2.1/catalog/datasets/{BAN_IDF[dep]}/exports/csv", "ban")
+    yield ("BANO (OpenStreetMap)", f"https://bano.openstreetmap.fr/data/bano-{dep}.csv", "bano")
+
+
+def _lire_bano(contenu: bytes) -> pd.DataFrame:
+    """BANO : CSV sans en-tête, id (commence par le code INSEE), numéro, voie, code postal, commune, source, lat, lon."""
+    b = pd.read_csv(io.BytesIO(contenu), sep=",", header=None, dtype=str, keep_default_na=False,
+                    names=["id", "numero", "nom_voie", "cp", "commune", "source", "lat", "lon"], usecols=range(8))
+    b["code_insee"] = b["id"].str[:5].str.upper()
+    return b
+
+
+def _lire_adresses(contenu: bytes, fmt: str = "ban") -> pd.DataFrame:
     brut = gzip.decompress(contenu) if contenu[:2] == b"\x1f\x8b" else contenu
-    b = pd.read_csv(io.BytesIO(brut), sep=";", dtype=str, keep_default_na=False)
+    b = _lire_bano(brut) if fmt == "bano" else pd.read_csv(io.BytesIO(brut), sep=";", dtype=str, keep_default_na=False, encoding="utf-8-sig")
     col = lambda *noms: next((c for c in noms if c in b.columns), None)
     c_insee = col("code_insee", "commune_insee")
     c_num, c_voie, c_afnor = col("numero"), col("nom_voie", "voie_nom"), col("nom_afnor")
@@ -257,26 +279,33 @@ def _lire_adresses(contenu: bytes) -> pd.DataFrame:
 
 
 def adresses(dep: str, communes: set[str]) -> tuple[pd.DataFrame, str]:
-    """Adresses des communes à découper : BAN, ou à défaut adresses du cadastre. Renvoie aussi la source."""
+    """Adresses des communes à découper : BAN nationale, sinon export régional de la BAN, sinon BANO.
+
+    Renvoie aussi le nom de la source retenue.
+    """
     global _ban_hs
-    essais = []
+    trouve = None
     if not _ban_hs:
         for url in ban_urls(dep):
             r = H.get(url, timeout=600)
             if r.ok:
-                essais.append(("Base Adresse Nationale", r.content))
+                trouve = ("Base Adresse Nationale", r.content, "ban")
                 break
             log(f"  BAN {dep} : {r.status_code} pour {url}")
         else:
             _ban_hs = True
-    if not essais:
-        url = cadastre_url(dep)
-        log(f"  adresses du cadastre {dep} : {url}")
-        r = H.get(url, timeout=900)
-        r.raise_for_status()
-        essais.append(("adresses du cadastre", r.content))
-    source, contenu = essais[0]
-    b = _lire_adresses(contenu)
+    if trouve is None:
+        for nom, url, fmt in sources_secours(dep):
+            r = H.get(url, timeout=900)
+            if r.ok and len(r.content) > 1000:
+                log(f"  adresses {dep} : {nom} ({url}, {len(r.content) / 1e6:.0f} Mo)")
+                trouve = (nom, r.content, fmt)
+                break
+            log(f"  {nom} {dep} : {r.status_code} pour {url}")
+    if trouve is None:
+        raise RuntimeError(f"aucune source d'adresses pour le département {dep}")
+    source, contenu, fmt = trouve
+    b = _lire_adresses(contenu, fmt)
     # Paris, Lyon, Marseille : si la carte scolaire décrit la commune entière, ramener les arrondissements à la commune.
     commune_plm = PLM.get(dep)
     if commune_plm and commune_plm in communes:
@@ -507,7 +536,10 @@ def cmd_calculer(args) -> int:
         emp = empreinte(lignes)
         rapport_path = sortie / f"{dep}.json"
         ancien = json.loads(rapport_path.read_text(encoding="utf-8")) if rapport_path.exists() else {}
-        if ancien.get("empreinte") == emp and (sortie / f"{dep}.geojson").exists() and not args.forcer:
+        # Secteurs calculés avec une source de secours : on les refait dès que la BAN nationale revient.
+        secours = ancien.get("source_adresses", "Base Adresse Nationale") != "Base Adresse Nationale"
+        if (ancien.get("empreinte") == emp and (sortie / f"{dep}.geojson").exists() and not args.forcer
+                and not (secours and ban_disponible())):
             log(f"== {dep} : inchangé depuis le {ancien.get('date', '?')}, pas de recalcul")
             bilan["inchanges"].append(dep)
             continue
