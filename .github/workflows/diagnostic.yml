@@ -1,0 +1,24 @@
+name: Diagnostic lycées (temporaire)
+
+on:
+  pull_request:
+    paths: ["diagnostic/**", ".github/workflows/diagnostic.yml"]
+
+permissions:
+  contents: read
+
+jobs:
+  diagnostic:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r pipeline/requirements.txt playwright && python -m playwright install --with-deps chromium
+      - run: python pipeline/build.py --out site/data > /tmp/build.log 2>&1; tail -5 /tmp/build.log
+      - name: Fichiers produits
+        run: ls -la site/data | head; python -c "import json;g=json.load(open('site/data/lycees.geojson'));print(len(g['features']), g['features'][0])"
+      - name: Ouvrir le site
+        run: |
+          cd site && sed -i "s/__VERSION__/diag/g" *.html && (python -m http.server 8000 &) && sleep 2 && cd .. && python diagnostic/lycees.py
