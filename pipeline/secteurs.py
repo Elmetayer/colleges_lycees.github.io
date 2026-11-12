@@ -16,8 +16,9 @@ Deux étapes :
       la carte scolaire) n'a pas changé n'est pas recalculé ; un département en échec garde ses
       fichiers précédents s'ils existent (cache de GitHub Actions).
   python pipeline/secteurs.py assembler --entree secteurs-out --out site/data
-      écrit <out>/secteurs/<dep>.geojson, <out>/secteurs/index.json, <out>/secteurs.geojson
-      (Île-de-France, en attendant le chargement à la demande) et le bloc "secteurs" de meta.json.
+      écrit <out>/secteurs/<dep>.geojson (chargés par le site selon la zone affichée),
+      <out>/secteurs/index.json (emprise, taille, source et qualité par département) et le bloc
+      "secteurs" de meta.json.
 """
 
 from __future__ import annotations
@@ -30,6 +31,7 @@ import io
 import json
 import re
 import sys
+import time
 import unicodedata
 from pathlib import Path
 
@@ -40,17 +42,18 @@ import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 import shapely
+import shapely.errors
 from scipy.spatial import cKDTree
 from shapely.geometry import MultiPoint, shape
 from shapely.ops import unary_union
 
 L93 = 2154
 METROPOLE = re.compile(r"\d{2}|2[AB]")
-# Départements affichés par le site tant que les secteurs ne sont pas chargés à la demande (jalon 6d).
-DEPS_SITE = ["75", "78", "91", "92", "95"]
 # Communes découpées en arrondissements municipaux (codes INSEE des arrondissements dans la BAN).
 PLM = {"75": "75056", "69": "69123", "13": "13055"}
-VERSION_CODE = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()[:12]
+# Version du calcul des zones : à augmenter quand la méthode change, pour forcer le recalcul de
+# tous les départements (une modification de l'assemblage ou des journaux ne le demande pas).
+VERSION_CALCUL = "2"
 H = requests.Session()
 H.headers["User-Agent"] = "carte-scolaire-colleges-lycees (github.com/Elmetayer/colleges_lycees.github.io)"
 # Les services publics (geo.api.gouv.fr, BAN) ont des coupures passagères : on réessaie avant d'abandonner.
@@ -66,6 +69,34 @@ def norm_voie(s: str) -> str:
     s = unicodedata.normalize("NFKD", str(s or "")).encode("ascii", "ignore").decode().upper()
     s = re.sub(r"[^A-Z0-9]+", " ", s).strip()
     return re.sub(r"\s+", " ", s)
+
+
+def valide(g):
+    """Géométrie réparée (contour qui se recoupe...), réduite à ses parties surfaciques."""
+    g = shapely.make_valid(g)
+    if g.geom_type == "GeometryCollection":
+        g = unary_union([x for x in g.geoms if x.geom_type in ("Polygon", "MultiPolygon")])
+    return g
+
+
+def union_sure(geoms):
+    """Union qui répare les géométries si GEOS refuse l'union directe (TopologyException)."""
+    try:
+        return unary_union(geoms)
+    except shapely.errors.GEOSException:
+        return unary_union([valide(g).buffer(0) for g in geoms])
+
+
+def telecharger(url: str, timeout: int = 900) -> requests.Response:
+    """GET avec trois essais en cas de coupure en cours de transfert (gros fichiers d'adresses)."""
+    for essai in range(3):
+        try:
+            return H.get(url, timeout=timeout)
+        except (requests.exceptions.ChunkedEncodingError, requests.exceptions.ConnectionError) as e:
+            if essai == 2:
+                raise
+            log(f"  coupure pendant le téléchargement de {url} ({type(e).__name__}), nouvel essai")
+            time.sleep(10 * (essai + 1))
 
 
 def dep_de(insee: str) -> str:
@@ -88,7 +119,7 @@ def carte_scolaire() -> pd.DataFrame:
     r.raise_for_status()
     url = next(x["url"] for x in r.json()["resources"] if (x.get("format") or "").lower() == "csv")
     log(f"  téléchargement {url}")
-    r = H.get(url, timeout=900)
+    r = telecharger(url, timeout=900)
     r.raise_for_status()
     df = pd.read_csv(io.BytesIO(r.content), sep=";", dtype=str, keep_default_na=False)
     df["code_insee"] = df["code_insee"].str.strip().str.upper().str.zfill(5)
@@ -113,7 +144,7 @@ def contours(deps) -> gpd.GeoDataFrame:
         if dep in PLM:
             urls.append(f"https://geo.api.gouv.fr/communes?codeDepartement={dep}&type=arrondissement-municipal&fields=code,nom&format=geojson&geometry=contour")
         for url in urls:
-            r = H.get(url, timeout=120)
+            r = telecharger(url, timeout=120)
             r.raise_for_status()
             fs = r.json().get("features", [])
             log(f"  contours {dep} : {len(fs)}{' arrondissements' if 'arrondissement' in url else ''}")
@@ -131,7 +162,7 @@ def contours_complementaires(codes: list[str]) -> gpd.GeoDataFrame | None:
         for url in (f"https://geo.api.gouv.fr/communes/{c}?fields=code,nom&format=geojson&geometry=contour",
                     f"https://geo.api.gouv.fr/communes?code={c}&type=commune-deleguee,commune-associee&fields=code,nom&format=geojson&geometry=contour"):
             try:
-                r = H.get(url, timeout=60)
+                r = telecharger(url, timeout=60)
                 if r.status_code != 200:
                     continue
                 j = r.json()
@@ -287,7 +318,7 @@ def adresses(dep: str, communes: set[str]) -> tuple[pd.DataFrame, str]:
     trouve = None
     if not _ban_hs:
         for url in ban_urls(dep):
-            r = H.get(url, timeout=600)
+            r = telecharger(url, timeout=600)
             if r.ok:
                 trouve = ("Base Adresse Nationale", r.content, "ban")
                 break
@@ -296,7 +327,7 @@ def adresses(dep: str, communes: set[str]) -> tuple[pd.DataFrame, str]:
             _ban_hs = True
     if trouve is None:
         for nom, url, fmt in sources_secours(dep):
-            r = H.get(url, timeout=900)
+            r = telecharger(url, timeout=900)
             if r.ok and len(r.content) > 1000:
                 log(f"  adresses {dep} : {nom} ({url}, {len(r.content) / 1e6:.0f} Mo)")
                 trouve = (nom, r.content, fmt)
@@ -377,7 +408,8 @@ def decouper(region, pts: pd.DataFrame) -> dict:
     par_uai: dict[str, list] = {}
     for ip, ic in zip(idx_pt, idx_cell):
         par_uai.setdefault(pts["uai"].iat[ip], []).append(cellules[ic])
-    return {u: unary_union(cs).intersection(region) for u, cs in par_uai.items()}
+    region = valide(region)
+    return {u: valide(union_sure(cs)).intersection(region) for u, cs in par_uai.items()}
 
 
 # ---------------------------------------------------------------- contrôle
@@ -446,19 +478,19 @@ def empreinte(lignes: pd.DataFrame) -> str:
     """Change quand le code ou les lignes de la carte scolaire du département changent."""
     cols = ["code_insee", "uai", "type_et_libelle", "parite", "No_de_voie_debut", "No_de_voie_fin"]
     texte = lignes[[c for c in cols if c in lignes.columns]].sort_values(cols[:3]).to_csv(index=False)
-    return VERSION_CODE + "-" + hashlib.sha256(texte.encode()).hexdigest()[:16]
+    return "v" + VERSION_CALCUL + "-" + hashlib.sha256(texte.encode()).hexdigest()[:16]
 
 
 def calculer_departement(dep: str, lignes: pd.DataFrame) -> tuple[gpd.GeoDataFrame, dict]:
     """Zones des collèges d'un département (Lambert 93) et rapport de qualité."""
     rapport = {"departement": dep, "colleges": int(lignes["uai"].nunique()), "communes": int(lignes["code_insee"].nunique())}
     com = contours({dep})  # communes d'autres départements : contours_complementaires
-    geo_com = dict(zip(com["code"], com.geometry))
+    geo_com = {c: valide(g) for c, g in zip(com["code"], com.geometry)}
     manquantes = sorted(set(lignes["code_insee"]) - set(geo_com))
     if manquantes:
         compl = contours_complementaires(manquantes)
         if compl is not None:
-            geo_com.update(dict(zip(compl["code"], compl.geometry)))
+            geo_com.update({c: valide(g) for c, g in zip(compl["code"], compl.geometry)})
     sans_contour = sorted(set(lignes["code_insee"]) - set(geo_com))
     rapport["communes_sans_contour"] = sans_contour
     if sans_contour:
@@ -496,7 +528,7 @@ def calculer_departement(dep: str, lignes: pd.DataFrame) -> tuple[gpd.GeoDataFra
         rapport["rattachees_par_regle"] = round(n_regle / n_adr, 3) if n_adr else None
         log(f"  {n_adr} adresses ({rapport['source_adresses']}), "
             f"{(rapport['rattachees_par_regle'] or 0):.1%} rattachées par une règle du fichier, le reste par la plus proche voisine")
-    rows = [{"uai": u, "geometry": unary_union(ps)} for u, ps in morceaux.items()]
+    rows = [{"uai": u, "geometry": union_sure(ps)} for u, ps in morceaux.items()]
     sect = gpd.GeoDataFrame(rows, columns=["uai", "geometry"], geometry="geometry", crs=L93)
     sect["geometry"] = sect.geometry.buffer(0)
     rapport["zones"] = len(sect)
@@ -510,9 +542,11 @@ def en_geojson(sect: gpd.GeoDataFrame) -> dict:
     sortie = sortie.to_crs(4326)
     feats = []
     for r in sortie.itertuples():
-        g = shapely.make_valid(shapely.set_precision(r.geometry, 0.00001))
-        if g.geom_type == "GeometryCollection":
-            g = unary_union([x for x in g.geoms if x.geom_type in ("Polygon", "MultiPolygon")])
+        try:
+            g = valide(shapely.set_precision(valide(r.geometry), 0.00001))
+        except shapely.errors.GEOSException:
+            # Arrondi impossible sur une géométrie trop tordue : on garde les coordonnées complètes.
+            g = valide(r.geometry)
         if g.is_empty:
             continue
         feats.append({"type": "Feature", "properties": {"uai": r.uai}, "geometry": shapely.geometry.mapping(g)})
@@ -572,7 +606,7 @@ def cmd_assembler(args) -> int:
         noms = {f["properties"]["uai"]: f["properties"]["nom"] for f in cg["features"]}
     except FileNotFoundError:
         log("  ! colleges.geojson absent : noms non renseignés")
-    index, site, l93 = {}, [], {}
+    index, l93 = {}, {}
     for g_path in sorted(entree.glob("*.geojson")):
         dep = g_path.stem
         geo = json.loads(g_path.read_text(encoding="utf-8"))
@@ -590,8 +624,6 @@ def cmd_assembler(args) -> int:
             "colleges_sans_zone": len(rapport.get("colleges_sans_zone", [])),
             "communes_sans_contour": len(rapport.get("communes_sans_contour", [])),
         }
-        if dep in DEPS_SITE:
-            site += geo["features"]
         if dep in ("75", "92") and geo["features"]:
             l93[dep] = gpd.GeoDataFrame.from_features(geo["features"], crs=4326).to_crs(L93)
     (dossier / "index.json").write_text(json.dumps(index, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
@@ -599,12 +631,8 @@ def cmd_assembler(args) -> int:
     log(f"  {len(index)} départements, {sum(v['zones'] for v in index.values())} zones, {total / 1e6:.1f} Mo au total")
     for dep, v in sorted(index.items(), key=lambda kv: kv[1].get("rattachees_par_regle") or 1)[:8]:
         log(f"   {dep} : {v}")
-    manquants = sorted(set(DEPS_SITE) - set(index))
-    if manquants:
-        log(f"  ! départements du site sans secteurs : {manquants}")
-    if site:
-        (out / "secteurs.geojson").write_text(json.dumps({"type": "FeatureCollection", "features": site}, ensure_ascii=False, separators=(",", ":"), allow_nan=False), encoding="utf-8")
-        log(f"  secteurs.geojson (Île-de-France) : {len(site)} zones, {(out / 'secteurs.geojson').stat().st_size / 1e6:.1f} Mo")
+    for v in (x for x in index.values() if x.get("bbox") is None):
+        log(f"  ! département sans emprise (aucune zone) : {v}")
 
     log("== contrôle avec les zones officielles")
     controle = {}

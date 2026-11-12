@@ -63,7 +63,7 @@
     { cle: "colleges", nom: "Collèges", pluriel: "collèges", forme: "carre", indicateurs: INDICATEURS, defaut: "taux_reussite",
       perimetre: "Collèges de France métropolitaine ; couleurs réparties sur l'ensemble de ces collèges.",
       zones: { libelle: "Secteurs des collèges publics",
-        note: "Les secteurs sont ceux des collèges publics. Ils restent affichés quand seuls les privés sont visibles, avec la couleur de leur collège. Pour l'instant, ils ne sont dessinés que dans les académies de Paris et de Versailles." } },
+        note: "Les secteurs sont ceux des collèges publics. Ils restent affichés quand seuls les privés sont visibles, avec la couleur de leur collège. Ils apparaissent en zoomant sur un département ; quelques départements absents du fichier national de carte scolaire n'en ont pas." } },
     { cle: "lycees", nom: "Lycées", pluriel: "lycées", forme: "triangle", indicateurs: INDICATEURS_LYCEES, defaut: "ips", voies: true,
       perimetre: "Lycées de France métropolitaine ; couleurs réparties sur l'ensemble de ces lycées.",
       zones: { libelle: "Secteurs des lycées", indisponible: true,
@@ -282,6 +282,7 @@
       carte.setPaintProperty("secteurs-fond", "fill-color", expr);
       const vis = r.actif && r.zones ? "visible" : "none";
       ["secteurs-fond", "secteurs-contour", "secteurs-surligne"].forEach((id) => carte.setLayoutProperty(id, "visibility", vis));
+      if (vis === "visible") chargerSecteursVisibles();
     }
     const l = legende(c, ind, d, pal);
     const el = document.querySelector(`.calque[data-calque="${c.cle}"]`);
@@ -1131,8 +1132,12 @@
   }
 
   // Adresse choisie : repère sur la carte et liste des collèges publics les plus proches.
-  const SECTEURS_DEPARTEMENTS = ["75", "78", "91", "92", "95"];
+  // Les secteurs des départements autour de l'adresse sont chargés avant de chercher son secteur.
   function montrerAdresse(a) {
+    Promise.all(departementsAuPoint(a.coord).map(chargerSecteursDep)).catch(() => {}).then(() => afficherAdresse(a));
+  }
+
+  function afficherAdresse(a) {
     if (!repereAdresse) {
       const el = document.createElement("div");
       el.className = "repere-adresse";
@@ -1155,9 +1160,14 @@
       .filter((f) => f.properties.secteur === "public")
       .map((f) => ({ f, d: distanceKm(a.coord, f.geometry.coordinates) }))
       .sort((x, y) => x.d - y.d).slice(0, 3) : [];
-    // Secteurs dessinés seulement dans certains départements (jalon 6 : extension progressive).
-    const depProche = tous.length ? tous[0].f.properties.dep : null;
-    const secteursIci = SECTEURS_DEPARTEMENTS.includes(depProche);
+    // Département de l'adresse : celui du collège public le plus proche.
+    const depProche = tous.length ? normDep(tous[0].f.properties.dep) : null;
+    const infoDep = depProche ? indexSecteurs[depProche] : null;
+    const secteursIci = Boolean(infoDep);
+    // Précision moindre quand les adresses viennent d'une source de secours (BANO) ou que peu d'adresses suivent une règle du fichier.
+    const precision = infoDep && (/^BANO/.test(infoDep.source_adresses || "") || (infoDep.rattachees_par_regle || 1) < 0.8)
+      ? " Dans ce département, les secteurs sont reconstitués à partir d'adresses moins complètes (OpenStreetMap, en attendant le retour de la Base Adresse Nationale) : ils sont moins précis."
+      : "";
     $("fiche-contenu").innerHTML = `
       <h2 id="fiche-nom">${echapper(a.libelle)}</h2>
       <p class="lieu">${deSecteur ? "Collège de secteur et collèges publics les plus proches" : "Collèges publics les plus proches"}, distances à vol d'oiseau</p>
@@ -1168,10 +1178,10 @@
         </button></li>`).join("")}
       </ul>
       <p class="avertissement">${deSecteur
-        ? "Le secteur est reconstitué à partir de la carte scolaire officielle et peut différer à la marge, notamment en limite de secteur. Pour une inscription, la réponse qui fait foi est celle de l'inspection académique."
+        ? "Le secteur est reconstitué à partir de la carte scolaire officielle et peut différer à la marge, notamment en limite de secteur." + precision + " Pour une inscription, la réponse qui fait foi est celle de l'inspection académique."
         : secteursIci
           ? "Aucun secteur n'a été trouvé pour cette adresse. Le collège le plus proche n'est pas forcément le collège de secteur."
-          : "Les secteurs des collèges ne sont pas encore dessinés dans ce département. Le collège le plus proche n'est pas forcément le collège de secteur : la mairie ou le conseil départemental indiquent le collège de rattachement."}</p>
+          : "Ce département ne figure pas dans le fichier national de carte scolaire : ses secteurs ne sont pas dessinés. Le collège le plus proche n'est pas forcément le collège de secteur : la mairie ou le conseil départemental indiquent le collège de rattachement."}</p>
       ${lycees.length ? `<h3>Lycées publics les plus proches</h3>
       <ul class="proches">
         ${lycees.map((x, i) => `<li><button type="button" data-lycee="${i}">
@@ -1198,7 +1208,14 @@
 
   // ---------------------------------------------------------------- secteurs
   // Zones calculées à partir de la carte scolaire officielle (voir pipeline/secteurs.py).
-  let secteurs = null;
+  // Un fichier par département (data/secteurs/<dep>.geojson), chargé quand le département est visible
+  // à partir du zoom ZOOM_SECTEURS, ou quand une adresse y est cherchée. index.json donne l'emprise de chacun.
+  const ZOOM_SECTEURS = 8;
+  let secteurs = { type: "FeatureCollection", features: [] };
+  let indexSecteurs = {};  // département normalisé ("3", "2A", "75") -> { fichier, bbox, source_adresses, ... }
+  const secteursDep = new Map();
+  // Les collèges ont "3" ; les fichiers de secteurs, "03".
+  const normDep = (d) => (/^\d+$/.test(String(d)) ? String(Number(d)) : String(d || ""));
 
   function dansAnneau(pt, anneau) {
     let dedans = false;
@@ -1210,7 +1227,6 @@
   }
   function dansPolygone(pt, poly) { return dansAnneau(pt, poly[0]) && !poly.slice(1).some((trou) => dansAnneau(pt, trou)); }
   function secteurDe(pt) {
-    if (!secteurs) return null;
     for (const f of secteurs.features) {
       const g = f.geometry;
       const polys = g.type === "Polygon" ? [g.coordinates] : g.type === "MultiPolygon" ? g.coordinates : [];
@@ -1219,21 +1235,64 @@
     return null;
   }
 
+  // Chaque zone reçoit les indicateurs de son collège, pour être colorée comme lui.
+  function enrichir(features) {
+    const parUai = new Map(donnees.features.map((f) => [f.properties.uai, f.properties]));
+    features.forEach((f) => {
+      const p = parUai.get(f.properties.uai);
+      if (p) INDICATEURS.forEach((i) => { if (typeof p[i.cle] === "number") f.properties[i.cle] = p[i.cle]; });
+    });
+    return features;
+  }
+
+  let majPrevue = false;
+  function majSecteurs() {
+    if (majPrevue) return;
+    majPrevue = true;
+    requestAnimationFrame(() => {
+      majPrevue = false;
+      const src = carte.getSource("secteurs");
+      if (src) src.setData(secteurs);
+      if (ficheCourante && ficheCourante.type === "college") surlignerSecteur(ficheCourante.p.uai);
+    });
+  }
+
+  function chargerSecteursDep(dep) {
+    const info = indexSecteurs[dep];
+    if (!info) return Promise.resolve();
+    if (!secteursDep.has(dep)) {
+      secteursDep.set(dep, fetch(`data/secteurs/${encodeURIComponent(info.fichier)}.geojson?v=${info.date || ""}`)
+        .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
+        .then((geo) => { secteurs.features.push(...enrichir(geo.features)); majSecteurs(); })
+        .catch((e) => { secteursDep.delete(dep); console.warn(`Secteurs du département ${dep} indisponibles`, e); }));
+    }
+    return secteursDep.get(dep);
+  }
+
+  const dansBbox = (b, lon, lat, marge = 0) => b && lon >= b[0] - marge && lon <= b[2] + marge && lat >= b[1] - marge && lat <= b[3] + marge;
+  function departementsAuPoint(pt) {
+    return Object.keys(indexSecteurs).filter((d) => dansBbox(indexSecteurs[d].bbox, pt[0], pt[1], 0.01));
+  }
+  function chargerSecteursVisibles() {
+    if (!carte.getLayer("secteurs-fond") || carte.getLayoutProperty("secteurs-fond", "visibility") === "none") return;
+    if (carte.getZoom() < ZOOM_SECTEURS) return;
+    const v = carte.getBounds();
+    Object.keys(indexSecteurs).forEach((d) => {
+      const b = indexSecteurs[d].bbox;
+      if (b && b[0] <= v.getEast() && b[2] >= v.getWest() && b[1] <= v.getNorth() && b[3] >= v.getSouth()) chargerSecteursDep(d);
+    });
+  }
+
   function chargerSecteurs() {
-    fetch("data/secteurs.geojson").then((r) => (r.ok ? r.json() : Promise.reject(r.status))).then((geo) => {
-      // Chaque zone reçoit les indicateurs de son collège, pour être colorée comme lui.
-      const parUai = new Map(donnees.features.map((f) => [f.properties.uai, f.properties]));
-      geo.features.forEach((f) => {
-        const p = parUai.get(f.properties.uai);
-        if (p) INDICATEURS.forEach((i) => { if (typeof p[i.cle] === "number") f.properties[i.cle] = p[i.cle]; });
-      });
-      secteurs = geo;
-      carte.addSource("secteurs", { type: "geojson", data: geo });
+    fetch("data/secteurs/index.json").then((r) => (r.ok ? r.json() : Promise.reject(r.status))).then((index) => {
+      indexSecteurs = Object.fromEntries(Object.entries(index).map(([d, v]) => [normDep(d), Object.assign({ fichier: d }, v)]));
+      carte.addSource("secteurs", { type: "geojson", data: secteurs });
       carte.addLayer({ id: "secteurs-fond", type: "fill", source: "secteurs", paint: { "fill-color": ABSENT, "fill-opacity": 0.35 } }, "colleges");
       carte.addLayer({ id: "secteurs-contour", type: "line", source: "secteurs", paint: { "line-color": "#1e2f6b", "line-width": ["interpolate", ["linear"], ["zoom"], 9, 0.3, 14, 1.2], "line-opacity": 0.55 } }, "colleges");
       carte.addLayer({ id: "secteurs-surligne", type: "line", source: "secteurs", filter: ["==", ["get", "uai"], ""], paint: { "line-color": "#1e2f6b", "line-width": 3 } }, "colleges");
       appliquerCalque(calque("colleges"));
-      if (ficheCourante && ficheCourante.type === "college") surlignerSecteur(ficheCourante.p.uai);
+      carte.on("moveend", chargerSecteursVisibles);
+      chargerSecteursVisibles();
     }).catch((e) => console.warn("Secteurs indisponibles", e));
   }
 

@@ -27,7 +27,8 @@ def refuser_constante(nom):
 
 def verifier_fichiers():
     data = SITE / "data"
-    fichiers = sorted(data.glob("*.json")) + sorted(data.glob("*.geojson")) + sorted(data.glob("fiches/*.json"))
+    fichiers = (sorted(data.glob("*.json")) + sorted(data.glob("*.geojson")) + sorted(data.glob("fiches/*.json"))
+                + sorted(data.glob("secteurs/*.json")) + sorted(data.glob("secteurs/*.geojson")))
     contenus = {}
     for f in fichiers:
         try:
@@ -47,9 +48,30 @@ def verifier_fichiers():
             erreurs.append(f"{nom} : seulement {n} établissements (au moins {minimum} attendus)")
         if sans_nom:
             erreurs.append(f"{nom} : {sans_nom} établissements sans nom")
-    if "secteurs.geojson" not in contenus:
-        avertissements.append("secteurs.geojson absent : la carte sera publiée sans secteurs")
+    index = contenus.get("index.json")
+    if not index:
+        avertissements.append("secteurs/index.json absent : la carte sera publiée sans secteurs")
+    else:
+        print(f"secteurs : {len(index)} départements")
+        vides = [d for d, v in index.items() if not v.get("zones")]
+        if vides:
+            avertissements.append(f"départements sans aucune zone : {vides}")
     return contenus
+
+
+norm_dep = lambda d: str(int(d)) if str(d).isdigit() else str(d)
+
+
+def college_hors_idf(contenus):
+    """(nom, fichier du département) d'un collège public hors Île-de-France dont le département a des secteurs."""
+    index = contenus.get("index.json") or {}
+    fichiers = {norm_dep(d): d for d, v in index.items() if v.get("zones")}
+    for f in contenus.get("colleges.geojson", {}).get("features", []):
+        p = f["properties"]
+        d = norm_dep(p.get("dep", ""))
+        if p.get("secteur") == "public" and "taux_reussite" in p and d in fichiers and d not in ("75", "77", "78", "91", "92", "93", "94", "95"):
+            return p["nom"], fichiers[d]
+    return None, None
 
 
 def exemple(contenus, fichier, cle):
@@ -80,12 +102,14 @@ async def ouvrir_fiche(pg, nom, attendu):
 async def verifier_navigateur(contenus):
     college = exemple(contenus, "colleges.geojson", "taux_reussite")
     lycee = exemple(contenus, "lycees.geojson", "ips")
+    college_secteur, fichier_secteur = college_hors_idf(contenus)
     async with async_playwright() as p:
         b = await p.chromium.launch(args=["--use-gl=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"])
         for appareil, ctx in (("ordinateur", {"viewport": {"width": 1280, "height": 800}}), ("téléphone", p.devices["iPhone 13"])):
             c = await b.new_context(**ctx)
             pg = await c.new_page()
-            problemes = []
+            problemes, secteurs_charges = [], []
+            pg.on("response", lambda r: secteurs_charges.append(r.url) if "/data/secteurs/" in r.url and "index.json" not in r.url and r.ok else None)
             pg.on("pageerror", lambda e: problemes.append(f"erreur JavaScript : {e}"))
             pg.on("console", lambda m: problemes.append(f"console : {m.text}")
                   if m.type in ("warning", "error") and "indisponibles" in m.text and "Secteurs" not in m.text else None)
@@ -103,6 +127,20 @@ async def verifier_navigateur(contenus):
                     pb = await ouvrir_fiche(pg, nom, attendu)
                     if pb:
                         problemes.append(pb)
+            # Secteurs chargés à la demande : au démarrage (vue nationale) aucun département n'est chargé ;
+            # après avoir zoomé sur un collège hors Île-de-France, celui de son département doit l'être.
+            if college_secteur:
+                pb = await ouvrir_fiche(pg, college_secteur, "brevet")
+                if pb:
+                    problemes.append(pb)
+                await pg.wait_for_timeout(3000)
+                charges = [u for u in secteurs_charges if f"/data/secteurs/{fichier_secteur}.geojson" in u]
+                if charges:
+                    print(f"{appareil} : secteurs du département {fichier_secteur} chargés en zoomant sur « {college_secteur} » ; "
+                          f"{len(secteurs_charges)} départements chargés en tout")
+                else:
+                    problemes.append(f"les secteurs du département {fichier_secteur} ne se chargent pas en zoomant sur « {college_secteur} » "
+                                     f"(chargés : {[u.split('/')[-1].split('?')[0] for u in secteurs_charges]})")
             print(f"{appareil} : {'OK' if not problemes else str(len(problemes)) + ' problème(s)'}")
             erreurs.extend(f"{appareil} : {x}" for x in problemes)
             await c.close()
