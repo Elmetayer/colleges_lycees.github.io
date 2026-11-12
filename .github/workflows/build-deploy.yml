@@ -13,7 +13,57 @@ permissions:
   contents: read
 
 jobs:
+  # Secteurs des collèges : 12 groupes de départements calculés en parallèle. Chaque groupe reprend
+  # ses derniers résultats du cache : un département inchangé n'est pas recalculé, et un département
+  # en échec garde ses derniers secteurs valides.
+  secteurs:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        groupe: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pipeline/requirements.txt
+
+      - name: Installer les dépendances
+        run: pip install -r pipeline/requirements.txt
+
+      - name: Reprendre les derniers secteurs calculés
+        uses: actions/cache/restore@v4
+        with:
+          path: secteurs-out
+          key: secteurs-g${{ matrix.groupe }}-${{ github.run_id }}
+          restore-keys: secteurs-g${{ matrix.groupe }}-
+
+      - name: Calculer les secteurs du groupe
+        run: python pipeline/secteurs.py calculer --groupe ${{ matrix.groupe }} --groupes 12 --sortie secteurs-out
+
+      - name: Garder les secteurs pour le prochain passage
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: secteurs-out
+          key: secteurs-g${{ matrix.groupe }}-${{ github.run_id }}
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: secteurs-g${{ matrix.groupe }}
+          path: secteurs-out
+          if-no-files-found: ignore
+          retention-days: 3
+
   build:
+    needs: secteurs
+    if: always()
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -30,10 +80,18 @@ jobs:
       - name: Préparer les données
         run: python pipeline/build.py --out site/data
 
-      - name: Construire les secteurs des collèges
+      - name: Récupérer les secteurs des départements
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          pattern: secteurs-g*
+          merge-multiple: true
+          path: secteurs-out
+
+      - name: Assembler les secteurs des collèges
         # En cas d'échec, la carte est publiée sans les secteurs plutôt que pas du tout.
         continue-on-error: true
-        run: python pipeline/secteurs.py --out site/data
+        run: python pipeline/secteurs.py assembler --entree secteurs-out --out site/data
 
       - name: Version des fichiers (évite le cache du navigateur après une mise à jour)
         run: sed -i "s/__VERSION__/${GITHUB_SHA::7}/g" site/*.html
