@@ -119,7 +119,7 @@ def carte_scolaire() -> pd.DataFrame:
     r.raise_for_status()
     url = next(x["url"] for x in r.json()["resources"] if (x.get("format") or "").lower() == "csv")
     log(f"  téléchargement {url}")
-    r = H.get(url, timeout=900)
+    r = telecharger(url, timeout=900)
     r.raise_for_status()
     df = pd.read_csv(io.BytesIO(r.content), sep=";", dtype=str, keep_default_na=False)
     df["code_insee"] = df["code_insee"].str.strip().str.upper().str.zfill(5)
@@ -144,7 +144,7 @@ def contours(deps) -> gpd.GeoDataFrame:
         if dep in PLM:
             urls.append(f"https://geo.api.gouv.fr/communes?codeDepartement={dep}&type=arrondissement-municipal&fields=code,nom&format=geojson&geometry=contour")
         for url in urls:
-            r = H.get(url, timeout=120)
+            r = telecharger(url, timeout=120)
             r.raise_for_status()
             fs = r.json().get("features", [])
             log(f"  contours {dep} : {len(fs)}{' arrondissements' if 'arrondissement' in url else ''}")
@@ -162,7 +162,7 @@ def contours_complementaires(codes: list[str]) -> gpd.GeoDataFrame | None:
         for url in (f"https://geo.api.gouv.fr/communes/{c}?fields=code,nom&format=geojson&geometry=contour",
                     f"https://geo.api.gouv.fr/communes?code={c}&type=commune-deleguee,commune-associee&fields=code,nom&format=geojson&geometry=contour"):
             try:
-                r = H.get(url, timeout=60)
+                r = telecharger(url, timeout=60)
                 if r.status_code != 200:
                     continue
                 j = r.json()
@@ -542,9 +542,11 @@ def en_geojson(sect: gpd.GeoDataFrame) -> dict:
     sortie = sortie.to_crs(4326)
     feats = []
     for r in sortie.itertuples():
-        g = shapely.make_valid(shapely.set_precision(r.geometry, 0.00001))
-        if g.geom_type == "GeometryCollection":
-            g = unary_union([x for x in g.geoms if x.geom_type in ("Polygon", "MultiPolygon")])
+        try:
+            g = valide(shapely.set_precision(valide(r.geometry), 0.00001))
+        except shapely.errors.GEOSException:
+            # Arrondi impossible sur une géométrie trop tordue : on garde les coordonnées complètes.
+            g = valide(r.geometry)
         if g.is_empty:
             continue
         feats.append({"type": "Feature", "properties": {"uai": r.uai}, "geometry": shapely.geometry.mapping(g)})
