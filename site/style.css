@@ -128,6 +128,11 @@ select {
 .legende-ligne .bornes { display: flex; justify-content: space-between; color: var(--encre-douce); }
 .etat { margin: 6px 0 0; font-size: 0.85rem; color: var(--encre-douce); }
 .etat:empty { display: none; }
+/* Indication affichée en vue large : les secteurs n'apparaissent qu'à partir du zoom ZOOM_SECTEURS. */
+.indice-zoom { position: fixed; z-index: 5; top: calc(var(--barre-h) + 10px); left: 50%; transform: translateX(-50%); margin: 0;
+  max-width: calc(100vw - 96px); padding: 6px 14px; white-space: normal; border-radius: 999px; background: rgba(30, 47, 107, 0.88); color: #fff;
+  font-size: 0.88rem; text-align: center; box-shadow: var(--ombre); pointer-events: none; }
+.indice-zoom[hidden] { display: none; }
 
 /* ---------- fiche établissement : une copie double, avec sa marge */
 .fiche {

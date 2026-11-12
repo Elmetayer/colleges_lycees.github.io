@@ -119,6 +119,15 @@ async def verifier_navigateur(contenus):
             except Exception:  # noqa: BLE001
                 problemes.append("les établissements ne finissent pas de charger : "
                                  + await pg.evaluate("document.getElementById('etat').textContent"))
+            # Vue nationale au démarrage : aucune zone affichée, indication « Zoomez » visible.
+            await pg.wait_for_timeout(2000)
+            if await pg.evaluate("!!(window.carteScolaire && window.carteScolaire.getLayer('secteurs-fond'))"):
+                await pg.evaluate("window.carteScolaire.jumpTo({center: [2.4, 46.6], zoom: 5})")
+                await pg.wait_for_timeout(1500)
+                rendues = await pg.evaluate("window.carteScolaire.queryRenderedFeatures({layers: ['secteurs-fond']}).length")
+                indice = await pg.evaluate("!document.getElementById('indice-secteurs').hidden")
+                if rendues or not indice:
+                    problemes.append(f"vue nationale : {rendues} zones affichées, indication « Zoomez » {'visible' if indice else 'absente'}")
             panneau = await pg.inner_text("#panneau")
             if "Données indisponibles" in panneau:
                 problemes.append("un calque affiche « Données indisponibles »")
@@ -135,8 +144,12 @@ async def verifier_navigateur(contenus):
                     problemes.append(pb)
                 await pg.wait_for_timeout(3000)
                 charges = [u for u in secteurs_charges if f"/data/secteurs/{fichier_secteur}.geojson" in u]
-                if charges:
-                    print(f"{appareil} : secteurs du département {fichier_secteur} chargés en zoomant sur « {college_secteur} » ; "
+                rendues = await pg.evaluate("window.carteScolaire ? window.carteScolaire.queryRenderedFeatures({layers: ['secteurs-fond']}).length : -1")
+                if charges and rendues == 0:
+                    problemes.append(f"les secteurs du département {fichier_secteur} sont chargés mais aucune zone n'est affichée")
+                elif charges:
+                    print(f"{appareil} : secteurs du département {fichier_secteur} chargés et affichés ({rendues} zones à l'écran) "
+                          f"en zoomant sur « {college_secteur} » ; "
                           f"{len(secteurs_charges)} départements chargés en tout")
                 else:
                     problemes.append(f"les secteurs du département {fichier_secteur} ne se chargent pas en zoomant sur « {college_secteur} » "
