@@ -141,6 +141,14 @@ async def verifier_navigateur(contenus):
                 else:
                     problemes.append(f"les secteurs du département {fichier_secteur} ne se chargent pas en zoomant sur « {college_secteur} » "
                                      f"(chargés : {[u.split('/')[-1].split('?')[0] for u in secteurs_charges]})")
+            # Pages de documentation : chargement sans erreur, données de meta.json affichées.
+            for page in sorted(SITE.glob("documentation*.html")):
+                await pg.goto(f"http://localhost:8765/{page.name}")
+                await pg.wait_for_timeout(800)
+                for sel, vide in (("#liste-sources", "Chargement"), ("#resume-donnees", "Chargement")):
+                    el = await pg.query_selector(sel)
+                    if el and (vide in await el.inner_text() or "pas pu" in await el.inner_text()):
+                        problemes.append(f"{page.name} : {sel} n'est pas rempli")
             print(f"{appareil} : {'OK' if not problemes else str(len(problemes)) + ' problème(s)'}")
             erreurs.extend(f"{appareil} : {x}" for x in problemes)
             await c.close()

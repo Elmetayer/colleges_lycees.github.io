@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Indicateurs des collèges – Documentation – Carte scolaire</title>
+  <meta name="description" content="IPS, brevet, valeur ajoutée, évaluations de 6e, score agrégé.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Literata:opsz,wght@7..72,500;7..72,650&display=swap" rel="stylesheet">
+  <link href="style.css?v=__VERSION__" rel="stylesheet">
+</head>
+<body class="page-doc">
+  <header class="barre">
+    <a class="titre" href="./">Carte scolaire</a>
+    <a class="lien-doc" href="./">Retour à la carte</a>
+  </header>
+
+  <main>
+    <p class="fil"><a href="documentation.html">Documentation</a> › Indicateurs des collèges</p>
+    <h1 id="indicateurs">Indicateurs des collèges</h1>
+    <nav class="doc-sommaire" aria-label="Sur cette page" hidden></nav>
+    <p>Tous les indicateurs viennent de la DEPP, le service statistique du ministère de l'Éducation nationale. La carte affiche pour chaque collège la valeur la plus récente ; la fiche du collège donne l'historique disponible.</p>
+    <p>Dans la fiche, un graphique montre l'évolution d'un indicateur au fil des années ; les boutons au-dessus permettent de passer d'un indicateur à l'autre. Chaque courbe du collège (trait plein) est accompagnée de sa médiane en pointillés de la même couleur : la médiane des collèges publics et privés de son académie pour la même année, au-dessus de laquelle se trouve la moitié des collèges de l'académie. Quand deux mesures n'ont pas la même unité (un pourcentage et une note sur 20, par exemple), elles sont tracées dans deux graphiques superposés qui partagent les mêmes années. Les valeurs exactes restent disponibles sous le graphique, dans « Valeurs par année ».</p>
+
+    <h2 id="ips">Indice de position sociale (IPS)</h2>
+    <p>L'IPS résume le milieu social des élèves à partir des professions de leurs responsables légaux. Plus il est élevé, plus les élèves viennent en moyenne de milieux favorables à la réussite scolaire. La fiche donne aussi l'écart-type de l'IPS, qui mesure la diversité sociale à l'intérieur du collège : un écart-type élevé signale un collège socialement mélangé.</p>
+    <p>L'IPS n'est pas publié quand il porte sur moins de 5 élèves. La série a été recalculée à partir de la rentrée 2022 : les valeurs antérieures ne sont pas comparables et ne sont pas utilisées.</p>
+
+    <h2 id="brevet">Résultats au brevet</h2>
+    <p>Les résultats portent sur la série générale du diplôme national du brevet.</p>
+    <ul>
+      <li><b>Réussite au brevet</b> : part des candidats admis, telle que publiée par la DEPP.</li>
+      <li><b>Mentions au brevet</b> : nombre de candidats ayant obtenu une mention (assez bien, bien ou très bien), divisé par le nombre de candidats.</li>
+      <li><b>Mentions très bien</b> : même calcul pour la seule mention très bien. Ce taux n'est pas proposé comme couleur de la carte mais entre dans le score agrégé.</li>
+      <li><b>Note moyenne aux écrits</b> : moyenne des notes aux épreuves écrites, sur 20, telle que publiée par la DEPP.</li>
+    </ul>
+
+    <h2 id="valeur-ajoutee">Valeur ajoutée</h2>
+    <p>La valeur ajoutée compare les résultats obtenus par un collège à ceux qu'on pouvait attendre au vu de ses élèves : âge, sexe, niveau à l'entrée en sixième et milieu social, ainsi que la composition du collège. Une valeur positive signifie que les élèves ont mieux réussi que prévu ; une valeur négative, moins bien.</p>
+    <p>Elle est calculée par la DEPP pour le taux de réussite (en points de pourcentage) et pour la note aux écrits (en points sur 20), à partir de la session 2022. C'est l'indicateur le plus proche de « l'effet » du collège, mais il reste une estimation statistique : de petites valeurs ne sont pas significatives, en particulier dans les petits collèges.</p>
+    <p>Sur la carte, les écarts faibles sont regroupés en gris très clair, « <span data-param="libelle-proche">proche de l'attendu</span> » : entre <span data-param="seuil-reussite">−2 et +2</span> points pour la réussite, entre <span data-param="seuil-note">−0,3 et +0,3</span> point pour la note aux écrits. Ce seuil est un choix de cette carte pour ne pas colorer des écarts minimes ; ce n'est pas un test statistique de la DEPP. Au-delà, l'orange signale un collège en dessous de l'attendu, le violet un collège au-dessus.</p>
+    <p>Dans certaines académies, comme celles de Paris et de Versailles, une majorité de collèges ont une valeur ajoutée négative. Cela ne vient pas d'une erreur de calcul : la valeur ajoutée est mesurée par rapport à ce qui est attendu au niveau national pour des élèves au profil comparable, et beaucoup de collèges de ces académies font un peu moins bien que cette référence. La légende de la carte indique la répartition exacte pour la session affichée.</p>
+
+    <h2 id="evaluations">Évaluations nationales de début de sixième</h2>
+    <p>Tous les élèves de sixième passent en septembre des tests de français et de mathématiques. La carte affiche le score moyen des élèves du collège dans chaque matière. Ces évaluations mesurent le niveau des élèves à leur arrivée : elles décrivent le public du collège, pas le travail qui y est fait.</p>
+
+    <h2 id="score">Score agrégé</h2>
+    <p>Le score reprend la logique de la première version de cette carte. Il est proposé à titre indicatif et n'est pas affiché par défaut.</p>
+    <p class="formule">Score = moyenne du taux de réussite, du taux de mentions et du taux de mentions très bien au brevet, pour la dernière session disponible.</p>
+    <p>Le rang classe les collèges de France métropolitaine ayant un score pour la même session, du plus élevé au plus bas ; la fiche donne aussi le rang dans l'académie. Ce score ne tient pas compte du profil des élèves : il suit de près l'IPS et ne mesure pas la qualité de l'enseignement. Pour comparer des collèges au public différent, la valeur ajoutée est plus pertinente.</p>
+
+    <nav class="doc-suite" aria-label="Pages de la documentation">
+      <a class="prec" href="documentation-carte.html"><small>Page précédente</small>Utiliser la carte</a>
+      <a class="suiv" href="documentation-lycees.html"><small>Page suivante</small>Indicateurs des lycées</a>
+    </nav>
+  </main>
+
+  <script src="parametres.js?v=__VERSION__"></script>
+  <script src="documentation.js?v=__VERSION__"></script>
+</body>
+</html>

@@ -12,7 +12,9 @@ pipeline/requirements.txt dépendances Python
 site/                     site statique publié sur GitHub Pages
   index.html, app.js      carte (MapLibre GL)
   parametres.js           réglages modifiables sans toucher au code (zone neutre de la valeur ajoutée, textes)
-  documentation.html      sources et méthodes de calcul
+  documentation.html      sommaire de la documentation
+  documentation-*.html    pages : carte, collèges, lycées, secteurs, sources
+  documentation.js        valeurs lues dans meta.json et sommaire de chaque page
   data/                   fichiers générés par le script (non versionnés) ; data/fiches/ : historiques par département
 .github/workflows/        construction et publication automatiques
 ```

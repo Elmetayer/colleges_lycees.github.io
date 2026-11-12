@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Secteurs des collèges – Documentation – Carte scolaire</title>
+  <meta name="description" content="Comment les secteurs sont reconstitués et contrôlés.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Literata:opsz,wght@7..72,500;7..72,650&display=swap" rel="stylesheet">
+  <link href="style.css?v=__VERSION__" rel="stylesheet">
+</head>
+<body class="page-doc">
+  <header class="barre">
+    <a class="titre" href="./">Carte scolaire</a>
+    <a class="lien-doc" href="./">Retour à la carte</a>
+  </header>
+
+  <main>
+    <p class="fil"><a href="documentation.html">Documentation</a> › Secteurs des collèges</p>
+    <h1 id="secteurs">Secteurs des collèges</h1>
+    <nav class="doc-sommaire" aria-label="Sur cette page" hidden></nav>
+    <p>Les secteurs sont reconstitués à partir de la <b>carte scolaire des collèges publics</b> publiée par le ministère de l'Éducation nationale, qui rassemble les fichiers utilisés par les services départementaux pour affecter les élèves en 6e. Ce fichier ne contient pas de zones dessinées : il liste, commune par commune, les voies et les numéros rattachés à chaque collège.</p>
+    <h2 id="methode">Méthode</h2>
+    <ul>
+      <li><b>Commune à un seul collège de secteur</b> : la zone est le contour de la commune.</li>
+      <li><b>Commune à plusieurs collèges</b> : chaque adresse de la Base Adresse Nationale est rattachée à son collège selon les règles du fichier (nom de la voie, numéros pairs ou impairs, premier et dernier numéro). Les adresses que le fichier ne cite pas prennent le collège de l'adresse rattachée la plus proche. La commune est ensuite découpée en zones autour des adresses.</li>
+      <li><b>Paris, Lyon et Marseille</b> sont traités par arrondissement.</li>
+    </ul>
+    <h2 id="adresses-secteurs">Adresses utilisées</h2>
+    <p>Les adresses viennent de la Base Adresse Nationale. Quand la Base Adresse Nationale n'est pas disponible, ses exports régionaux (Île-de-France) ou, à défaut, les adresses de BANO, issues d'OpenStreetMap, la remplacent ; les secteurs sont recalculés dès que la Base Adresse Nationale revient.</p>
+    <h2 id="mise-a-jour">Mise à jour</h2>
+    <p>Les secteurs sont calculés département par département, et recalculés seulement quand la carte scolaire du département change. Si un calcul échoue, les derniers secteurs valides restent affichés.</p>
+    <h2 id="controle">Contrôle et fiabilité</h2>
+    <p id="controle-secteurs">Pour contrôler la méthode, les zones obtenues sont comparées aux secteurs officiels dessinés par la Ville de Paris et par le département des Hauts-de-Seine.</p>
+    <p>Le résultat est fiable à l'échelle d'un quartier, mais une adresse proche d'une limite de secteur peut être rattachée au collège voisin. Pour une inscription, seule la réponse de l'inspection académique fait foi.</p>
+    <nav class="doc-suite" aria-label="Pages de la documentation">
+      <a class="prec" href="documentation-lycees.html"><small>Page précédente</small>Indicateurs des lycées</a>
+      <a class="suiv" href="documentation-sources.html"><small>Page suivante</small>Sources, limites et licences</a>
+    </nav>
+  </main>
+
+  <script src="parametres.js?v=__VERSION__"></script>
+  <script src="documentation.js?v=__VERSION__"></script>
+</body>
+</html>

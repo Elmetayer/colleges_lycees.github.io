@@ -895,7 +895,7 @@
         </div>
         <div id="fiche-graphe" aria-live="polite"></div>` :
         `<p>Aucun indicateur n'est publié pour ce collège. C'est souvent le cas des établissements récents ou à petit effectif.</p>`}
-      <p class="renvoi"><a href="documentation.html#indicateurs">Comprendre ces indicateurs</a></p>`;
+      <p class="renvoi"><a href="documentation-colleges.html">Comprendre ces indicateurs</a></p>`;
     if (liste.length) afficherOnglet();
   }
 
@@ -944,7 +944,7 @@
         </div>
         <div id="fiche-graphe" aria-live="polite"></div>` :
         `<p>Aucun indicateur n'est publié pour ce lycée. C'est souvent le cas des établissements récents, à petit effectif, ou sans classe de terminale.</p>`}
-      <p class="renvoi"><a href="documentation.html#lycees">Comprendre ces indicateurs</a></p>`;
+      <p class="renvoi"><a href="documentation-lycees.html">Comprendre ces indicateurs</a></p>`;
     if (liste.length) afficherOnglet();
   }
 
