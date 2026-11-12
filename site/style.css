@@ -204,6 +204,26 @@ select {
 .page-doc table { width: 100%; border-collapse: collapse; font-size: 0.92rem; margin: 8px 0; }
 .page-doc th, .page-doc td { text-align: left; vertical-align: top; padding: 8px 8px 8px 0; border-bottom: 1px solid var(--trait); }
 .page-doc th { font-weight: 400; color: var(--encre-douce); }
+
+/* Documentation découpée en pages : sommaire en cartes, fil d'Ariane, sommaire de page, navigation. */
+.page-doc h1[id], .page-doc h2[id] { scroll-margin-top: calc(var(--barre-h) + 12px); }
+.page-doc .fil { font-size: 0.9rem; color: var(--encre-douce); margin: 0 0 6px; }
+.page-doc .fil a { color: var(--encre-douce); }
+.doc-cartes { list-style: none; padding: 0; margin: 24px 0 8px; display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr)); }
+.doc-cartes li { max-width: none; }
+.doc-cartes a { display: flex; flex-direction: column; gap: 4px; height: 100%; box-sizing: border-box; padding: 14px 16px;
+  border: 1px solid var(--trait); border-left: 3px solid var(--marge); border-radius: 6px; background: #fff; text-decoration: none; }
+.doc-cartes a:hover { box-shadow: var(--ombre); }
+.doc-carte-titre { font: 650 1.1rem/1.25 var(--titre); }
+.doc-carte-texte { font-size: 0.92rem; color: var(--encre-douce); }
+.doc-sommaire { margin: 16px 0 8px; padding: 10px 14px; border: 1px solid var(--trait); border-radius: 6px; background: #fff; font-size: 0.95rem; }
+.doc-sommaire p { margin: 0 0 4px; font-weight: 700; }
+.doc-sommaire ol { margin: 0; padding-left: 1.2rem; columns: 2 12rem; column-gap: 24px; }
+.doc-sommaire li { break-inside: avoid; }
+.doc-suite { display: flex; justify-content: space-between; gap: 12px; margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--trait); }
+.doc-suite a { display: flex; flex-direction: column; text-decoration: none; font-weight: 700; max-width: 48%; }
+.doc-suite small { font-weight: 400; color: var(--encre-douce); }
+.doc-suite .suiv { margin-left: auto; text-align: right; }
 .page-doc .formule { padding: 10px 14px; background: #eef1f8; border-radius: 8px; }
 @media (max-width: 560px) {
   .page-doc .sources thead { display: none; }

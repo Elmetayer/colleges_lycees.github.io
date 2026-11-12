@@ -19,148 +19,37 @@
   <main>
     <h1>Documentation</h1>
     <p class="chapeau">D'où viennent les données de la carte, comment chaque indicateur est calculé, et ce qu'il ne dit pas.</p>
-
-    <h2 id="presentation">Ce que montre la carte</h2>
-    <p>La carte présente les collèges et les lycées publics et privés sous contrat de France métropolitaine (Corse comprise). Les secteurs des collèges publics sont dessinés dans tous les départements qui figurent dans le fichier national de carte scolaire ; ils apparaissent en zoomant sur un département. Quelques départements en sont absents (Corse, Ariège, Aveyron, Charente-Maritime, Côtes-d'Armor, Haute-Garonne, Gers, Lot, Hautes-Pyrénées, Tarn, Tarn-et-Garonne au 12 novembre 2026). L'outre-mer viendra plus tard.</p>
-    <p>Chaque type d'établissement forme un calque, que l'on affiche ou masque et que l'on règle séparément : indicateur de couleur, établissements publics ou privés, zones. La forme indique le type : un carré pour un collège, un triangle pour un lycée (et, plus tard, un cercle pour une école). La couleur suit l'indicateur choisi pour le calque, avec sa propre légende. Un contour fin et blanc signale un établissement public, un contour épais et foncé un établissement privé sous contrat. Une forme grise signale un établissement pour lequel l'indicateur n'est pas publié.</p>
-    <p>Les couleurs vont du jaune (valeurs les plus basses) au bleu nuit (les plus hautes). Elles sont réparties selon le classement de l'ensemble des collèges de France métropolitaine, et non selon l'écart brut entre valeurs : la teinte du milieu correspond à la médiane, et chaque passage de teinte regroupe environ un quart des collèges. Les écarts restent ainsi visibles même quand les valeurs sont proches. Pour la valeur ajoutée, la même logique s'applique autour de zéro : orange pour une valeur négative, violet pour une valeur positive, gris très clair pour un écart faible (voir plus bas).</p>
-    <p>Le champ de recherche en haut de la carte trouve un collège ou un lycée par son nom, une commune ou une adresse. Pour une adresse, la carte indique le collège de secteur quand il est connu, les collèges publics les plus proches et les trois lycées publics les plus proches, à vol d'oiseau.</p>
-    <p>Les zones colorées sont les secteurs de recrutement des collèges publics, de la couleur de leur collège. Toucher une zone ouvre la fiche du collège ; la case « Secteurs des collèges publics » les masque. Les collèges privés n'ont pas de secteur. Les zones d'affectation des lycées ne sont pas publiées en open data : l'affectation passe par la procédure Affelnet, avec des règles propres à chaque académie.</p>
-    <p id="resume-donnees"></p>
-
-    <h2 id="indicateurs">Les indicateurs des collèges</h2>
-    <p>Tous les indicateurs viennent de la DEPP, le service statistique du ministère de l'Éducation nationale. La carte affiche pour chaque collège la valeur la plus récente ; la fiche du collège donne l'historique disponible.</p>
-    <p>Dans la fiche, un graphique montre l'évolution d'un indicateur au fil des années ; les boutons au-dessus permettent de passer d'un indicateur à l'autre. Chaque courbe du collège (trait plein) est accompagnée de sa médiane en pointillés de la même couleur : la médiane des collèges publics et privés de son académie pour la même année, au-dessus de laquelle se trouve la moitié des collèges de l'académie. Quand deux mesures n'ont pas la même unité (un pourcentage et une note sur 20, par exemple), elles sont tracées dans deux graphiques superposés qui partagent les mêmes années. Les valeurs exactes restent disponibles sous le graphique, dans « Valeurs par année ».</p>
-
-    <h3 id="ips">Indice de position sociale (IPS)</h3>
-    <p>L'IPS résume le milieu social des élèves à partir des professions de leurs responsables légaux. Plus il est élevé, plus les élèves viennent en moyenne de milieux favorables à la réussite scolaire. La fiche donne aussi l'écart-type de l'IPS, qui mesure la diversité sociale à l'intérieur du collège : un écart-type élevé signale un collège socialement mélangé.</p>
-    <p>L'IPS n'est pas publié quand il porte sur moins de 5 élèves. La série a été recalculée à partir de la rentrée 2022 : les valeurs antérieures ne sont pas comparables et ne sont pas utilisées.</p>
-
-    <h3 id="brevet">Résultats au brevet</h3>
-    <p>Les résultats portent sur la série générale du diplôme national du brevet.</p>
-    <ul>
-      <li><b>Réussite au brevet</b> : part des candidats admis, telle que publiée par la DEPP.</li>
-      <li><b>Mentions au brevet</b> : nombre de candidats ayant obtenu une mention (assez bien, bien ou très bien), divisé par le nombre de candidats.</li>
-      <li><b>Mentions très bien</b> : même calcul pour la seule mention très bien. Ce taux n'est pas proposé comme couleur de la carte mais entre dans le score agrégé.</li>
-      <li><b>Note moyenne aux écrits</b> : moyenne des notes aux épreuves écrites, sur 20, telle que publiée par la DEPP.</li>
+    <ul class="doc-cartes">
+      <li><a href="documentation-carte.html"><span class="doc-carte-titre">Utiliser la carte</span><span class="doc-carte-texte">Calques, formes et couleurs, recherche, secteurs affichés.</span></a></li>
+      <li><a href="documentation-colleges.html"><span class="doc-carte-titre">Indicateurs des collèges</span><span class="doc-carte-texte">IPS, brevet, valeur ajoutée, évaluations de 6e, score agrégé.</span></a></li>
+      <li><a href="documentation-lycees.html"><span class="doc-carte-titre">Indicateurs des lycées</span><span class="doc-carte-texte">Voies, bac, accès au bac, valeur ajoutée, IPS, score de la voie générale.</span></a></li>
+      <li><a href="documentation-secteurs.html"><span class="doc-carte-titre">Secteurs des collèges</span><span class="doc-carte-texte">Comment les secteurs sont reconstitués et contrôlés.</span></a></li>
+      <li><a href="documentation-sources.html"><span class="doc-carte-titre">Sources, limites et licences</span><span class="doc-carte-texte">Jeux de données, services d'adresses, précautions de lecture.</span></a></li>
     </ul>
-
-    <h3 id="valeur-ajoutee">Valeur ajoutée</h3>
-    <p>La valeur ajoutée compare les résultats obtenus par un collège à ceux qu'on pouvait attendre au vu de ses élèves : âge, sexe, niveau à l'entrée en sixième et milieu social, ainsi que la composition du collège. Une valeur positive signifie que les élèves ont mieux réussi que prévu ; une valeur négative, moins bien.</p>
-    <p>Elle est calculée par la DEPP pour le taux de réussite (en points de pourcentage) et pour la note aux écrits (en points sur 20), à partir de la session 2022. C'est l'indicateur le plus proche de « l'effet » du collège, mais il reste une estimation statistique : de petites valeurs ne sont pas significatives, en particulier dans les petits collèges.</p>
-    <p>Sur la carte, les écarts faibles sont regroupés en gris très clair, « <span data-param="libelle-proche">proche de l'attendu</span> » : entre <span data-param="seuil-reussite">−2 et +2</span> points pour la réussite, entre <span data-param="seuil-note">−0,3 et +0,3</span> point pour la note aux écrits. Ce seuil est un choix de cette carte pour ne pas colorer des écarts minimes ; ce n'est pas un test statistique de la DEPP. Au-delà, l'orange signale un collège en dessous de l'attendu, le violet un collège au-dessus.</p>
-    <p>Dans certaines académies, comme celles de Paris et de Versailles, une majorité de collèges ont une valeur ajoutée négative. Cela ne vient pas d'une erreur de calcul : la valeur ajoutée est mesurée par rapport à ce qui est attendu au niveau national pour des élèves au profil comparable, et beaucoup de collèges de ces académies font un peu moins bien que cette référence. La légende de la carte indique la répartition exacte pour la session affichée.</p>
-
-    <h3 id="evaluations">Évaluations nationales de début de sixième</h3>
-    <p>Tous les élèves de sixième passent en septembre des tests de français et de mathématiques. La carte affiche le score moyen des élèves du collège dans chaque matière. Ces évaluations mesurent le niveau des élèves à leur arrivée : elles décrivent le public du collège, pas le travail qui y est fait.</p>
-
-    <h3 id="score">Score agrégé</h3>
-    <p>Le score reprend la logique de la première version de cette carte. Il est proposé à titre indicatif et n'est pas affiché par défaut.</p>
-    <p class="formule">Score = moyenne du taux de réussite, du taux de mentions et du taux de mentions très bien au brevet, pour la dernière session disponible.</p>
-    <p>Le rang classe les collèges de France métropolitaine ayant un score pour la même session, du plus élevé au plus bas ; la fiche donne aussi le rang dans l'académie. Ce score ne tient pas compte du profil des élèves : il suit de près l'IPS et ne mesure pas la qualité de l'enseignement. Pour comparer des collèges au public différent, la valeur ajoutée est plus pertinente.</p>
-
-    <h2 id="lycees">Les indicateurs des lycées</h2>
-    <p>Les lycées sont décrits par voie : la <b>voie générale et technologique</b> (bac général et bacs technologiques STI2D, STMG, ST2S, STL, STD2A, STHR, S2TMD) et la <b>voie professionnelle</b> (bac pro). Un lycée polyvalent a les deux. Dans la fiche, la voie générale et technologique est tracée en bleu foncé, la voie professionnelle en magenta ; chaque courbe a sa médiane en pointillés, calculée sur les lycées de son académie qui ont des résultats dans la même voie et la même année. Les données couvrent les huit dernières sessions du bac.</p>
-    <p id="lycees-filiere">Le filtre <b>Filière</b> de la carte s'appuie sur le type du lycée dans l'annuaire de l'Éducation nationale : « lycée général et technologique » pour la voie générale et technologique, « lycée professionnel » pour la voie pro. Les lycées polyvalents, qui ont les deux voies, restent affichés tant qu'une des deux est cochée ; de même pour les lycées agricoles, dont l'annuaire ne précise pas la voie. Un lycée général peut toutefois accueillir une petite section professionnelle, ou l'inverse : le détail des résultats par voie figure dans sa fiche.</p>
-
-    <h3 id="lycees-bac">Réussite et mentions au bac</h3>
-    <ul>
-      <li><b>Réussite</b> : part des candidats admis, toutes séries de la voie confondues.</li>
-      <li><b>Mentions</b> : part des candidats ayant obtenu une mention.</li>
-    </ul>
-    <p>La fiche détaille la dernière session par série pour la voie générale et technologique (candidats, réussite, mentions, valeur ajoutée), et par domaine de spécialité pour la voie professionnelle (production, services et leurs sous-domaines).</p>
-
-    <h3 id="lycees-acces">Accès de la seconde au bac</h3>
-    <p>Probabilité qu'un élève entré en seconde dans le lycée obtienne le bac en y faisant toute sa scolarité, éventuellement en redoublant. Cet indicateur complète le taux de réussite : un lycée qui pousse ses élèves fragiles à partir avant la terminale peut afficher une forte réussite au bac mais un accès plus faible.</p>
-
-    <h3 id="lycees-va">Valeur ajoutée</h3>
-    <p>Comme pour les collèges, la DEPP compare les résultats du lycée à ceux qu'on pouvait attendre au vu de ses élèves (âge, sexe, milieu social, résultats au brevet). Elle est publiée pour la réussite, les mentions et l'accès au bac, dans chaque voie. Sur la carte, les écarts compris entre <span data-param="seuil-lycee">−2 et +2</span> points sont regroupés en gris très clair, « <span data-param="libelle-proche">proche de l'attendu</span> ».</p>
-
-    <h3 id="lycees-ips">Indice de position sociale</h3>
-    <p>L'IPS des lycées est publié depuis la rentrée 2023, séparément pour la voie générale et technologique, la voie professionnelle, le lycée entier et les formations post-bac (BTS, classes préparatoires). Les élèves de voie professionnelle viennent en moyenne de milieux moins favorisés : comparer les IPS d'une même voie est plus juste que comparer deux lycées entiers.</p>
-
-    <h3 id="lycees-score">Score de la voie générale</h3>
-    <p class="formule">Score = moyenne du taux de réussite, du taux de mentions et du taux de mentions très bien au bac général, pour la dernière session disponible.</p>
-    <p>Le taux de mentions très bien compte les mentions très bien avec et sans félicitations du jury, rapportées au nombre de candidats du bac général. Le rang classe les lycées de France métropolitaine ayant un score pour la même session ; la fiche donne aussi le rang dans l'académie. Comme celui des collèges, ce score ne tient pas compte du profil des élèves et suit de près l'IPS ; la valeur ajoutée est plus pertinente pour comparer des lycées au public différent. Il n'est pas calculable avant la session 2021, première du nouveau bac général.</p>
-
-    <h2 id="secteurs">Secteurs des collèges</h2>
-    <p>Les secteurs sont reconstitués à partir de la <b>carte scolaire des collèges publics</b> publiée par le ministère de l'Éducation nationale, qui rassemble les fichiers utilisés par les services départementaux pour affecter les élèves en 6e. Ce fichier ne contient pas de zones dessinées : il liste, commune par commune, les voies et les numéros rattachés à chaque collège.</p>
-    <ul>
-      <li><b>Commune à un seul collège de secteur</b> : la zone est le contour de la commune.</li>
-      <li><b>Commune à plusieurs collèges</b> : chaque adresse de la Base Adresse Nationale est rattachée à son collège selon les règles du fichier (nom de la voie, numéros pairs ou impairs, premier et dernier numéro). Quand la Base Adresse Nationale n'est pas disponible, ses exports régionaux (Île-de-France) ou, à défaut, les adresses de BANO, issues d'OpenStreetMap, la remplacent ; les secteurs sont recalculés dès que la Base Adresse Nationale revient. Les adresses que le fichier ne cite pas prennent le collège de l'adresse rattachée la plus proche. La commune est ensuite découpée en zones autour des adresses. Paris, Lyon et Marseille sont traités par arrondissement.</li>
-      <li><b>Mise à jour</b> : les secteurs sont calculés département par département, et recalculés seulement quand la carte scolaire du département change. Si un calcul échoue, les derniers secteurs valides restent affichés.</li>
-    </ul>
-    <p id="controle-secteurs">Pour contrôler la méthode, les zones obtenues sont comparées aux secteurs officiels dessinés par la Ville de Paris et par le département des Hauts-de-Seine.</p>
-    <p>Le résultat est fiable à l'échelle d'un quartier, mais une adresse proche d'une limite de secteur peut être rattachée au collège voisin. Pour une inscription, seule la réponse de l'inspection académique fait foi.</p>
-
-    <h2 id="limites">Limites</h2>
-    <ul>
-      <li>Les données ont un décalage d'un an ou plus : les résultats d'une session sont publiés plusieurs mois après l'examen.</li>
-      <li>Un indicateur isolé résume mal un établissement. Croiser l'IPS, les résultats et la valeur ajoutée donne une image plus juste.</li>
-      <li>Les petites variations d'une année sur l'autre sont fréquentes, surtout dans les établissements aux effectifs réduits.</li>
-    </ul>
-
-    <h2 id="sources">Sources</h2>
-    <p>Les données sont téléchargées et recalculées automatiquement chaque mois.</p>
-    <table class="sources">
-      <thead><tr><th scope="col">Jeu de données</th><th scope="col">Dernière mise à jour</th></tr></thead>
-      <tbody id="liste-sources">
-        <tr><td colspan="2">Chargement de la liste des sources…</td></tr>
-      </tbody>
-    </table>
-    <p>Secteurs : <a href="https://www.data.gouv.fr/datasets/carte-scolaire-des-colleges-publics">carte scolaire des collèges publics</a> (DGESCO, Licence Ouverte 2.0), <a href="https://bano.openstreetmap.fr">BANO</a> (© contributeurs OpenStreetMap, ODbL, en secours), <a href="https://data.iledefrance.fr">exports régionaux de la BAN</a> (Île-de-France, en secours), <a href="https://adresse.data.gouv.fr">Base Adresse Nationale</a> (Licence Ouverte 2.0) et contours des communes de <a href="https://geo.api.gouv.fr">geo.api.gouv.fr</a>. Contrôle avec les secteurs officiels de la Ville de Paris (ODbL) et du département des Hauts-de-Seine (Licence Ouverte), qui ne sont pas utilisés pour dessiner la carte.</p>
-    <p>Fond de carte : OpenFreeMap, à partir des données OpenStreetMap.</p>
-
-    <h3 id="adresses">Services d'adresses</h3>
-    <p>La recherche d'adresses interroge deux services publics de la Géoplateforme, l'infrastructure de données géographiques opérée par l'IGN. Les adresses proviennent de la Base Adresse Nationale (BAN), publiée sous Licence Ouverte 2.0.</p>
-    <table class="sources">
-      <thead><tr><th scope="col">Service</th><th scope="col">Rôle sur la carte</th></tr></thead>
-      <tbody>
-        <tr><td>Autocomplétion de la Géoplateforme<br><code>data.geopf.fr/geocodage/completion</code></td><td>Propose des adresses de France métropolitaine pendant la saisie.</td></tr>
-        <tr><td>Géocodage de la Géoplateforme<br><code>data.geopf.fr/geocodage/search</code></td><td>Service de secours, utilisé si l'autocomplétion ne répond pas. Les résultats hors de France métropolitaine sont écartés.</td></tr>
-      </tbody>
-    </table>
-    <p>Seul le texte tapé dans le champ est envoyé à ces services, à partir de la troisième lettre ; la carte ne conserve rien. Les services sont gratuits et sans clé, dans la limite de 50 requêtes par seconde par adresse IP. La distance entre l'adresse et les collèges est ensuite calculée dans le navigateur, à vol d'oiseau. Documentation des services : <a href="https://www.data.gouv.fr/dataservices/api-geoplateforme-geocodage">API Géoplateforme – Géocodage</a>.</p>
-
-    <h2 id="licences">Licences et code</h2>
-    <p>Les données de l'Éducation nationale sont publiées sous Licence Ouverte 2.0, qui autorise leur réutilisation à condition d'en citer la source. Le code de cette carte est public sur <a href="https://github.com/Elmetayer/colleges_lycees.github.io">GitHub</a>.</p>
+    <h2 id="donnees">Données en ligne</h2>
+    <p id="resume-donnees">Chargement…</p>
   </main>
 
-  <script src="parametres.js?v=__VERSION__"></script>
   <script>
+    // Anciens liens vers une section de la page unique : redirection vers la page qui la contient.
     (function () {
-      const va = (window.PARAMETRES && window.PARAMETRES.valeurAjoutee) || null;
-      if (va) {
-        const n = (v) => Number(v).toLocaleString("fr-FR", { maximumFractionDigits: 2 });
-        const borne = (v) => `−${n(v)} et +${n(v)}`;
-        const poser = (cle, txt) => document.querySelectorAll(`[data-param="${cle}"]`).forEach((e) => { e.textContent = txt; });
-        if (va.seuils && va.seuils.va_reussite != null) poser("seuil-reussite", borne(va.seuils.va_reussite));
-        if (va.seuils && va.seuils.va_note != null) poser("seuil-note", borne(va.seuils.va_note));
-        if (va.libelles && va.libelles.proche) poser("libelle-proche", va.libelles.proche);
-        if (va.seuils && va.seuils.gt_va_reussite != null) poser("seuil-lycee", borne(va.seuils.gt_va_reussite));
-      }
-      const date = (s) => s ? new Date(s).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" }) : "Non renseignée";
-      const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-      fetch("data/meta.json").then((r) => r.json()).then((m) => {
-        document.getElementById("liste-sources").innerHTML = m.sources.map((s) =>
-          `<tr><td>${s.page ? `<a href="${esc(s.page)}">${esc(s.titre)}</a>` : esc(s.titre)}</td><td>${date(s.mise_a_jour)}</td></tr>`).join("");
-        const ctrl = m.secteurs && m.secteurs.controle;
-        if (ctrl && Object.keys(ctrl).length) {
-          const pc = (v) => Math.round(v * 100) + " %";
-          document.getElementById("controle-secteurs").textContent =
-            "Pour contrôler la méthode, les zones obtenues sont comparées aux secteurs officiels dessinés par la Ville de Paris et par le département des Hauts-de-Seine. " +
-            Object.entries(ctrl).map(([nom, v]) => `${nom} : ${pc(v.taux_surface)} de la surface est attribuée au même collège`).join(" ; ") + ".";
+      const pages = {
+        "documentation-carte.html": ["presentation"],
+        "documentation-colleges.html": ["indicateurs", "ips", "brevet", "valeur-ajoutee", "evaluations", "score"],
+        "documentation-lycees.html": ["lycees", "lycees-filiere", "lycees-bac", "lycees-acces", "lycees-va", "lycees-ips", "lycees-score"],
+        "documentation-secteurs.html": ["secteurs", "controle-secteurs"],
+        "documentation-sources.html": ["limites", "sources", "adresses", "licences"],
+      };
+      const ancre = location.hash.slice(1);
+      for (const [page, ids] of Object.entries(pages)) {
+        if (ancre && ids.includes(ancre)) {
+          location.replace(page + (ancre === ids[0] && page !== "documentation-sources.html" ? "" : "#" + ancre));
+          return;
         }
-        const c = m.colleges, p = m.periodes;
-        const liste = (a) => a && a.length ? a.join(", ") : "aucune";
-        document.getElementById("resume-donnees").textContent =
-          `Données générées le ${date(m.genere_le)} : ${c.total} collèges (${c.publics} publics, ${c.prives} privés). ` +
-          `Sessions du brevet : ${liste(p.brevet)}. IPS : ${liste(p.ips)}. Évaluations de 6e : ${liste(p.eval6e)}.` +
-          (m.lycees ? ` ${m.lycees.total} lycées (${m.lycees.publics} publics, ${m.lycees.prives} privés). Sessions du bac : ${liste(m.lycees.periodes.gt)}. IPS des lycées : ${liste(m.lycees.periodes.ips)}.` : "");
-      }).catch(() => {
-        document.getElementById("liste-sources").innerHTML = "<tr><td colspan='2'>La liste des sources n'a pas pu être chargée.</td></tr>";
-      });
+      }
     })();
   </script>
+  <script src="parametres.js?v=__VERSION__"></script>
+  <script src="documentation.js?v=__VERSION__"></script>
 </body>
 </html>
