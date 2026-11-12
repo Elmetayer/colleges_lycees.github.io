@@ -87,7 +87,8 @@
     <p>Les secteurs sont reconstitués à partir de la <b>carte scolaire des collèges publics</b> publiée par le ministère de l'Éducation nationale, qui rassemble les fichiers utilisés par les services départementaux pour affecter les élèves en 6e. Ce fichier ne contient pas de zones dessinées : il liste, commune par commune, les voies et les numéros rattachés à chaque collège.</p>
     <ul>
       <li><b>Commune à un seul collège de secteur</b> : la zone est le contour de la commune.</li>
-      <li><b>Commune à plusieurs collèges</b> : chaque adresse de la Base Adresse Nationale est rattachée à son collège selon les règles du fichier (nom de la voie, numéros pairs ou impairs, premier et dernier numéro). Les adresses que le fichier ne cite pas prennent le collège de l'adresse rattachée la plus proche. La commune est ensuite découpée en zones autour des adresses.</li>
+      <li><b>Commune à plusieurs collèges</b> : chaque adresse de la Base Adresse Nationale est rattachée à son collège selon les règles du fichier (nom de la voie, numéros pairs ou impairs, premier et dernier numéro). Quand la Base Adresse Nationale n'est pas disponible, ses exports régionaux (Île-de-France) ou, à défaut, les adresses de BANO, issues d'OpenStreetMap, la remplacent ; les secteurs sont recalculés dès que la Base Adresse Nationale revient. Les adresses que le fichier ne cite pas prennent le collège de l'adresse rattachée la plus proche. La commune est ensuite découpée en zones autour des adresses. Paris, Lyon et Marseille sont traités par arrondissement.</li>
+      <li><b>Mise à jour</b> : les secteurs sont calculés département par département, et recalculés seulement quand la carte scolaire du département change. Si un calcul échoue, les derniers secteurs valides restent affichés.</li>
     </ul>
     <p id="controle-secteurs">Pour contrôler la méthode, les zones obtenues sont comparées aux secteurs officiels dessinés par la Ville de Paris et par le département des Hauts-de-Seine.</p>
     <p>Le résultat est fiable à l'échelle d'un quartier, mais une adresse proche d'une limite de secteur peut être rattachée au collège voisin. Pour une inscription, seule la réponse de l'inspection académique fait foi.</p>
@@ -107,7 +108,7 @@
         <tr><td colspan="2">Chargement de la liste des sources…</td></tr>
       </tbody>
     </table>
-    <p>Secteurs : <a href="https://www.data.gouv.fr/datasets/carte-scolaire-des-colleges-publics">carte scolaire des collèges publics</a> (DGESCO, Licence Ouverte 2.0), <a href="https://adresse.data.gouv.fr">Base Adresse Nationale</a> (Licence Ouverte 2.0) et contours des communes de <a href="https://geo.api.gouv.fr">geo.api.gouv.fr</a>. Contrôle avec les secteurs officiels de la Ville de Paris (ODbL) et du département des Hauts-de-Seine (Licence Ouverte), qui ne sont pas utilisés pour dessiner la carte.</p>
+    <p>Secteurs : <a href="https://www.data.gouv.fr/datasets/carte-scolaire-des-colleges-publics">carte scolaire des collèges publics</a> (DGESCO, Licence Ouverte 2.0), <a href="https://bano.openstreetmap.fr">BANO</a> (© contributeurs OpenStreetMap, ODbL, en secours), <a href="https://data.iledefrance.fr">exports régionaux de la BAN</a> (Île-de-France, en secours), <a href="https://adresse.data.gouv.fr">Base Adresse Nationale</a> (Licence Ouverte 2.0) et contours des communes de <a href="https://geo.api.gouv.fr">geo.api.gouv.fr</a>. Contrôle avec les secteurs officiels de la Ville de Paris (ODbL) et du département des Hauts-de-Seine (Licence Ouverte), qui ne sont pas utilisés pour dessiner la carte.</p>
     <p>Fond de carte : OpenFreeMap, à partir des données OpenStreetMap.</p>
 
     <h3 id="adresses">Services d'adresses</h3>
