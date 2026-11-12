@@ -38,6 +38,14 @@ jobs:
       - name: Version des fichiers (évite le cache du navigateur après une mise à jour)
         run: sed -i "s/__VERSION__/${GITHUB_SHA::7}/g" site/*.html
 
+      - name: Vérifier le site avant publication
+        # Bloque la publication si un fichier de données est illisible ou si un calque, une fiche
+        # ne se chargent pas dans un vrai navigateur (ordinateur et téléphone).
+        run: |
+          pip install playwright
+          python -m playwright install --with-deps chromium
+          python tests/verifier_site.py site
+
       - name: Résumé
         run: |
           echo "### Données générées" >> "$GITHUB_STEP_SUMMARY"
