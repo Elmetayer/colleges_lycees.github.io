@@ -1,0 +1,37 @@
+name: Diagnostic BAN (temporaire)
+
+on:
+  pull_request:
+    paths: [".github/workflows/diagnostic.yml"]
+
+permissions:
+  contents: read
+
+jobs:
+  sonde:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Sonder la BAN
+        run: |
+          set +e
+          for ua in "carte-scolaire-colleges-lycees (github.com/Elmetayer/colleges_lycees.github.io)" "python-requests/2.32" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/130 Safari/537.36" "curl/8.5"; do
+            echo "=== UA: $ua"
+            for u in https://adresse.data.gouv.fr/ \
+                     https://adresse.data.gouv.fr/donnees-nationales \
+                     https://adresse.data.gouv.fr/data/ban/adresses/ \
+                     https://adresse.data.gouv.fr/data/ban/adresses/latest/csv/ \
+                     https://adresse.data.gouv.fr/data/ban/adresses/latest/csv/adresses-75.csv.gz ; do
+              curl -s -o /dev/null -A "$ua" -w "%{http_code} %{size_download}o %{redirect_url} $u\n" -m 30 "$u"
+            done
+          done
+          echo "=== en-têtes"
+          curl -sI -m 30 https://adresse.data.gouv.fr/data/ban/adresses/latest/csv/adresses-75.csv.gz | head -20
+          echo "=== corps de la réponse"
+          curl -s -m 30 https://adresse.data.gouv.fr/data/ban/adresses/latest/csv/adresses-75.csv.gz | head -c 600; echo
+          echo "=== data.gouv.fr : ressources du jeu"
+          curl -s -m 30 https://www.data.gouv.fr/api/1/datasets/base-adresse-nationale/ | python3 -c "import json,sys;d=json.load(sys.stdin);[print(r.get('title'),'|',r.get('url'),'|',r.get('last_modified')) for r in d['resources']]"
+          echo "=== autres sources"
+          for u in https://cadastre.data.gouv.fr/data/adresses-cadastre/latest/csv/ https://files.data.gouv.fr/ https://object.files.data.gouv.fr/ ; do
+            curl -s -o /dev/null -w "%{http_code} %{size_download}o %{redirect_url} $u\n" -m 30 "$u"
+          done
+          dig +short adresse.data.gouv.fr
