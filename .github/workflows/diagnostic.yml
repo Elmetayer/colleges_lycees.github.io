@@ -11,16 +11,22 @@ jobs:
   sonde:
     runs-on: ubuntu-latest
     steps:
-      - name: Sonder le cadastre
+      - name: Sonder le stockage
         run: |
           set +e
-          for u in https://cadastre.data.gouv.fr/data/adresses-cadastre/latest/csv/ https://cadastre.data.gouv.fr/data/adresses-cadastre/ https://cadastre.data.gouv.fr/data/ ; do
-            echo "=== $u"; curl -s -i -m 30 "$u" | head -c 1500; echo
+          S=https://cadastre.s3.rbx.io.cloud.ovh.net
+          echo "=== liste adresses-cadastre/latest/csv/"; curl -s -m 60 "$S/?list-type=2&prefix=adresses-cadastre/latest/csv/&max-keys=8" | head -c 1500; echo
+          echo "=== liste racine"; curl -s -m 60 "$S/?list-type=2&delimiter=/&max-keys=30" | grep -o "<Prefix>[^<]*</Prefix>" | head -30
+          echo "=== liste adresses-cadastre/"; curl -s -m 60 "$S/?list-type=2&prefix=adresses-cadastre/&delimiter=/&max-keys=30" | grep -o "<Prefix>[^<]*</Prefix>" | head -30
+          for u in $S/adresses-cadastre/latest/csv/adresses-cadastre-75.csv.gz $S/adresses-cadastre/latest/csv/adresses-cadastre-03.csv.gz $S/adresses-cadastre/latest/csv/adresses-cadastre-2A.csv.gz ; do
+            curl -s -o /tmp/f.gz -w "%{http_code} %{size_download}o $u\n" -m 120 "$u"
           done
-          echo "=== data.gouv.fr : adresses extraites du cadastre"
-          curl -s -m 30 https://www.data.gouv.fr/api/1/datasets/adresses-extraites-du-cadastre/ | python3 -c "import json,sys;d=json.load(sys.stdin);[print(r.get('title'),'|',r.get('url'),'|',r.get('filesize'),'|',r.get('last_modified')) for r in d['resources']]"
-          echo "=== BAN : autres jeux sur data.gouv.fr"
-          curl -s -m 30 "https://www.data.gouv.fr/api/1/datasets/?q=base%20adresse%20nationale&organization=&page_size=10" | python3 -c "import json,sys;d=json.load(sys.stdin);[print(x['slug'],'|',x.get('last_update'),'|',[r.get('url') for r in x['resources']][:3]) for x in d['data']]"
-          for u in https://cadastre.data.gouv.fr/data/adresses-cadastre/latest/csv/adresses-cadastre-75.csv.gz https://cadastre.data.gouv.fr/data/adresses-cadastre/latest/csv/75.csv.gz https://cadastre.data.gouv.fr/data/etalab-cadastre/latest/ ; do
-            curl -s -o /dev/null -w "%{http_code} %{size_download}o %{redirect_url} $u\n" -m 60 "$u"
+          zcat /tmp/f.gz 2>/dev/null | head -3
+          curl -s -m 120 $S/adresses-cadastre/latest/csv/adresses-cadastre-75.csv.gz | zcat | head -3
+          for b in ban adresse adresse-data-gouv adresses base-adresse-nationale ; do
+            for path in "ban/adresses/latest/csv/adresses-75.csv.gz" "adresses/latest/csv/adresses-75.csv.gz" "" ; do
+              curl -s -o /dev/null -w "%{http_code} %{size_download}o https://$b.s3.rbx.io.cloud.ovh.net/$path\n" -m 30 "https://$b.s3.rbx.io.cloud.ovh.net/$path"
+            done
           done
+          echo "=== ban sur le stockage du cadastre"
+          curl -s -m 60 "$S/?list-type=2&prefix=ban&max-keys=5" | head -c 800; echo
