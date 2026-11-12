@@ -1,4 +1,4 @@
-/* Carte scolaire : collèges de France métropolitaine et lycées des académies de Paris et de Versailles, en calques. */
+/* Carte scolaire : collèges et lycées de France métropolitaine, en calques. */
 (function () {
   "use strict";
 
@@ -65,7 +65,7 @@
       zones: { libelle: "Secteurs des collèges publics",
         note: "Les secteurs sont ceux des collèges publics. Ils restent affichés quand seuls les privés sont visibles, avec la couleur de leur collège. Pour l'instant, ils ne sont dessinés que dans les académies de Paris et de Versailles." } },
     { cle: "lycees", nom: "Lycées", pluriel: "lycées", forme: "triangle", indicateurs: INDICATEURS_LYCEES, defaut: "ips", voies: true,
-      perimetre: "Pour l'instant, seulement les lycées des académies de Paris et de Versailles.",
+      perimetre: "Lycées de France métropolitaine ; couleurs réparties sur l'ensemble de ces lycées.",
       zones: { libelle: "Secteurs des lycées", indisponible: true,
         note: "Non publiés en open data : l'affectation en lycée passe par Affelnet, avec des règles propres à chaque académie." } },
     { cle: "ecoles", nom: "Écoles", pluriel: "écoles", forme: "cercle", bientot: true },
@@ -446,6 +446,7 @@
   // « académie de Lyon », « académie d'Aix-Marseille ».
   const academieDe = (a) => (/^[aeiouyéèêâîô]/i.test(a || "") ? "d'" : "de ") + (a || "");
   let medianesLycees = { gt: {}, pro: {}, ips: {} };
+  let medianesLyceesAcademies = {};
   // Onglet choisi, gardé pour la fiche suivante du même type.
   const ongletsChoisis = { college: "brevet", lycee: "gt" };
   let ficheCourante = null;
@@ -677,7 +678,7 @@
     const pct = (v) => fr(v, 0) + " %";
     const tickPct = (t) => fr(t, 0) + " %";
     const tickSigne = (t) => (t > 0 ? "+" : t < 0 ? "−" : "") + fr(Math.abs(t), 0);
-    const M = medianesLycees;
+    const M = Object.assign({ gt: {}, pro: {}, ips: {} }, medianesLyceesAcademies[p.academie] || medianesLycees);
     const gt = hist.gt || [], pro = hist.pro || [], ip = hist.ips || [], sc = hist.score || [];
     const decrire = (lignes, cleA, cle, fmt) => lignes.map((r) => `${r[cleA]} ${num(r[cle]) ? fmt(r[cle]) : "non publié"}`).join(", ");
     // Axe commun aux deux voies : toutes les sessions présentes dans l'une ou l'autre.
@@ -712,7 +713,7 @@
       const meds = [];
       if (num(m.reussite)) meds.push(`réussite ${pct(m.reussite)}`);
       if (num(m.mentions)) meds.push(`mentions ${pct(m.mentions)}`);
-      if (meds.length) contexte.push(`Médianes : ${meds.join(", ")}.`);
+      if (meds.length) contexte.push(`Médianes de l'académie : ${meds.join(", ")}.`);
       const lab = L.map((r) => r.session);
       res.push({
         cle: o.cle, nom: o.nom, titre: o.titre,
@@ -786,7 +787,7 @@
       const principal = num(d.gt) ? ["gt", "voie GT"] : num(d.pro) ? ["pro", "voie pro"] : ["etab", "lycée"];
       const contexte = [];
       if (num(d.gt) && num(d.pro)) contexte.push(`Voie pro : ${fr(d.pro, 1)}.`);
-      if (num(d.etab)) contexte.push(`Lycée entier : ${fr(d.etab, 1)}${num(m.etab) ? ` (médiane ${fr(m.etab, 1)})` : ""}.`);
+      if (num(d.etab)) contexte.push(`Lycée entier : ${fr(d.etab, 1)}${num(m.etab) ? ` (médiane de l'académie ${fr(m.etab, 1)})` : ""}.`);
       if (num(d.postbac)) contexte.push(`Post-bac : ${fr(d.postbac, 1)}.`);
       if (num(d.et_gt)) contexte.push(`Écart-type voie GT : ${fr(d.et_gt, 1)}.`);
       res.push({
@@ -804,8 +805,9 @@
     if (sc.some((r) => num(r.score))) {
       const d = dernier(sc, "score"), m = ((M.gt || {})[d.session] || {}).score;
       const contexte = [];
-      if (num(d.rang)) contexte.push(`${d.rang}e sur ${fr(d.nb, 0)} lycées des deux académies en ${d.session}.`);
-      if (num(m)) contexte.push(`Médiane : ${fr(m, 1)}.`);
+      if (num(d.rang)) contexte.push(`${d.rang}e sur ${fr(d.nb, 0)} lycées de France métropolitaine en ${d.session}` +
+        (num(d.rang_acad) ? `, ${d.rang_acad}e sur ${fr(d.nb_acad, 0)} dans l'académie ${academieDe(p.academie)}.` : "."));
+      if (num(m)) contexte.push(`Médiane de l'académie : ${fr(m, 1)}.`);
       contexte.push("Moyenne des taux de réussite, de mentions et de mentions très bien au bac général : à lire avec précaution.");
       const lab = sc.map((r) => r.session);
       res.push({
@@ -816,7 +818,8 @@
             { vals: sc.map((r) => r.score), med: med("gt", "score", lab), couleur: ENCRE, nom: "score" },
           ] }] },
         table: tableau([{ cle: "session", nom: "Session" }, { cle: "score", nom: "Score", fmt: (v) => fr(v, 1) }, { cle: "tb", nom: "Mentions TB", fmt: (v) => fr(v, 1) + " %" },
-          { cle: "rang", nom: "Rang", fmt: (v) => fr(v, 0) }, { cle: "nb", nom: "Sur", fmt: (v) => fr(v, 0) }], sc),
+          { cle: "rang", nom: "Rang national", fmt: (v) => fr(v, 0) }, { cle: "nb", nom: "Sur", fmt: (v) => fr(v, 0) },
+          { cle: "rang_acad", nom: "Rang académie", fmt: (v) => fr(v, 0) }, { cle: "nb_acad", nom: "Sur", fmt: (v) => fr(v, 0) }], sc),
       });
     }
     return res;
@@ -836,7 +839,7 @@
       <div class="graphe">${graphique(o.graphe)}</div>
       <div class="legende-graphe" aria-hidden="true">
         <span><svg width="22" height="8" viewBox="0 0 22 8"><path d="M1 4H21" stroke="${ENCRE}" stroke-width="2.5" stroke-linecap="round"/></svg>Trait plein : ${ficheCourante.type === "lycee" ? "ce lycée" : "ce collège"}</span>
-        ${avecMediane ? `<span><svg width="22" height="8" viewBox="0 0 22 8"><path d="M1 4H21" stroke="${ENCRE}" stroke-opacity="0.55" stroke-width="2" stroke-dasharray="4 3"/></svg>Pointillés de même couleur : ${ficheCourante.type === "lycee" ? "médiane Paris et Versailles" : `médiane de l'académie ${echapper(academieDe(ficheCourante.p.academie))}`}</span>` : ""}
+        ${avecMediane ? `<span><svg width="22" height="8" viewBox="0 0 22 8"><path d="M1 4H21" stroke="${ENCRE}" stroke-opacity="0.55" stroke-width="2" stroke-dasharray="4 3"/></svg>Pointillés de même couleur : médiane de l'académie ${echapper(academieDe(ficheCourante.p.academie))}</span>` : ""}
       </div>
       ${o.detail || ""}
       <details class="valeurs"><summary>Valeurs par année</summary>${o.table}</details>`;
@@ -846,15 +849,16 @@
     if (carte.getLayer("secteurs-surligne")) carte.setFilter("secteurs-surligne", ["==", ["get", "uai"], uai || ""]);
   }
 
-  // Historiques des collèges, un fichier par département, chargé à la première fiche ouverte.
+  // Historiques des collèges et des lycées, un fichier par type et par département, chargé à la première fiche ouverte.
   const fichesDep = new Map();
-  function chargerFiches(dep) {
-    if (!fichesDep.has(dep)) {
-      fichesDep.set(dep, fetch(`data/fiches/colleges-${encodeURIComponent(dep)}.json`)
+  function chargerFiches(dep, type = "colleges") {
+    const cle = `${type}-${dep}`;
+    if (!fichesDep.has(cle)) {
+      fichesDep.set(cle, fetch(`data/fiches/${cle}.json`.replace(/[^\w\-./]/g, encodeURIComponent))
         .then((r) => (r.ok ? r.json() : r.status === 404 ? {} : Promise.reject(r.status)))
-        .catch((e) => { fichesDep.delete(dep); throw e; }));
+        .catch((e) => { fichesDep.delete(cle); throw e; }));
     }
-    return fichesDep.get(dep);
+    return fichesDep.get(cle);
   }
 
   function ouvrirFiche(p) {
@@ -904,14 +908,31 @@
   // Fiche lycée : effectifs, puis un graphique par indicateur, comme pour les collèges.
   function ouvrirFicheLycee(p) {
     surlignerSecteur(null);
-    const hist = JSON.parse(p.hist || "{}");
+    ficheCourante = { type: "lycee", p, onglets: [] };
+    $("fiche-contenu").innerHTML = `<h2 id="fiche-nom">${echapper(p.nom)}</h2><p class="chargement">Chargement des indicateurs…</p>`;
+    const fiche = $("fiche");
+    fiche.hidden = false;
+    document.body.classList.add("fiche-ouverte");
+    fiche.scrollTop = 0;
+    $("fermer").focus({ preventScroll: true });
+    chargerFiches(p.dep, "lycees").then((dep) => {
+      if (!ficheCourante || ficheCourante.p.uai !== p.uai) return;
+      remplirFicheLycee(p, (dep[p.uai] || {}).hist || {});
+    }).catch((e) => {
+      console.warn("Fiches indisponibles", e);
+      if (ficheCourante && ficheCourante.p.uai === p.uai)
+        $("fiche-contenu").innerHTML = `<h2 id="fiche-nom">${echapper(p.nom)}</h2><p>Les indicateurs de ce lycée n'ont pas pu être chargés. Vérifiez la connexion puis rouvrez la fiche.</p>`;
+    });
+  }
+
+  function remplirFicheLycee(p, hist) {
     const liste = ongletsLycee(p, hist);
     ficheCourante = { type: "lycee", p, onglets: liste };
     const secteur = p.secteur === "public" ? "public" : "privé sous contrat";
     const chiffres = [];
     if (num(p.eff_gt)) chiffres.push(["Voie générale et techno", fr(p.eff_gt, 0), "élèves"]);
     if (num(p.eff_pro)) chiffres.push(["Voie professionnelle", fr(p.eff_pro, 0), "élèves"]);
-    if (num(p.score)) chiffres.push(["Score voie générale", fr(p.score, 1), num(p.rang) ? `${p.rang}e sur ${fr(p.nb, 0)}` : p.session_score]);
+    if (num(p.score)) chiffres.push(["Score voie générale", fr(p.score, 1), num(p.rang) ? `${p.rang}e sur ${fr(p.nb, 0)} en France` : p.session_score]);
     $("fiche-contenu").innerHTML = `
       <h2 id="fiche-nom">${echapper(p.nom)}</h2>
       <p class="lieu">${echapper(p.type || "Lycée")} ${secteur}, ${echapper(p.commune)} (${echapper(p.departement)})</p>
@@ -924,11 +945,6 @@
         `<p>Aucun indicateur n'est publié pour ce lycée. C'est souvent le cas des établissements récents, à petit effectif, ou sans classe de terminale.</p>`}
       <p class="renvoi"><a href="documentation.html#lycees">Comprendre ces indicateurs</a></p>`;
     if (liste.length) afficherOnglet();
-    const fiche = $("fiche");
-    fiche.hidden = false;
-    document.body.classList.add("fiche-ouverte");
-    fiche.scrollTop = 0;
-    $("fermer").focus({ preventScroll: true });
   }
 
   function fermerFiche() {
@@ -942,7 +958,8 @@
   // adresses via le service de géocodage de l'IGN (Géoplateforme).
   const GEOCODAGE_COMPLETION = "https://data.geopf.fr/geocodage/completion/";
   const GEOCODAGE_RECHERCHE = "https://data.geopf.fr/geocodage/search";
-  const DEPS = ["75", "78", "91", "92", "95"];
+  // Adresses de France métropolitaine (l'outre-mer viendra plus tard).
+  const enMetropole = (code) => /^(\d{2}|2[AB])/.test(code) && !/^9[78]/.test(code);
   const normaliser = (t) => String(t || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
   let repereAdresse = null;
 
@@ -997,7 +1014,7 @@
   // Adresses : service d'autocomplétion, puis recherche classique en secours.
   async function chercherAdresses(q, signal) {
     try {
-      const url = `${GEOCODAGE_COMPLETION}?text=${encodeURIComponent(q)}&type=StreetAddress&maximumResponses=5&terr=${DEPS.join(",")}`;
+      const url = `${GEOCODAGE_COMPLETION}?text=${encodeURIComponent(q)}&type=StreetAddress&maximumResponses=5&terr=METROPOLE`;
       const r = await fetch(url, { signal });
       if (!r.ok) throw new Error(r.status);
       const j = await r.json();
@@ -1010,7 +1027,7 @@
     if (!r.ok) throw new Error(r.status);
     const j = await r.json();
     return (j.features || [])
-      .filter((f) => DEPS.includes(String(f.properties.postcode || f.properties.citycode || "").slice(0, 2)))
+      .filter((f) => enMetropole(String(f.properties.postcode || f.properties.citycode || "")))
       .slice(0, 5)
       .map((f) => ({ libelle: f.properties.label, detail: f.properties.context || "", coord: f.geometry.coordinates }));
   }
@@ -1115,7 +1132,6 @@
 
   // Adresse choisie : repère sur la carte et liste des collèges publics les plus proches.
   const SECTEURS_DEPARTEMENTS = ["75", "78", "91", "92", "95"];
-  const LYCEES_RAYON_KM = 30;
   function montrerAdresse(a) {
     if (!repereAdresse) {
       const el = document.createElement("div");
@@ -1138,7 +1154,6 @@
     const lycees = sources.lycees ? sources.lycees.features
       .filter((f) => f.properties.secteur === "public")
       .map((f) => ({ f, d: distanceKm(a.coord, f.geometry.coordinates) }))
-      .filter((x) => x.d <= LYCEES_RAYON_KM)  // les lycées ne couvrent que Paris et Versailles pour l'instant
       .sort((x, y) => x.d - y.d).slice(0, 3) : [];
     // Secteurs dessinés seulement dans certains départements (jalon 6 : extension progressive).
     const depProche = tous.length ? tous[0].f.properties.dep : null;
@@ -1243,6 +1258,7 @@
     if (meta && meta.medianes) medianes = Object.assign(medianes, meta.medianes);
     if (meta && meta.medianes_academies) medianesAcademies = meta.medianes_academies;
     if (meta && meta.lycees && meta.lycees.medianes) medianesLycees = Object.assign(medianesLycees, meta.lycees.medianes);
+    if (meta && meta.lycees && meta.lycees.medianes_academies) medianesLyceesAcademies = meta.lycees.medianes_academies;
     ajouterFormes();
     ajouterCalqueCarte(calque("colleges"));
     if (lyc) ajouterCalqueCarte(calque("lycees"));  // au-dessus des collèges
