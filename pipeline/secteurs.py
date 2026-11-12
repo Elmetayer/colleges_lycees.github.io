@@ -16,8 +16,9 @@ Deux étapes :
       la carte scolaire) n'a pas changé n'est pas recalculé ; un département en échec garde ses
       fichiers précédents s'ils existent (cache de GitHub Actions).
   python pipeline/secteurs.py assembler --entree secteurs-out --out site/data
-      écrit <out>/secteurs/<dep>.geojson, <out>/secteurs/index.json, <out>/secteurs.geojson
-      (Île-de-France, en attendant le chargement à la demande) et le bloc "secteurs" de meta.json.
+      écrit <out>/secteurs/<dep>.geojson (chargés par le site selon la zone affichée),
+      <out>/secteurs/index.json (emprise, taille, source et qualité par département) et le bloc
+      "secteurs" de meta.json.
 """
 
 from __future__ import annotations
@@ -46,8 +47,6 @@ from shapely.ops import unary_union
 
 L93 = 2154
 METROPOLE = re.compile(r"\d{2}|2[AB]")
-# Départements affichés par le site tant que les secteurs ne sont pas chargés à la demande (jalon 6d).
-DEPS_SITE = ["75", "78", "91", "92", "95"]
 # Communes découpées en arrondissements municipaux (codes INSEE des arrondissements dans la BAN).
 PLM = {"75": "75056", "69": "69123", "13": "13055"}
 VERSION_CODE = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()[:12]
@@ -572,7 +571,7 @@ def cmd_assembler(args) -> int:
         noms = {f["properties"]["uai"]: f["properties"]["nom"] for f in cg["features"]}
     except FileNotFoundError:
         log("  ! colleges.geojson absent : noms non renseignés")
-    index, site, l93 = {}, [], {}
+    index, l93 = {}, {}
     for g_path in sorted(entree.glob("*.geojson")):
         dep = g_path.stem
         geo = json.loads(g_path.read_text(encoding="utf-8"))
@@ -590,8 +589,6 @@ def cmd_assembler(args) -> int:
             "colleges_sans_zone": len(rapport.get("colleges_sans_zone", [])),
             "communes_sans_contour": len(rapport.get("communes_sans_contour", [])),
         }
-        if dep in DEPS_SITE:
-            site += geo["features"]
         if dep in ("75", "92") and geo["features"]:
             l93[dep] = gpd.GeoDataFrame.from_features(geo["features"], crs=4326).to_crs(L93)
     (dossier / "index.json").write_text(json.dumps(index, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
@@ -599,12 +596,8 @@ def cmd_assembler(args) -> int:
     log(f"  {len(index)} départements, {sum(v['zones'] for v in index.values())} zones, {total / 1e6:.1f} Mo au total")
     for dep, v in sorted(index.items(), key=lambda kv: kv[1].get("rattachees_par_regle") or 1)[:8]:
         log(f"   {dep} : {v}")
-    manquants = sorted(set(DEPS_SITE) - set(index))
-    if manquants:
-        log(f"  ! départements du site sans secteurs : {manquants}")
-    if site:
-        (out / "secteurs.geojson").write_text(json.dumps({"type": "FeatureCollection", "features": site}, ensure_ascii=False, separators=(",", ":"), allow_nan=False), encoding="utf-8")
-        log(f"  secteurs.geojson (Île-de-France) : {len(site)} zones, {(out / 'secteurs.geojson').stat().st_size / 1e6:.1f} Mo")
+    for v in (x for x in index.values() if x.get("bbox") is None):
+        log(f"  ! département sans emprise (aucune zone) : {v}")
 
     log("== contrôle avec les zones officielles")
     controle = {}
