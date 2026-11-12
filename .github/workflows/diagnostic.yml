@@ -1,4 +1,4 @@
-name: Diagnostic cadastre (temporaire)
+name: Diagnostic sources d'adresses (temporaire)
 
 on:
   pull_request:
@@ -11,22 +11,15 @@ jobs:
   sonde:
     runs-on: ubuntu-latest
     steps:
-      - name: Sonder le stockage
+      - name: Sonder BANO et les exports régionaux
         run: |
           set +e
-          S=https://cadastre.s3.rbx.io.cloud.ovh.net
-          echo "=== liste adresses-cadastre/latest/csv/"; curl -s -m 60 "$S/?list-type=2&prefix=adresses-cadastre/latest/csv/&max-keys=8" | head -c 1500; echo
-          echo "=== liste racine"; curl -s -m 60 "$S/?list-type=2&delimiter=/&max-keys=30" | grep -o "<Prefix>[^<]*</Prefix>" | head -30
-          echo "=== liste adresses-cadastre/"; curl -s -m 60 "$S/?list-type=2&prefix=adresses-cadastre/&delimiter=/&max-keys=30" | grep -o "<Prefix>[^<]*</Prefix>" | head -30
-          for u in $S/adresses-cadastre/latest/csv/adresses-cadastre-75.csv.gz $S/adresses-cadastre/latest/csv/adresses-cadastre-03.csv.gz $S/adresses-cadastre/latest/csv/adresses-cadastre-2A.csv.gz ; do
-            curl -s -o /tmp/f.gz -w "%{http_code} %{size_download}o $u\n" -m 120 "$u"
+          for u in https://bano.openstreetmap.fr/data/bano-75.csv.gz https://bano.openstreetmap.fr/data/bano-69.csv.gz https://bano.openstreetmap.fr/data/bano-2A.csv.gz https://bano.openstreetmap.fr/data/ ; do
+            curl -s -o /tmp/b -w "%{http_code} %{size_download}o $u\n" -m 300 "$u"
           done
-          zcat /tmp/f.gz 2>/dev/null | head -3
-          curl -s -m 120 $S/adresses-cadastre/latest/csv/adresses-cadastre-75.csv.gz | zcat | head -3
-          for b in ban adresse adresse-data-gouv adresses base-adresse-nationale ; do
-            for path in "ban/adresses/latest/csv/adresses-75.csv.gz" "adresses/latest/csv/adresses-75.csv.gz" "" ; do
-              curl -s -o /dev/null -w "%{http_code} %{size_download}o https://$b.s3.rbx.io.cloud.ovh.net/$path\n" -m 30 "https://$b.s3.rbx.io.cloud.ovh.net/$path"
-            done
+          curl -s -m 300 https://bano.openstreetmap.fr/data/bano-75.csv.gz | zcat | head -3
+          curl -s -m 60 https://bano.openstreetmap.fr/data/ | grep -o 'href="[^"]*"' | head -15
+          for u in "https://data.iledefrance.fr/api/explore/v2.1/catalog/datasets/base-adresse-92/exports/csv?limit=3" "https://data.iledefrance.fr/api/explore/v2.1/catalog/datasets/base-dadresses-nationale-ouverte-bano-paris/exports/csv?limit=3" ; do
+            echo "=== $u"; curl -s -m 120 "$u" | head -4
           done
-          echo "=== ban sur le stockage du cadastre"
-          curl -s -m 60 "$S/?list-type=2&prefix=ban&max-keys=5" | head -c 800; echo
+          curl -s -o /dev/null -w "%{http_code} %{size_download}o idf-92 complet\n" -m 600 "https://data.iledefrance.fr/api/explore/v2.1/catalog/datasets/base-adresse-92/exports/csv"
