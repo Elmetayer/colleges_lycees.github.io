@@ -88,6 +88,8 @@ jobs:
 
       - name: Préparer les données
         run: python pipeline/build.py --out site/data --cache-dir sources-cache
+        env:
+          SIMULER_PANNE: datagouv,ival_gt  # TEMPORAIRE, à retirer avant fusion
 
       - name: Garder les sources pour le prochain passage
         uses: actions/cache/save@v4
