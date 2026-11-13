@@ -29,7 +29,8 @@ if (nav && titres.length >= 3) {
       const pc = (v) => Math.round(v * 100) + " %";
       document.getElementById("controle-secteurs").textContent =
         "Pour contrôler la méthode, les zones obtenues sont comparées aux secteurs officiels dessinés par la Ville de Paris et par le département des Hauts-de-Seine. " +
-        Object.entries(ctrl).map(([nom, v]) => `${nom} : ${pc(v.taux_surface)} de la surface est attribuée au même collège`).join(" ; ") + ".";
+        Object.entries(ctrl).map(([nom, v]) => `${nom} : ${pc(v.taux_surface)} de la surface est attribuée au même collège`).join(" ; ") + "." +
+        " Si cette part descend sous 85 % pour l'un des deux, les nouveaux secteurs ne sont pas publiés et le site garde sa version précédente.";
     }
     const c = m.colleges, p = m.periodes;
     const liste = (a) => a && a.length ? a.join(", ") : "aucune";

@@ -5,14 +5,19 @@
 2. Le site, ouvert dans Chromium (ordinateur et téléphone), charge les calques des collèges
    et des lycées, et les fiches d'un collège et d'un lycée s'ouvrent avec leurs indicateurs
    (une fiche impossible à tester, faute d'établissement avec l'indicateur, est un échec).
+3. Les secteurs concordent avec les secteurs officiels de Paris et des Hauts-de-Seine : au moins
+   CONCORDANCE_MINIMALE de la surface attribuée au même collège (meta.json, secteurs.controle).
+   Si les secteurs officiels n'ont pas pu être téléchargés, simple avertissement.
 
 Usage : python tests/verifier_site.py site   (le dossier site doit déjà contenir data/)
 Les secteurs absents ne bloquent pas : ils sont signalés en avertissement.
+SIMULER_CONCORDANCE (variable d'environnement, ex. 0.95) remplace CONCORDANCE_MINIMALE pour vérifier le blocage.
 """
 import asyncio
 import functools
 import http.server
 import json
+import os
 import sys
 import threading
 from pathlib import Path
@@ -27,6 +32,11 @@ COUVERTURE_MINIMALE = {
     "colleges.geojson": {"taux_reussite": 5300, "ips": 5400, "eval_fr": 5400},
     "lycees.geojson": {"gt_reussite": 1900, "pro_reussite": 1550, "ips": 2750},
 }
+
+# Part minimale de la surface attribuée au même collège que dans les secteurs officiels.
+# Valeurs au 13/11/2026 : Paris 0,937, Hauts-de-Seine 0,923 ; 0,85 laisse environ 8 points de marge.
+CONCORDANCE_MINIMALE = float(os.environ.get("SIMULER_CONCORDANCE") or 0.85)
+DEPARTEMENTS_CONTROLE = ("Paris", "Hauts-de-Seine")
 
 
 def refuser_constante(nom):
@@ -77,6 +87,17 @@ def verifier_fichiers():
         vides = [d for d, v in index.items() if not v.get("zones")]
         if vides:
             avertissements.append(f"départements sans aucune zone : {vides}")
+        # Concordance avec les secteurs officiels : une dégradation du calcul bloque la publication.
+        controle = (meta.get("secteurs") or {}).get("controle") or {}
+        for dep in DEPARTEMENTS_CONTROLE:
+            c = controle.get(dep)
+            if not c or c.get("taux_surface") is None:
+                avertissements.append(f"contrôle des secteurs impossible pour {dep} (secteurs officiels non téléchargés)")
+                continue
+            print(f"secteurs : {dep}, {c['taux_surface']:.1%} de la surface attribuée au même collège que les secteurs officiels")
+            if c["taux_surface"] < CONCORDANCE_MINIMALE:
+                erreurs.append(f"secteurs : {dep}, {c['taux_surface']:.1%} seulement de la surface attribuée au même collège "
+                               f"que les secteurs officiels (au moins {CONCORDANCE_MINIMALE:.0%} attendus)")
     return contenus
 
 
