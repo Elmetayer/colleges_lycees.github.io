@@ -113,7 +113,8 @@ jobs:
 
       - name: Vérifier le site avant publication
         # Bloque la publication si un fichier de données est illisible ou si un calque, une fiche
-        # ne se chargent pas dans un vrai navigateur (ordinateur et téléphone).
+        # ne se chargent pas dans un vrai navigateur (ordinateur et téléphone), si un indicateur
+        # disparaît ou si les secteurs s'écartent trop des secteurs officiels (Paris, Hauts-de-Seine).
         run: |
           pip install playwright
           python -m playwright install --with-deps chromium
