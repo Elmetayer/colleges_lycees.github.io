@@ -32,6 +32,14 @@ if (nav && titres.length >= 3) {
         Object.entries(ctrl).map(([nom, v]) => `${nom} : ${pc(v.taux_surface)} de la surface est attribuée au même collège`).join(" ; ") + "." +
         " Si cette part descend sous 85 % pour l'un des deux, les nouveaux secteurs ne sont pas publiés et le site garde sa version précédente.";
     }
+    const sb = m.colleges && m.colleges.sans_brevet;
+    if (sb && document.getElementById("colleges-sans-brevet")) {
+      const n = (k) => (sb[k] || 0).toLocaleString("fr-FR");
+      const total = Object.values(sb).reduce((a, b) => a + b, 0);
+      document.getElementById("colleges-sans-brevet").textContent =
+        `${total.toLocaleString("fr-FR")} collèges sur ${m.colleges.total.toLocaleString("fr-FR")} n'ont pas de résultats au brevet dans les données publiques : ` +
+        `${n("hors_contrat")} privés hors contrat, ${n("recent")} ouverts récemment, ${n("annexe")} sites rattachés à un autre collège et ${n("non_publie")} petits collèges. La fiche du collège en donne la raison :`;
+    }
     const c = m.colleges, p = m.periodes;
     const liste = (a) => a && a.length ? a.join(", ") : "aucune";
     const resume = document.getElementById("resume-donnees");

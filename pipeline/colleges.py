@@ -1,9 +1,13 @@
 """Données des collèges (France métropolitaine).
 
-Appelé par build.py. Lit trois jeux open data déjà téléchargés :
+Appelé par build.py. Lit quatre jeux open data déjà téléchargés :
   - ivac   : indicateurs de valeur ajoutée des collèges (brevet)
   - ips    : indices de position sociale des collèges
   - eval6e : évaluations nationales de début de sixième
+  - annuaire_education : type de contrat et date d'ouverture, pour expliquer l'absence de
+    résultats au brevet (diagnostic du 13/11/2026 : privés hors contrat, collèges ouverts
+    récemment, sites annexes, petits collèges absents du fichier ivac, qui ne contient aucun
+    collège de moins de 20 candidats)
 et écrit <out>/colleges.geojson (points légers, dernière valeur de chaque indicateur)
 et <out>/fiches/colleges-<dep>.json (historiques, chargés à l'ouverture d'une fiche).
 Renvoie les blocs de meta.json propres aux collèges (effectifs, périodes, médianes
@@ -13,6 +17,7 @@ nationales et par académie).
 from __future__ import annotations
 
 import json
+import re
 
 import pandas as pd
 
@@ -128,13 +133,47 @@ def load_eval6e(df: pd.DataFrame, uais: set[str]) -> pd.DataFrame:
     return wide[["uai", "annee", "fr", "ma"]]
 
 
+def load_annuaire(df: pd.DataFrame, uais: set[str], quoi: str = "collèges") -> pd.DataFrame:
+    """UAI, privé hors contrat (booléen) et année d'ouverture."""
+    b = _outils()
+    c_uai = b.pick(df, r"identifiant_de_l_etablissement|^uai$|numero_uai")
+    c_contrat = b.pick(df, r"^type_contrat_prive$|type_contrat")
+    c_ouv = b.pick(df, r"^date_ouverture$|ouverture")
+    d = df[df[c_uai].str.strip().str.upper().isin(uais)]
+    out = pd.DataFrame({
+        "uai": d[c_uai].str.strip().str.upper(),
+        "hors_contrat": d[c_contrat].fillna("").map(b.norm).str.startswith("hors_contrat"),
+        "ouverture": pd.to_datetime(d[c_ouv], errors="coerce").dt.year,
+    }).drop_duplicates("uai")
+    b.log(f"  {len(out)} {quoi} dans l'annuaire, dont {int(out['hors_contrat'].sum())} privés hors contrat")
+    return out
+
+
+# Absence de résultats au brevet : raison affichée sur la fiche (voir app.js).
+SITE_ANNEXE = r"\bsite\b|annexe|unité pédagogique|antenne"
+
+
+def raison_sans_brevet(nom: str, hors_contrat: bool, ouverture, derniere_session: int | None) -> str:
+    if hors_contrat:
+        return "hors_contrat"
+    if re.search(SITE_ANNEXE, nom or "", re.IGNORECASE):
+        return "annexe"
+    # Ouvert dans les 4 ans précédant la dernière session : pas encore de classe de 3e complète.
+    if ouverture == ouverture and ouverture is not None and derniere_session and ouverture >= derniere_session - 4:
+        return "recent"
+    return "non_publie"
+
+
 # ---------------------------------------------------------------- export
 
-def build_features(etabs, ivac, ips, ev) -> tuple[list[dict], dict[str, dict]]:
+def build_features(etabs, ivac, ips, ev, ann=None) -> tuple[list[dict], dict[str, dict]]:
     """Renvoie les points (dernière valeur de chaque indicateur) et les historiques par département."""
     b = _outils()
     by = lambda df: {k: g for k, g in df.groupby("uai")} if df is not None and len(df) else {}
     ivac_by, ips_by, ev_by = by(ivac), by(ips), by(ev)
+    ann_by = ann.set_index("uai").to_dict("index") if ann is not None and len(ann) else {}
+    sessions = [int(s) for s in ivac["session"].unique() if str(s).isdigit()] if ivac is not None and len(ivac) else []
+    derniere_session = max(sessions) if sessions else None
     feats, fiches = [], {}
     for e in etabs.itertuples():
         p = {"uai": e.uai, "nom": e.nom, "commune": e.commune, "dep": e.dep,
@@ -168,6 +207,14 @@ def build_features(etabs, ivac, ips, ev) -> tuple[list[dict], dict[str, dict]]:
             p["eval_fr"] = hist["eval6e"][-1]["fr"]
             p["eval_ma"] = hist["eval6e"][-1]["ma"]
             p["annee_eval"] = hist["eval6e"][-1]["annee"]
+        a = ann_by.get(e.uai)
+        if a and a["hors_contrat"] and e.secteur == "privé":
+            p["contrat"] = "hors"
+        if "taux_reussite" not in p and ann_by:
+            raison = raison_sans_brevet(e.nom, bool(p.get("contrat")), a["ouverture"] if a else None, derniere_session)
+            p["sans_brevet"] = raison
+            if raison == "recent":
+                p["ouverture"] = int(a["ouverture"])
         if hist:
             fiches.setdefault(e.dep, {})[e.uai] = {
                 "adresse": f"{e.adresse}, {e.cp} {e.commune}".strip(", "),
@@ -187,7 +234,7 @@ def construire(tous: pd.DataFrame, frames: dict, out_dir, problemes: list) -> di
     uais = set(etabs["uai"])
     academies = dict(zip(etabs["uai"], etabs["academie"]))
     results = {}
-    for key, fn in (("ivac", load_ivac), ("ips", load_ips), ("eval6e", load_eval6e)):
+    for key, fn in (("ivac", load_ivac), ("ips", load_ips), ("eval6e", load_eval6e), ("annuaire_education", load_annuaire)):
         if key not in frames:
             results[key] = None
             continue
@@ -199,7 +246,10 @@ def construire(tous: pd.DataFrame, frames: dict, out_dir, problemes: list) -> di
             problemes.append(f"{key} : {exc}")
             results[key] = None
 
-    feats, fiches = build_features(etabs, results["ivac"], results["ips"], results["eval6e"])
+    feats, fiches = build_features(etabs, results["ivac"], results["ips"], results["eval6e"], results["annuaire_education"])
+    sans_brevet = pd.Series([f["properties"]["sans_brevet"] for f in feats if "sans_brevet" in f["properties"]]).value_counts().to_dict()
+    hors_contrat = sum(1 for f in feats if f["properties"].get("contrat") == "hors")
+    b.log(f"  collèges sans brevet, par raison : {sans_brevet} ; privés hors contrat : {hors_contrat}")
     geo = {"type": "FeatureCollection", "features": feats}
     # allow_nan=False : un NaN oublié fait échouer le build (l'ancien site reste en ligne) au lieu de publier un fichier illisible.
     compact = lambda o: json.dumps(o, ensure_ascii=False, separators=(",", ":"), allow_nan=False)
@@ -243,7 +293,8 @@ def construire(tous: pd.DataFrame, frames: dict, out_dir, problemes: list) -> di
 
     # Blocs de premier niveau de meta.json (noms inchangés : le site les lit tels quels).
     meta = {
-        "colleges": {"total": len(feats), "publics": int((etabs["secteur"] == "public").sum()), "prives": int((etabs["secteur"] == "privé").sum())},
+        "colleges": {"total": len(feats), "publics": int((etabs["secteur"] == "public").sum()), "prives": int((etabs["secteur"] == "privé").sum()),
+                     "hors_contrat": hors_contrat, "sans_brevet": {k: int(v) for k, v in sans_brevet.items()}},
         "periodes": {"brevet": periodes(results["ivac"], "session"), "ips": periodes(results["ips"], "annee"), "eval6e": periodes(results["eval6e"], "annee")},
         # Médianes nationales (France métropolitaine) et par académie (fiches des collèges).
         "medianes": medianes(),

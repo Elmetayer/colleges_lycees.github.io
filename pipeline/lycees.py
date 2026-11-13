@@ -242,6 +242,15 @@ def construire(tous: pd.DataFrame, frames: dict, out_dir, problemes: list) -> di
             problemes.append(f"{key} : {exc}")
             lus[key] = None
     gt, pro, ips = lus["ival_gt"], lus["ival_pro"], lus["ips_lycees"]
+    # Privés hors contrat (annuaire de l'éducation) : précisé sur la fiche.
+    hors_contrat = set()
+    if "annuaire_education" in frames:
+        try:
+            import colleges
+            a = colleges.load_annuaire(frames["annuaire_education"], uais, "lycées")
+            hors_contrat = set(a.loc[a["hors_contrat"], "uai"])
+        except b.ColonneIntrouvable as exc:
+            b.log(f"  ! annuaire_education ignoré : {exc}")
     # Historique limité aux HISTORIQUE dernières sessions (les plus anciennes alourdissent la fiche sans l'éclairer).
     by = lambda df: {k: g.sort_values(df.columns[1]).tail(HISTORIQUE) for k, g in df.groupby("uai")} if df is not None and len(df) else {}
     gt_by, pro_by, ips_by = by(gt), by(pro), by(ips)
@@ -250,6 +259,8 @@ def construire(tous: pd.DataFrame, frames: dict, out_dir, problemes: list) -> di
     for e in lyc.itertuples():
         p = {"uai": e.uai, "nom": e.nom, "type": e.type, "commune": e.commune, "dep": e.dep,
              "departement": e.departement, "academie": e.academie, "secteur": e.secteur}
+        if e.secteur == "privé" and e.uai in hors_contrat:
+            p["contrat"] = "hors"
         hist = {}
         g = gt_by.get(e.uai)
         if g is not None:

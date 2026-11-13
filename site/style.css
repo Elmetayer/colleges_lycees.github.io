@@ -161,6 +161,7 @@ select {
 .fermer:hover { background: #eef1f8; }
 .fiche h2 { font: 650 1.45rem/1.2 var(--titre); margin: 0 44px 4px 0; }
 .fiche .lieu { margin: 0 0 16px; color: var(--encre-douce); }
+.fiche .sans-brevet { margin: 0 0 16px; padding: 10px 12px; border-left: 3px solid var(--trait); color: var(--encre-douce); font-size: 0.92rem; line-height: 1.45; }
 .chiffres { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 16px; margin: 0 0 18px; }
 .chiffre dt { font-size: 0.82rem; color: var(--encre-douce); }
 .chiffre dd { margin: 0; font-size: 1.5rem; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.2; }

@@ -58,6 +58,15 @@ SOURCES = {
         "datagouv": None,
         "obligatoire": True,
     },
+    "annuaire_education": {
+        # Type de contrat des établissements privés et date d'ouverture : expliquent l'absence de
+        # résultats au brevet (privés hors contrat, collèges récents). Seules 3 colonnes sont lues.
+        "titre": "Annuaire de l'éducation (type de contrat, date d'ouverture)",
+        "explore_id": "fr-en-annuaire-education",
+        "datagouv": None,
+        "colonnes": "identifiant_de_l_etablissement,type_contrat_prive,date_ouverture",
+        "obligatoire": False,
+    },
     "ivac": {
         "titre": "Indicateurs de valeur ajoutée des collèges",
         "explore_id": "fr-en-indicateurs-valeur-ajoutee-colleges",
@@ -247,7 +256,8 @@ def resolve(key: str) -> dict:
 
 def adresse(src: dict) -> str | None:
     if src.get("explore_id"):
-        return f"{EXPLORE}/{src['explore_id']}/exports/csv?delimiter=%3B"
+        select = f"&select={src['colonnes']}" if src.get("colonnes") else ""
+        return f"{EXPLORE}/{src['explore_id']}/exports/csv?delimiter=%3B{select}"
     return src.get("url_csv")
 
 

@@ -77,6 +77,10 @@ def verifier_fichiers():
             if couverture[k] < mini:
                 erreurs.append(f"{nom} : indicateur {k} présent pour {couverture[k]} établissements seulement (au moins {mini} attendus)")
     meta = contenus.get("meta.json") or {}
+    sb = (meta.get("colleges") or {}).get("sans_brevet") or {}
+    print(f"collèges sans brevet, par raison : {sb}")
+    if sb.get("hors_contrat", 0) < 300:
+        avertissements.append(f"seulement {sb.get('hors_contrat', 0)} collèges hors contrat repérés (annuaire de l'éducation indisponible ?)")
     for pb in meta.get("problemes", []):
         avertissements.append(f"meta.json : {pb}")
     index = contenus.get("index.json")
@@ -124,13 +128,13 @@ def exemple(contenus, fichier, cle):
     return None
 
 
-async def ouvrir_fiche(pg, nom, attendu):
+async def ouvrir_fiche(pg, nom, attendu, selecteur="#fiche-contenu .onglets button"):
     await pg.fill("#recherche", nom)
     await pg.wait_for_timeout(1200)
     await pg.keyboard.press("ArrowDown")
     await pg.keyboard.press("Enter")
     try:
-        await pg.wait_for_selector("#fiche-contenu .onglets button", timeout=10000)
+        await pg.wait_for_selector(selecteur, timeout=10000)
     except Exception:  # noqa: BLE001
         texte = (await pg.inner_text("#fiche-contenu")) if await pg.query_selector("#fiche-contenu") else ""
         return f"la fiche « {nom} » n'affiche pas d'indicateurs : {texte[:200]!r}"
@@ -144,6 +148,8 @@ async def ouvrir_fiche(pg, nom, attendu):
 async def verifier_navigateur(contenus):
     college = exemple(contenus, "colleges.geojson", "taux_reussite")
     lycee = exemple(contenus, "lycees.geojson", "ips")
+    hors_contrat = next((f["properties"]["nom"] for f in contenus.get("colleges.geojson", {}).get("features", [])
+                         if f["properties"].get("sans_brevet") == "hors_contrat"), None)
     college_secteur, fichier_secteur = college_hors_idf(contenus)
     async with async_playwright() as p:
         b = await p.chromium.launch(args=["--use-gl=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"])
@@ -180,6 +186,13 @@ async def verifier_navigateur(contenus):
                 pb = await ouvrir_fiche(pg, nom, attendu)
                 if pb:
                     problemes.append(pb)
+            # Collège sans brevet : la fiche en donne la raison (privé hors contrat).
+            if hors_contrat:
+                pb = await ouvrir_fiche(pg, hors_contrat, "hors contrat", "#fiche-contenu .sans-brevet")
+                if pb:
+                    problemes.append(pb)
+            else:
+                avertissements.append("aucun collège hors contrat repéré : raison de l'absence de brevet non testée")
             # Secteurs chargés à la demande : au démarrage (vue nationale) aucun département n'est chargé ;
             # après avoir zoomé sur un collège hors Île-de-France, celui de son département doit l'être.
             if college_secteur:
