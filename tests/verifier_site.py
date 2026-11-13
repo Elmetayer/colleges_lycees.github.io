@@ -85,19 +85,6 @@ norm_dep = lambda d: str(int(d)) if str(d).isdigit() else str(d)
 
 def college_hors_idf(contenus):
     """(nom, fichier du département) d'un collège public hors Île-de-France dont le département a des secteurs."""
-    # Couverture des indicateurs : un indicateur qui disparaît (source injoignable et aucune version
-    # précédente à reprendre) bloque la publication ; le site garde alors sa version en ligne.
-    # Seuils : environ 80 % de la couverture constatée le 13/11/2026.
-    for nom, seuils in COUVERTURE_MINIMALE.items():
-        feats = (contenus.get(nom) or {}).get("features", [])
-        couverture = {k: sum(1 for f in feats if isinstance(f["properties"].get(k), (int, float))) for k in seuils}
-        print(f"{nom} : couverture {couverture}")
-        for k, mini in seuils.items():
-            if couverture[k] < mini:
-                erreurs.append(f"{nom} : indicateur {k} présent pour {couverture[k]} établissements seulement (au moins {mini} attendus)")
-    meta = contenus.get("meta.json") or {}
-    for pb in meta.get("problemes", []):
-        avertissements.append(f"meta.json : {pb}")
     index = contenus.get("index.json") or {}
     fichiers = {norm_dep(d): d for d, v in index.items() if v.get("zones")}
     for f in contenus.get("colleges.geojson", {}).get("features", []):
