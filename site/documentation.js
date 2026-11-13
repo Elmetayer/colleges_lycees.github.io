@@ -23,7 +23,7 @@ if (nav && titres.length >= 3) {
   fetch("data/meta.json").then((r) => r.json()).then((m) => {
     const sourcesEl = document.getElementById("liste-sources");
     if (sourcesEl) sourcesEl.innerHTML = m.sources.map((s) =>
-      `<tr><td>${s.page ? `<a href="${esc(s.page)}">${esc(s.titre)}</a>` : esc(s.titre)}</td><td>${date(s.mise_a_jour)}</td></tr>`).join("");
+      `<tr><td>${s.page ? `<a href="${esc(s.page)}">${esc(s.titre)}</a>` : esc(s.titre)}</td><td>${date(s.mise_a_jour)}${s.version_reprise ? `<br><small>Source injoignable lors du dernier calcul : version téléchargée le ${date(s.version_reprise)} conservée</small>` : ""}</td></tr>`).join("");
     const ctrl = m.secteurs && m.secteurs.controle;
     if (ctrl && Object.keys(ctrl).length && document.getElementById("controle-secteurs")) {
       const pc = (v) => Math.round(v * 100) + " %";
