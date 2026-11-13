@@ -1,8 +1,10 @@
 """Vérifie le site construit avant de le publier. Échoue (code 1) si un problème bloquant est trouvé.
 
-1. Les fichiers de données sont du JSON strict (pas de NaN) et contiennent des établissements.
+1. Les fichiers de données sont du JSON strict (pas de NaN) et contiennent des établissements,
+   avec une couverture minimale de chaque indicateur (COUVERTURE_MINIMALE).
 2. Le site, ouvert dans Chromium (ordinateur et téléphone), charge les calques des collèges
-   et des lycées, et les fiches d'un collège et d'un lycée s'ouvrent avec leurs indicateurs.
+   et des lycées, et les fiches d'un collège et d'un lycée s'ouvrent avec leurs indicateurs
+   (une fiche impossible à tester, faute d'établissement avec l'indicateur, est un échec).
 
 Usage : python tests/verifier_site.py site   (le dossier site doit déjà contenir data/)
 Les secteurs absents ne bloquent pas : ils sont signalés en avertissement.
@@ -19,6 +21,12 @@ from playwright.async_api import async_playwright
 
 SITE = Path(sys.argv[1] if len(sys.argv) > 1 else "site")
 erreurs, avertissements = [], []
+
+
+COUVERTURE_MINIMALE = {
+    "colleges.geojson": {"taux_reussite": 5300, "ips": 5400, "eval_fr": 5400},
+    "lycees.geojson": {"gt_reussite": 1900, "pro_reussite": 1550, "ips": 2750},
+}
 
 
 def refuser_constante(nom):
@@ -48,6 +56,19 @@ def verifier_fichiers():
             erreurs.append(f"{nom} : seulement {n} établissements (au moins {minimum} attendus)")
         if sans_nom:
             erreurs.append(f"{nom} : {sans_nom} établissements sans nom")
+    # Couverture des indicateurs : un indicateur qui disparaît (source injoignable et aucune version
+    # précédente à reprendre) bloque la publication ; le site garde alors sa version en ligne.
+    # Seuils : environ 80 % de la couverture constatée le 13/11/2026.
+    for nom, seuils in COUVERTURE_MINIMALE.items():
+        feats = (contenus.get(nom) or {}).get("features", [])
+        couverture = {k: sum(1 for f in feats if isinstance(f["properties"].get(k), (int, float))) for k in seuils}
+        print(f"{nom} : couverture {couverture}")
+        for k, mini in seuils.items():
+            if couverture[k] < mini:
+                erreurs.append(f"{nom} : indicateur {k} présent pour {couverture[k]} établissements seulement (au moins {mini} attendus)")
+    meta = contenus.get("meta.json") or {}
+    for pb in meta.get("problemes", []):
+        avertissements.append(f"meta.json : {pb}")
     index = contenus.get("index.json")
     if not index:
         avertissements.append("secteurs/index.json absent : la carte sera publiée sans secteurs")
@@ -131,11 +152,13 @@ async def verifier_navigateur(contenus):
             panneau = await pg.inner_text("#panneau")
             if "Données indisponibles" in panneau:
                 problemes.append("un calque affiche « Données indisponibles »")
-            for nom, attendu in ((college, "brevet"), (lycee, "IPS")):
-                if nom:
-                    pb = await ouvrir_fiche(pg, nom, attendu)
-                    if pb:
-                        problemes.append(pb)
+            for nom, attendu, type_ in ((college, "brevet", "collège"), (lycee, "IPS", "lycée")):
+                if not nom:
+                    problemes.append(f"aucun {type_} n'a l'indicateur nécessaire pour tester sa fiche")
+                    continue
+                pb = await ouvrir_fiche(pg, nom, attendu)
+                if pb:
+                    problemes.append(pb)
             # Secteurs chargés à la demande : au démarrage (vue nationale) aucun département n'est chargé ;
             # après avoir zoomé sur un collège hors Île-de-France, celui de son département doit l'être.
             if college_secteur:

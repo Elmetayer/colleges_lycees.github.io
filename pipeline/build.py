@@ -10,15 +10,23 @@ puis confie les calculs aux modules colleges.py et lycees.py. Fichiers écrits :
   - <out>/fiches/lycees-<dep>.json : historique des lycées d'un département
   - <out>/meta.json                : date de génération, sessions, médianes, sources
 
-Usage : python pipeline/build.py --out site/data
+Usage : python pipeline/build.py --out site/data --cache-dir sources-cache
         python pipeline/build.py --out site/data --local-dir chemin/vers/csv  (tests hors ligne)
+
+Robustesse : chaque téléchargement est réessayé ; si data.gouv.fr ne répond pas, une adresse de
+secours sur data.education.gouv.fr est utilisée ; si la source reste injoignable (ou renvoie un
+fichier anormalement court), la dernière version valide gardée dans --cache-dir est reprise et
+le problème est signalé dans meta.json. Sans version valide, l'indicateur est absent et
+tests/verifier_site.py bloque la publication.
 """
 
 from __future__ import annotations
 
 import argparse
+import gzip
 import io
 import json
+import os
 import re
 import sys
 import unicodedata
@@ -27,6 +35,8 @@ from pathlib import Path
 
 import pandas as pd
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 sys.path.insert(0, str(Path(__file__).parent))
 import colleges  # noqa: E402
@@ -39,7 +49,8 @@ EXPLORE = "https://data.education.gouv.fr/api/explore/v2.1/catalog/datasets"
 DATAGOUV = "https://www.data.gouv.fr/api/1/datasets"
 
 # Jeux de données. "explore_id" est l'identifiant sur data.education.gouv.fr ;
-# "datagouv" sert à le retrouver automatiquement s'il change.
+# "datagouv" sert à le retrouver automatiquement s'il change ; "url_secours" est l'adresse de
+# téléchargement constatée le 13/11/2026, utilisée quand data.gouv.fr ne répond pas.
 SOURCES = {
     "etablissements": {
         "titre": "Adresse et géolocalisation des établissements d'enseignement du premier et second degrés",
@@ -57,12 +68,14 @@ SOURCES = {
         "titre": "Indices de position sociale des collèges (à partir de 2023)",
         "explore_id": None,
         "datagouv": "ips-colleges-a-partir-de-2023",
+        "url_secours": f"{EXPLORE}/fr-en-ips-colleges-ap2023/exports/csv?delimiter=%3B",
         "obligatoire": False,
     },
     "eval6e": {
         "titre": "Résultats consolidés aux évaluations nationales de début de sixième par établissement",
         "explore_id": None,
         "datagouv": "6831448743bcf0349285887e",
+        "url_secours": f"{EXPLORE}/fr-en-evaluations_nationales_6eme_par_etablissement/exports/csv?delimiter=%3B",
         "obligatoire": False,
     },
     # Lycées : on lit directement le CSV publié sur data.gouv.fr (noms de colonnes vérifiés).
@@ -71,6 +84,7 @@ SOURCES = {
         "explore_id": None,
         "datagouv": "6707515c84dfa4012c3ecd45",
         "csv_direct": True,
+        "url_secours": f"{EXPLORE}/fr-en-indicateurs-de-resultat-des-lycees-gt_v2/exports/csv?use_labels=true",
         "obligatoire": False,
     },
     "ival_pro": {
@@ -78,6 +92,7 @@ SOURCES = {
         "explore_id": None,
         "datagouv": "6707516684dfa4012c3ecd47",
         "csv_direct": True,
+        "url_secours": f"{EXPLORE}/fr-en-indicateurs-de-resultat-des-lycees-pro_v2/exports/csv?use_labels=true",
         "obligatoire": False,
     },
     "ips_lycees": {
@@ -85,12 +100,27 @@ SOURCES = {
         "explore_id": None,
         "datagouv": "664d720768d6ab64e06740f0",
         "csv_direct": True,
+        "url_secours": f"{EXPLORE}/fr-en-ips-lycees-ap2023/exports/csv?use_labels=true",
         "obligatoire": False,
     },
 }
 
 HTTP = requests.Session()
 HTTP.headers["User-Agent"] = "carte-scolaire-colleges-lycees (github.com/Elmetayer/colleges_lycees.github.io)"
+# Réessais : 4 tentatives de plus, espacées de 5, 10, 20 puis 40 s, sur les erreurs de connexion
+# et les réponses 429/5xx (pannes passagères des portails open data).
+_REESSAIS = Retry(total=4, connect=4, read=4, status=4, backoff_factor=5,
+                  status_forcelist=(429, 500, 502, 503, 504), allowed_methods=("GET",), raise_on_status=True)
+HTTP.mount("https://", HTTPAdapter(max_retries=_REESSAIS))
+HTTP.mount("http://", HTTPAdapter(max_retries=_REESSAIS))
+
+# Pour vérifier les secours : SIMULER_PANNE="datagouv,ival_gt" fait comme si l'API data.gouv.fr
+# et le téléchargement de ival_gt échouaient (variable d'environnement, vide en temps normal).
+PANNES = {x.strip() for x in os.environ.get("SIMULER_PANNE", "").split(",") if x.strip()}
+
+# Une source téléchargée est refusée si elle a moins de lignes que cette part de la dernière
+# version valide (page d'erreur, export tronqué) : on garde alors la version précédente.
+PART_MINIMALE = 0.5
 
 
 # ---------------------------------------------------------------- utilitaires
@@ -166,13 +196,20 @@ def round_or_none(x, nd=1):
 
 # ---------------------------------------------------------------- téléchargement
 
+def explore_id_de(url: str) -> str | None:
+    m = re.search(r"/catalog/datasets/([A-Za-z0-9_\-]+)/exports", url or "")
+    return m.group(1) if m else None
+
+
 def resolve(key: str) -> dict:
-    """Complète la source avec son identifiant Explore et sa date de mise à jour."""
+    """Complète la source avec son adresse de téléchargement et sa date de mise à jour."""
     src = dict(SOURCES[key])
     src["page"] = None
     src["maj"] = None
     if src["datagouv"]:
         try:
+            if "datagouv" in PANNES:
+                raise RuntimeError("panne simulée (SIMULER_PANNE)")
             r = HTTP.get(f"{DATAGOUV}/{src['datagouv']}/", timeout=60)
             r.raise_for_status()
             meta = r.json()
@@ -191,12 +228,15 @@ def resolve(key: str) -> dict:
                     src["url_csv"] = csv[0]["url"]
         except Exception as exc:  # noqa: BLE001
             log(f"  ! data.gouv.fr indisponible pour {key} : {exc}")
-    if src["explore_id"]:
-        src.setdefault("page", None)
-        src["page"] = src["page"] or f"https://data.education.gouv.fr/explore/dataset/{src['explore_id']}/"
+    if not src["explore_id"] and not src.get("url_csv") and src.get("url_secours"):
+        log(f"  adresse de secours : {src['url_secours']}")
+        src["url_csv"] = src["url_secours"]
+    eid = src["explore_id"] or explore_id_de(src.get("url_csv"))
+    if eid:
+        src["page"] = src["page"] or f"https://data.education.gouv.fr/explore/dataset/{eid}/"
         if not src["maj"]:
             try:
-                r = HTTP.get(f"{EXPLORE}/{src['explore_id']}", timeout=60)
+                r = HTTP.get(f"{EXPLORE}/{eid}", timeout=60)
                 r.raise_for_status()
                 info = r.json()
                 src["maj"] = info.get("metas", {}).get("default", {}).get("modified") or info.get("data_processed")
@@ -205,24 +245,22 @@ def resolve(key: str) -> dict:
     return src
 
 
-def download(key: str, src: dict, local_dir: Path | None) -> pd.DataFrame:
-    if local_dir:
-        path = local_dir / f"{key}.csv"
-        log(f"  lecture locale {path}")
-        raw = path.read_bytes()
-    elif src.get("explore_id"):
-        url = f"{EXPLORE}/{src['explore_id']}/exports/csv?delimiter=%3B"
-        log(f"  téléchargement {url}")
-        r = HTTP.get(url, timeout=600)
-        r.raise_for_status()
-        raw = r.content
-    elif src.get("url_csv"):
-        log(f"  téléchargement {src['url_csv']}")
-        r = HTTP.get(src["url_csv"], timeout=600)
-        r.raise_for_status()
-        raw = r.content
-    else:
-        raise RuntimeError(f"aucune adresse de téléchargement pour {key}")
+def adresse(src: dict) -> str | None:
+    if src.get("explore_id"):
+        return f"{EXPLORE}/{src['explore_id']}/exports/csv?delimiter=%3B"
+    return src.get("url_csv")
+
+
+def telecharger(key: str, url: str) -> bytes:
+    if key in PANNES:
+        raise RuntimeError("panne simulée (SIMULER_PANNE)")
+    log(f"  téléchargement {url}")
+    r = HTTP.get(url, timeout=600)
+    r.raise_for_status()
+    return r.content
+
+
+def lire_csv(raw: bytes) -> pd.DataFrame:
     text = raw.decode("utf-8-sig", errors="replace")
     sep = ";" if text.split("\n", 1)[0].count(";") >= text.split("\n", 1)[0].count(",") else ","
     df = pd.read_csv(io.StringIO(text), sep=sep, dtype=str, keep_default_na=False, na_values=[""])
@@ -230,6 +268,62 @@ def download(key: str, src: dict, local_dir: Path | None) -> pd.DataFrame:
     df.columns = [norm(c) for c in df.columns]
     log(f"  {len(df)} lignes, colonnes : {original}")
     return df
+
+
+# Cache des dernières versions valides de chaque source (dossier gardé entre deux passages par
+# le cache GitHub Actions) : <clé>.csv.gz (fichier brut) et <clé>.json (adresse, date, lignes).
+
+def lire_cache(cache_dir: Path | None, key: str) -> tuple[Path, dict] | None:
+    if not cache_dir:
+        return None
+    brut, info = cache_dir / f"{key}.csv.gz", cache_dir / f"{key}.json"
+    if not (brut.exists() and info.exists()):
+        return None
+    try:
+        return brut, json.loads(info.read_text(encoding="utf-8"))
+    except ValueError:
+        return None
+
+
+def ecrire_cache(cache_dir: Path | None, key: str, raw: bytes, info: dict) -> None:
+    if not cache_dir:
+        return
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    (cache_dir / f"{key}.csv.gz").write_bytes(gzip.compress(raw, compresslevel=6))
+    (cache_dir / f"{key}.json").write_text(json.dumps(info, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def obtenir(key: str, src: dict, cache_dir: Path | None) -> tuple[pd.DataFrame, str | None]:
+    """Télécharge une source (adresse trouvée, puis adresse de secours) ; si rien ne marche,
+    reprend la dernière version valide du cache. Renvoie le tableau et un éventuel problème."""
+    precedent = lire_cache(cache_dir, key)
+    urls = [u for u in dict.fromkeys([adresse(src), src.get("url_secours")]) if u]
+    erreur: Exception = RuntimeError(f"aucune adresse de téléchargement pour {key}")
+    for url in urls:
+        try:
+            raw = telecharger(key, url)
+            df = lire_csv(raw)
+            if df.empty:
+                raise RuntimeError("fichier vide")
+            if precedent and len(df) < PART_MINIMALE * precedent[1].get("lignes", 0):
+                raise RuntimeError(f"{len(df)} lignes seulement, contre {precedent[1]['lignes']} dans la dernière version valide")
+            ecrire_cache(cache_dir, key, raw, {
+                "url": url, "telecharge_le": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                "lignes": len(df), "titre": src.get("titre"), "page": src.get("page"), "maj": src.get("maj")})
+            return df, None
+        except Exception as exc:  # noqa: BLE001
+            log(f"  ! échec du téléchargement : {exc}")
+            erreur = exc
+    if not precedent:
+        raise erreur
+    brut, info = precedent
+    date = (info.get("telecharge_le") or "?")[:10]
+    log(f"  reprise de la dernière version valide (téléchargée le {date}, {info.get('lignes')} lignes)")
+    df = lire_csv(gzip.decompress(brut.read_bytes()))
+    src["page"] = src.get("page") or info.get("page")
+    src["maj"] = src.get("maj") or info.get("maj")
+    src["reprise"] = date
+    return df, f"{key} : source injoignable ({erreur}) ; version téléchargée le {date} réutilisée"
 
 
 # ---------------------------------------------------------------- traitements
@@ -286,6 +380,8 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", default="site/data")
     ap.add_argument("--local-dir", type=Path, default=None, help="dossier de CSV nommés <clé>.csv, pour tester hors ligne")
+    ap.add_argument("--cache-dir", type=Path, default=None,
+                    help="dossier des dernières versions valides des sources, reprises si un téléchargement échoue")
     args = ap.parse_args()
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
@@ -293,15 +389,24 @@ def main() -> int:
     resolved, frames, problemes = {}, {}, []
     for key in SOURCES:
         log(f"\n== {key}")
-        src = resolve(key) if not args.local_dir else dict(SOURCES[key], page=None, maj=None)
-        resolved[key] = src
         try:
-            frames[key] = download(key, src, args.local_dir)
+            if args.local_dir:
+                src = dict(SOURCES[key], page=None, maj=None)
+                path = args.local_dir / f"{key}.csv"
+                log(f"  lecture locale {path}")
+                frames[key] = lire_csv(path.read_bytes())
+            else:
+                src = resolve(key)
+                frames[key], probleme = obtenir(key, src, args.cache_dir)
+                if probleme:
+                    problemes.append(probleme)
         except Exception as exc:  # noqa: BLE001
             if src["obligatoire"]:
                 raise
             log(f"  ! {key} ignoré : {exc}")
             problemes.append(f"{key} : téléchargement impossible ({exc})")
+        finally:
+            resolved[key] = src
 
     log("\n== traitement")
     tous = load_etablissements(frames["etablissements"])
@@ -317,7 +422,8 @@ def main() -> int:
         "perimetre": {"colleges": "France métropolitaine", "lycees": "France métropolitaine"},
         **col_meta,  # colleges, periodes, medianes, medianes_academies
         "lycees": lyc_meta,
-        "sources": [{"cle": k, "titre": s["titre"], "page": s.get("page"), "mise_a_jour": s.get("maj")} for k, s in resolved.items()],
+        "sources": [{"cle": k, "titre": s["titre"], "page": s.get("page"), "mise_a_jour": s.get("maj"),
+                     **({"version_reprise": s["reprise"]} if s.get("reprise") else {})} for k, s in resolved.items()],
         "problemes": problemes,
     }
     (out / "meta.json").write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")

@@ -77,8 +77,23 @@ jobs:
       - name: Installer les dépendances
         run: pip install -r pipeline/requirements.txt
 
+      - name: Reprendre les dernières sources valides
+        # Copie de chaque jeu open data téléchargé avec succès : reprise si une source est
+        # injoignable lors d'un prochain passage (signalé dans meta.json).
+        uses: actions/cache/restore@v4
+        with:
+          path: sources-cache
+          key: sources-${{ github.run_id }}
+          restore-keys: sources-
+
       - name: Préparer les données
-        run: python pipeline/build.py --out site/data
+        run: python pipeline/build.py --out site/data --cache-dir sources-cache
+
+      - name: Garder les sources pour le prochain passage
+        uses: actions/cache/save@v4
+        with:
+          path: sources-cache
+          key: sources-${{ github.run_id }}
 
       - name: Récupérer les secteurs des départements
         uses: actions/download-artifact@v4
