@@ -7,7 +7,10 @@ Site : https://elmetayer.github.io/colleges_lycees.github.io/
 ## Organisation
 
 ```
-pipeline/build.py         télécharge l'open data, calcule les indicateurs (collèges et lycées : France métropolitaine)
+pipeline/build.py         chef d'orchestre : télécharge l'open data, lit l'annuaire, appelle les modules, écrit meta.json
+pipeline/colleges.py      indicateurs des collèges (brevet, IPS, évaluations 6e) → colleges.geojson, fiches
+pipeline/lycees.py        indicateurs des lycées (voies GT et pro, IPS) → lycees.geojson, fiches
+pipeline/secteurs.py      secteurs des collèges publics, département par département
 pipeline/requirements.txt dépendances Python
 site/                     site statique publié sur GitHub Pages
   index.html, app.js      carte (MapLibre GL)
