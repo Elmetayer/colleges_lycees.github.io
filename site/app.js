@@ -365,7 +365,7 @@
       </section>`;
     }).join("");
     $("calques").innerHTML = html + `<p class="cle-contour"><span>${iconeForme("carre", { taille: 16 })} contour fin : public</span>
-      <span>${iconeForme("carre", { taille: 16, prive: true })} contour épais : privé sous contrat</span></p>`;
+      <span>${iconeForme("carre", { taille: 16, prive: true })} contour épais : privé</span></p>`;
     majPanneau();
     // Sur ordinateur, les réglages des calques affichés sont ouverts d'emblée.
     if (!estMobile()) CALQUES.forEach((c) => { if (reglages[c.cle] && reglages[c.cle].actif && sources[c.cle]) ouvrirReglages(c.cle, true); });
@@ -863,9 +863,11 @@
     return fichesDep.get(cle);
   }
 
+  const secteurLibelle = (p) => p.secteur === "public" ? "public" : p.contrat === "hors" ? "privé hors contrat" : "privé sous contrat";
+
   function ouvrirFiche(p) {
     surlignerSecteur(p.uai);
-    const type = p.secteur === "public" ? "Collège public" : "Collège privé sous contrat";
+    const type = "Collège " + secteurLibelle(p);
     const tete = `
       <h2 id="fiche-nom">${echapper(p.nom)}</h2>
       <p class="lieu">${type}, ${echapper(p.commune)} (${echapper(p.departement)})</p>`;
@@ -886,16 +888,30 @@
     });
   }
 
+  // Pourquoi un collège n'a pas de résultats au brevet (pipeline/colleges.py, raison_sans_brevet).
+  function raisonSansBrevet(p) {
+    if (!p.sans_brevet) return "";
+    const autres = [!num(p.ips) && "l'IPS", !num(p.eval_fr) && "les évaluations de 6e"].filter(Boolean);
+    const textes = {
+      hors_contrat: `Collège privé hors contrat : les données publiques ne donnent pas les résultats au brevet des établissements hors contrat${autres.length ? `, ni ${autres.join(" ni ")}` : ""}.`,
+      recent: `Collège ouvert en ${p.ouverture} : aucune session du brevet n'est encore publiée pour lui.`,
+      annexe: "Site rattaché à un autre collège : ses résultats au brevet sont en général publiés avec ceux du collège principal.",
+      non_publie: "Résultats au brevet non publiés : les données publiques ne contiennent aucun collège de moins de 20 candidats, ce qui est sans doute le cas de celui-ci.",
+    };
+    return textes[p.sans_brevet] ? `<p class="sans-brevet">${textes[p.sans_brevet]}</p>` : "";
+  }
+
   function remplirFiche(p, tete, hist) {
     const liste = onglets(p, hist);
     ficheCourante = { type: "college", p, onglets: liste };
-    $("fiche-contenu").innerHTML = tete + `
+    const raison = raisonSansBrevet(p);
+    $("fiche-contenu").innerHTML = tete + raison + `
       ${liste.length ? `
         <div class="onglets" role="group" aria-label="Indicateur affiché">
           ${liste.map((o) => `<button type="button" data-onglet="${o.cle}" aria-pressed="false">${o.nom}</button>`).join("")}
         </div>
         <div id="fiche-graphe" aria-live="polite"></div>` :
-        `<p>Aucun indicateur n'est publié pour ce collège. C'est souvent le cas des établissements récents ou à petit effectif.</p>`}
+        (raison ? "" : `<p>Aucun indicateur n'est publié pour ce collège. C'est souvent le cas des établissements récents ou à petit effectif.</p>`)}
       <p class="renvoi"><a href="documentation-colleges.html">Comprendre ces indicateurs</a></p>`;
     if (liste.length) afficherOnglet();
   }
@@ -930,7 +946,7 @@
   function remplirFicheLycee(p, hist) {
     const liste = ongletsLycee(p, hist);
     ficheCourante = { type: "lycee", p, onglets: liste };
-    const secteur = p.secteur === "public" ? "public" : "privé sous contrat";
+    const secteur = secteurLibelle(p);
     const chiffres = [];
     if (num(p.eff_gt)) chiffres.push(["Voie générale et techno", fr(p.eff_gt, 0), "élèves"]);
     if (num(p.eff_pro)) chiffres.push(["Voie professionnelle", fr(p.eff_pro, 0), "élèves"]);
