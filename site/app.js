@@ -120,10 +120,11 @@
   const carte = new maplibregl.Map({
     container: "carte",
     style: "https://tiles.openfreemap.org/styles/positron",
-    center: [2.25, 48.8],
-    zoom: 9,
+    center: [2.4, 46.6],  // France métropolitaine ; cadrer() ajuste ensuite sur les établissements
+    zoom: 5,
     attributionControl: { compact: true },
   });
+  window.carteScolaire = carte;  // accès pour le test automatique (tests/verifier_site.py)
   let secours = false;
   carte.on("error", () => {
     if (!secours && !carte.isStyleLoaded()) { secours = true; carte.setStyle(STYLE_SECOURS); }
@@ -282,7 +283,7 @@
       carte.setPaintProperty("secteurs-fond", "fill-color", expr);
       const vis = r.actif && r.zones ? "visible" : "none";
       ["secteurs-fond", "secteurs-contour", "secteurs-surligne"].forEach((id) => carte.setLayoutProperty(id, "visibility", vis));
-      if (vis === "visible") chargerSecteursVisibles();
+      if (carte.getLayer("secteurs-fond")) chargerSecteursVisibles();  // charge les départements visibles et met à jour l'indication
     }
     const l = legende(c, ind, d, pal);
     const el = document.querySelector(`.calque[data-calque="${c.cle}"]`);
@@ -1210,7 +1211,8 @@
   // Zones calculées à partir de la carte scolaire officielle (voir pipeline/secteurs.py).
   // Un fichier par département (data/secteurs/<dep>.geojson), chargé quand le département est visible
   // à partir du zoom ZOOM_SECTEURS, ou quand une adresse y est cherchée. index.json donne l'emprise de chacun.
-  const ZOOM_SECTEURS = 8;
+  // Zoom 7 : une région à l'écran. En dessous, aucun secteur n'est affiché et une indication invite à zoomer.
+  const ZOOM_SECTEURS = 7;
   let secteurs = { type: "FeatureCollection", features: [] };
   let indexSecteurs = {};  // département normalisé ("3", "2A", "75") -> { fichier, bbox, source_adresses, ... }
   const secteursDep = new Map();
@@ -1274,8 +1276,9 @@
     return Object.keys(indexSecteurs).filter((d) => dansBbox(indexSecteurs[d].bbox, pt[0], pt[1], 0.01));
   }
   function chargerSecteursVisibles() {
-    if (!carte.getLayer("secteurs-fond") || carte.getLayoutProperty("secteurs-fond", "visibility") === "none") return;
-    if (carte.getZoom() < ZOOM_SECTEURS) return;
+    const actifs = carte.getLayer("secteurs-fond") && carte.getLayoutProperty("secteurs-fond", "visibility") !== "none";
+    $("indice-secteurs").hidden = !(actifs && carte.getZoom() < ZOOM_SECTEURS);
+    if (!actifs || carte.getZoom() < ZOOM_SECTEURS) return;
     const v = carte.getBounds();
     Object.keys(indexSecteurs).forEach((d) => {
       const b = indexSecteurs[d].bbox;
@@ -1287,9 +1290,9 @@
     fetch("data/secteurs/index.json").then((r) => (r.ok ? r.json() : Promise.reject(r.status))).then((index) => {
       indexSecteurs = Object.fromEntries(Object.entries(index).map(([d, v]) => [normDep(d), Object.assign({ fichier: d }, v)]));
       carte.addSource("secteurs", { type: "geojson", data: secteurs });
-      carte.addLayer({ id: "secteurs-fond", type: "fill", source: "secteurs", paint: { "fill-color": ABSENT, "fill-opacity": 0.35 } }, "colleges");
-      carte.addLayer({ id: "secteurs-contour", type: "line", source: "secteurs", paint: { "line-color": "#1e2f6b", "line-width": ["interpolate", ["linear"], ["zoom"], 9, 0.3, 14, 1.2], "line-opacity": 0.55 } }, "colleges");
-      carte.addLayer({ id: "secteurs-surligne", type: "line", source: "secteurs", filter: ["==", ["get", "uai"], ""], paint: { "line-color": "#1e2f6b", "line-width": 3 } }, "colleges");
+      carte.addLayer({ id: "secteurs-fond", type: "fill", source: "secteurs", minzoom: ZOOM_SECTEURS, paint: { "fill-color": ABSENT, "fill-opacity": 0.35 } }, "colleges");
+      carte.addLayer({ id: "secteurs-contour", type: "line", source: "secteurs", minzoom: ZOOM_SECTEURS, paint: { "line-color": "#1e2f6b", "line-width": ["interpolate", ["linear"], ["zoom"], 9, 0.3, 14, 1.2], "line-opacity": 0.55 } }, "colleges");
+      carte.addLayer({ id: "secteurs-surligne", type: "line", source: "secteurs", minzoom: ZOOM_SECTEURS, filter: ["==", ["get", "uai"], ""], paint: { "line-color": "#1e2f6b", "line-width": 3 } }, "colleges");
       appliquerCalque(calque("colleges"));
       carte.on("moveend", chargerSecteursVisibles);
       chargerSecteursVisibles();
