@@ -2,9 +2,13 @@
 
 1. Les fichiers de données sont du JSON strict (pas de NaN) et contiennent des établissements,
    avec une couverture minimale de chaque indicateur (COUVERTURE_MINIMALE).
-2. Le site, ouvert dans Chromium (ordinateur et téléphone), charge les calques des collèges
-   et des lycées, et les fiches d'un collège et d'un lycée s'ouvrent avec leurs indicateurs
-   (une fiche impossible à tester, faute d'établissement avec l'indicateur, est un échec).
+   Écoles : fichiers par département (data/ecoles/), au moins ECOLES_MINIMUM écoles et une
+   couverture minimale de leurs indicateurs (COUVERTURE_ECOLES).
+2. Le site, ouvert dans Chromium (ordinateur et téléphone), charge les calques des collèges,
+   des lycées et des écoles, et les fiches d'un collège, d'un lycée et d'une école s'ouvrent avec
+   leurs indicateurs (une fiche impossible à tester, faute d'établissement avec l'indicateur, est un
+   échec) ; la fiche d'une école publique donne son collège de secteur, celle d'une école hors
+   contrat l'explication de l'absence de données ; les écoles ne s'affichent qu'en zoomant.
 3. Les secteurs concordent avec les secteurs officiels de Paris et des Hauts-de-Seine : au moins
    CONCORDANCE_MINIMALE de la surface attribuée au même collège (meta.json, secteurs.controle).
    Si les secteurs officiels n'ont pas pu être téléchargés, simple avertissement.
@@ -32,6 +36,11 @@ COUVERTURE_MINIMALE = {
     "colleges.geojson": {"taux_reussite": 5300, "ips": 5400, "eval_fr": 5400},
     "lycees.geojson": {"gt_reussite": 1900, "pro_reussite": 1550, "ips": 2750},
 }
+
+# Écoles (jalon 7) : environ 80 % des effectifs attendus d'après le diagnostic du 14/11/2026
+# (IPS : 29 070 écoles en 2024-2025 ; effectifs : 47 418 écoles à la rentrée 2025 ; taille des classes : 47 148).
+ECOLES_MINIMUM = 40000
+COUVERTURE_ECOLES = {"ips": 23000, "eleves": 36000, "classe": 36000}
 
 # Part minimale de la surface attribuée au même collège que dans les secteurs officiels.
 # Valeurs au 13/11/2026 : Paris 0,937, Hauts-de-Seine 0,923 ; 0,85 laisse environ 8 points de marge.
@@ -83,6 +92,7 @@ def verifier_fichiers():
         avertissements.append(f"seulement {sb.get('hors_contrat', 0)} collèges hors contrat repérés (annuaire de l'éducation indisponible ?)")
     for pb in meta.get("problemes", []):
         avertissements.append(f"meta.json : {pb}")
+    verifier_ecoles(data, contenus)
     index = contenus.get("index.json")
     if not index:
         avertissements.append("secteurs/index.json absent : la carte sera publiée sans secteurs")
@@ -105,7 +115,52 @@ def verifier_fichiers():
     return contenus
 
 
+def verifier_ecoles(data, contenus):
+    """Écoles : un fichier par département, lu à part (les noms 75.geojson existent aussi dans secteurs/)."""
+    dossier = data / "ecoles"
+    points = []
+    for f in sorted(dossier.glob("*.geojson")):
+        try:
+            points += json.loads(f.read_text(encoding="utf-8"), parse_constant=refuser_constante).get("features", [])
+        except ValueError as e:
+            erreurs.append(f"{f.relative_to(SITE)} n'est pas du JSON valide : {e}")
+    for nom in ("index.json", "recherche.json"):
+        try:
+            contenus["ecoles/" + nom] = json.loads((dossier / nom).read_text(encoding="utf-8"), parse_constant=refuser_constante)
+        except (OSError, ValueError) as e:
+            erreurs.append(f"ecoles/{nom} absent ou illisible : {e}")
+    contenus["ecoles"] = points
+    sans_nom = sum(1 for f in points if not f["properties"].get("nom"))
+    couverture = {k: sum(1 for f in points if isinstance(f["properties"].get(k), (int, float))) for k in COUVERTURE_ECOLES}
+    print(f"écoles : {len(points)} dans {len(list(dossier.glob('*.geojson')))} départements, {sans_nom} sans nom ; couverture {couverture}")
+    if len(points) < ECOLES_MINIMUM:
+        erreurs.append(f"écoles : seulement {len(points)} (au moins {ECOLES_MINIMUM} attendues)")
+    if sans_nom:
+        erreurs.append(f"écoles : {sans_nom} sans nom")
+    for k, mini in COUVERTURE_ECOLES.items():
+        if couverture[k] < mini:
+            erreurs.append(f"écoles : indicateur {k} présent pour {couverture[k]} écoles seulement (au moins {mini} attendues)")
+    hc = sum(1 for f in points if f["properties"].get("contrat") == "hors")
+    if hc < 500:
+        avertissements.append(f"seulement {hc} écoles hors contrat repérées (annuaire de l'éducation indisponible ?)")
+
+
 norm_dep = lambda d: str(int(d)) if str(d).isdigit() else str(d)
+
+
+def ecole_a_tester(contenus, public=True):
+    """Requête de recherche (nom et commune) d'une école à tester : publique avec IPS et taille des classes,
+    dans un département qui a des secteurs (pour le collège de secteur), ou privée hors contrat."""
+    index = contenus.get("index.json") or {}
+    avec_secteurs = {norm_dep(d) for d, v in index.items() if v.get("zones")}
+    # Paris d'abord : ses secteurs couvrent toute la ville, l'école a donc forcément un collège de secteur.
+    for f in sorted(contenus.get("ecoles", []), key=lambda f: f["properties"].get("dep") != "75"):
+        p = f["properties"]
+        if public and p.get("secteur") == "public" and "ips" in p and "classe" in p and norm_dep(p["dep"]) in avec_secteurs:
+            return f"{p['nom']} {p['commune']}", p
+        if not public and p.get("contrat") == "hors":
+            return f"{p['nom']} {p['commune']}", p
+    return None, None
 
 
 def college_hors_idf(contenus):
@@ -128,9 +183,9 @@ def exemple(contenus, fichier, cle):
     return None
 
 
-async def ouvrir_fiche(pg, nom, attendu, selecteur="#fiche-contenu .onglets button"):
+async def ouvrir_fiche(pg, nom, attendu, selecteur="#fiche-contenu .onglets button", attente=1200, interdit=None):
     await pg.fill("#recherche", nom)
-    await pg.wait_for_timeout(1200)
+    await pg.wait_for_timeout(attente)
     await pg.keyboard.press("ArrowDown")
     await pg.keyboard.press("Enter")
     try:
@@ -141,6 +196,8 @@ async def ouvrir_fiche(pg, nom, attendu, selecteur="#fiche-contenu .onglets butt
     texte = await pg.inner_text("#fiche-contenu")
     if attendu not in texte:
         return f"la fiche « {nom} » ne contient pas « {attendu} » : {texte[:200]!r}"
+    if interdit and interdit in texte:
+        return f"la fiche « {nom} » contient « {interdit} » : {texte[:300]!r}"
     await pg.click("#fermer")
     return None
 
@@ -151,6 +208,8 @@ async def verifier_navigateur(contenus):
     hors_contrat = next((f["properties"]["nom"] for f in contenus.get("colleges.geojson", {}).get("features", [])
                          if f["properties"].get("sans_brevet") == "hors_contrat"), None)
     college_secteur, fichier_secteur = college_hors_idf(contenus)
+    ecole, _ = ecole_a_tester(contenus)
+    ecole_hc, _ = ecole_a_tester(contenus, public=False)
     async with async_playwright() as p:
         b = await p.chromium.launch(args=["--use-gl=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"])
         for appareil, ctx in (("ordinateur", {"viewport": {"width": 1280, "height": 800}}), ("téléphone", p.devices["iPhone 13"])):
@@ -176,6 +235,11 @@ async def verifier_navigateur(contenus):
                 indice = await pg.evaluate("!document.getElementById('indice-secteurs').hidden")
                 if rendues or not indice:
                     problemes.append(f"vue nationale : {rendues} zones affichées, indication « Zoomez » {'visible' if indice else 'absente'}")
+                ecoles_rendues = await pg.evaluate("window.carteScolaire.getLayer('ecoles') ? window.carteScolaire.queryRenderedFeatures({layers: ['ecoles']}).length : -1")
+                texte_indice = await pg.inner_text("#indice-secteurs")
+                if ecoles_rendues != 0 or "écoles" not in texte_indice:
+                    problemes.append(f"vue nationale : calque des écoles {'absent' if ecoles_rendues < 0 else f'avec {ecoles_rendues} écoles affichées'}, "
+                                     f"indication « {texte_indice} »")
             panneau = await pg.inner_text("#panneau")
             if "Données indisponibles" in panneau:
                 problemes.append("un calque affiche « Données indisponibles »")
@@ -186,6 +250,25 @@ async def verifier_navigateur(contenus):
                 pb = await ouvrir_fiche(pg, nom, attendu)
                 if pb:
                     problemes.append(pb)
+            # École publique : fiche avec IPS (rangs) et collège de secteur ; écoles affichées une fois zoomé.
+            if ecole:
+                pb = await ouvrir_fiche(pg, ecole, "Collège de secteur", attente=3000, interdit="Non disponible")
+                if pb:
+                    problemes.append(pb)
+                await pg.wait_for_timeout(1500)
+                n = await pg.evaluate("window.carteScolaire.queryRenderedFeatures({layers: ['ecoles']}).length")
+                if n == 0:
+                    problemes.append(f"aucune école affichée après avoir ouvert la fiche « {ecole} » (zoom {await pg.evaluate('window.carteScolaire.getZoom()'):.1f})")
+                else:
+                    print(f"{appareil} : fiche école « {ecole} » ouverte, {n} écoles à l'écran")
+            else:
+                problemes.append("aucune école publique avec IPS et taille des classes dans un département à secteurs : fiche école non testée")
+            if ecole_hc:
+                pb = await ouvrir_fiche(pg, ecole_hc, "hors contrat", "#fiche-contenu .sans-brevet", attente=2000)
+                if pb:
+                    problemes.append(pb)
+            else:
+                avertissements.append("aucune école hors contrat repérée : fiche réduite non testée")
             # Collège sans brevet : la fiche en donne la raison (privé hors contrat).
             if hors_contrat:
                 pb = await ouvrir_fiche(pg, hors_contrat, "hors contrat", "#fiche-contenu .sans-brevet")
