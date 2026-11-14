@@ -1565,8 +1565,9 @@
       rechercheEcolesPromesse = fetch("data/ecoles/recherche.json").then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
         .then((j) => {
           const communes = j.communes.map(([nom, dep]) => ({ nom, dep, n: normaliser(nom) }));
-          rechercheEcoles = j.ecoles.map(([uai, nom, ic, lon, lat]) => ({ uai, nom, commune: communes[ic], coord: [lon, lat],
-            texte: normaliser(nom + " " + communes[ic].nom), court: normaliser(nom).replace(/^ecole (maternelle|elementaire|primaire)( (publique|privee))? /, "") }));
+          const pref = j.prefixes || [];
+          rechercheEcoles = j.ecoles.map(([uai, t, fin, ic, lon, lat]) => ({ uai, nom: (pref[t] || "") + fin, commune: communes[ic], coord: [lon, lat],
+            texte: normaliser((pref[t] || "") + fin + " " + communes[ic].nom), court: normaliser(fin).replace(/^(publique|privee) /, "") }));
         })
         .catch((e) => { rechercheEcolesPromesse = null; console.warn("Recherche des écoles indisponible", e); });
     }

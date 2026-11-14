@@ -42,6 +42,9 @@ PETITS_MOTS = {"de", "du", "des", "la", "le", "les", "et", "d", "l", "aux", "au"
 # pas dépendre des départements chargés.
 QUANTILES = [0.05, 0.25, 0.5, 0.75, 0.95]
 
+# Index de recherche : début de nom remplacé par un numéro (fichier plus léger), repris par app.js.
+PREFIXES = ["", "École élémentaire ", "École maternelle ", "École primaire "]
+
 
 def _outils():
     # Import tardif : build.py importe ce module.
@@ -78,6 +81,9 @@ def nom_ecole(nom: str, patronyme: str) -> str:
     nom = re.sub(r"^École (primaire|[ée]l[ée]mentaire|maternelle)\b",
                  lambda m: "École " + {"primaire": "primaire", "maternelle": "maternelle"}.get(m.group(1).lower(), "élémentaire"),
                  nom, flags=re.IGNORECASE)
+    # « École élémentaire Publique Graveson » -> « École élémentaire publique Graveson ».
+    nom = re.sub(r"^(École (?:primaire|élémentaire|maternelle)) (Publique|Privée|Privee)\b",
+                 lambda m: f"{m.group(1)} {'publique' if m.group(2).lower() == 'publique' else 'privée'}", nom)
     return nom[:1].upper() + nom[1:]
 
 
@@ -255,7 +261,8 @@ def construire(tous: pd.DataFrame, frames: dict, out_dir, problemes: list) -> di
         feats.setdefault(e.dep, []).append({"type": "Feature", "geometry": {"type": "Point", "coordinates": [round(e.lon, 5), round(e.lat, 5)]},
                                             "properties": b.sans_nan(p)})
         ic = communes.setdefault((e.commune, e.dep), len(communes))
-        recherche.append([e.uai, p["nom"], ic, round(e.lon, 5), round(e.lat, 5)])
+        t = next((i for i in range(len(PREFIXES) - 1, 0, -1) if p["nom"].startswith(PREFIXES[i])), 0)
+        recherche.append([e.uai, t, p["nom"][len(PREFIXES[t]):], ic, round(e.lon, 4), round(e.lat, 4)])
 
     # Rentrée des effectifs : écrite seulement quand ce n'est pas la plus récente (fichiers plus légers).
     tous_points = [f["properties"] for fs in feats.values() for f in fs]
@@ -284,7 +291,7 @@ def construire(tous: pd.DataFrame, frames: dict, out_dir, problemes: list) -> di
     liste_communes = [None] * len(communes)
     for (nom, dep), i in communes.items():
         liste_communes[i] = [nom, dep]
-    (dossier / "recherche.json").write_text(compact({"communes": liste_communes, "ecoles": recherche}), encoding="utf-8")
+    (dossier / "recherche.json").write_text(compact({"prefixes": PREFIXES, "communes": liste_communes, "ecoles": recherche}), encoding="utf-8")
     fdos = out_dir / "fiches"
     fdos.mkdir(exist_ok=True)
     for f in fdos.glob("ecoles-*.json"):
