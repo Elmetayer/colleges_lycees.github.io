@@ -1,13 +1,16 @@
 """Prépare les données de la carte scolaire.
 
 Télécharge les jeux open data de l'Éducation nationale et lit l'annuaire des établissements,
-puis confie les calculs aux modules colleges.py et lycees.py. Fichiers écrits :
+puis confie les calculs aux modules colleges.py, lycees.py et ecoles.py. Fichiers écrits :
   - <out>/colleges.geojson         : un point par collège de France métropolitaine, avec
                                      la dernière valeur de chaque indicateur (fichier léger)
   - <out>/fiches/colleges-<dep>.json : historique des collèges d'un département, chargé
                                      à l'ouverture d'une fiche
   - <out>/lycees.geojson           : un point par lycée de France métropolitaine (fichier léger)
   - <out>/fiches/lycees-<dep>.json : historique des lycées d'un département
+  - <out>/ecoles/<dep>.geojson     : écoles d'un département (trop nombreuses pour un seul fichier),
+                                     avec ecoles/index.json et ecoles/recherche.json (voir ecoles.py)
+  - <out>/fiches/ecoles-<dep>.json : IPS avec rangs, taille des classes des écoles d'un département
   - <out>/meta.json                : date de génération, sessions, médianes, sources
 
 Usage : python pipeline/build.py --out site/data --cache-dir sources-cache
@@ -32,6 +35,7 @@ import sys
 import unicodedata
 from datetime import datetime, timezone
 from pathlib import Path
+from urllib.parse import quote
 
 import pandas as pd
 import requests
@@ -40,6 +44,7 @@ from urllib3.util.retry import Retry
 
 sys.path.insert(0, str(Path(__file__).parent))
 import colleges  # noqa: E402
+import ecoles  # noqa: E402
 import lycees  # noqa: E402
 
 # Collèges et lycées : France métropolitaine (Corse comprise). L'outre-mer viendra plus tard.
@@ -60,11 +65,13 @@ SOURCES = {
     },
     "annuaire_education": {
         # Type de contrat des établissements privés et date d'ouverture : expliquent l'absence de
-        # résultats au brevet (privés hors contrat, collèges récents). Seules 3 colonnes sont lues.
-        "titre": "Annuaire de l'éducation (type de contrat, date d'ouverture)",
+        # résultats au brevet (privés hors contrat, collèges récents). Pour les écoles : maternelle
+        # ou élémentaire, éducation prioritaire, cantine, circonscription. Seules ces colonnes sont lues.
+        "titre": "Annuaire de l'éducation (type de contrat, date d'ouverture, niveaux des écoles, éducation prioritaire)",
         "explore_id": "fr-en-annuaire-education",
         "datagouv": None,
-        "colonnes": "identifiant_de_l_etablissement,type_contrat_prive,date_ouverture",
+        "colonnes": "identifiant_de_l_etablissement,type_contrat_prive,date_ouverture,ecole_maternelle,ecole_elementaire,"
+                    "appartenance_education_prioritaire,restauration,nom_circonscription",
         "obligatoire": False,
     },
     "ivac": {
@@ -110,6 +117,32 @@ SOURCES = {
         "datagouv": "664d720768d6ab64e06740f0",
         "csv_direct": True,
         "url_secours": f"{EXPLORE}/fr-en-ips-lycees-ap2023/exports/csv?use_labels=true",
+        "obligatoire": False,
+    },
+    # Écoles (jalon 7) : jeux lus directement sur data.education.gouv.fr (noms de colonnes vérifiés
+    # le 14/11/2026). Aucun résultat d'évaluation n'est publié école par école.
+    "ips_ecoles": {
+        "titre": "Indices de position sociale des écoles (à partir de 2022)",
+        "explore_id": "fr-en-ips-ecoles-ap2022",
+        "datagouv": None,
+        "colonnes": "rentree_scolaire,uai,ips",
+        "obligatoire": False,
+    },
+    "effectifs_ecoles": {
+        # Historique depuis 2009 (860 000 lignes) : seules les rentrées récentes sont lues.
+        "titre": "Effectifs d'élèves par école",
+        "explore_id": "fr-en-ecoles-effectifs-nb_classes",
+        "datagouv": None,
+        "colonnes": "rentree_scolaire,numero_ecole,nombre_total_eleves,nombre_total_classes",
+        "filtre": "rentree_scolaire >= date'2023-01-01'",
+        "obligatoire": False,
+    },
+    "taille_classes": {
+        "titre": "Taille moyenne des classes dans le premier degré",
+        "explore_id": "fr-en-taille-moyenne-classes-premier-degre",
+        "datagouv": None,
+        "colonnes": "annee,uai,esurc_ecole_preel,esurc_ecole_elem,esurc_commune_preel,esurc_commune_elem,"
+                    "esurc_circo_preel,esurc_circo_elem,esurc_acad_preel,esurc_acad_elem,esurc_fr_preel,esurc_fr_elem",
         "obligatoire": False,
     },
 }
@@ -257,7 +290,8 @@ def resolve(key: str) -> dict:
 def adresse(src: dict) -> str | None:
     if src.get("explore_id"):
         select = f"&select={src['colonnes']}" if src.get("colonnes") else ""
-        return f"{EXPLORE}/{src['explore_id']}/exports/csv?delimiter=%3B{select}"
+        filtre = f"&where={quote(src['filtre'])}" if src.get("filtre") else ""
+        return f"{EXPLORE}/{src['explore_id']}/exports/csv?delimiter=%3B{select}{filtre}"
     return src.get("url_csv")
 
 
@@ -370,6 +404,9 @@ def load_etablissements(df: pd.DataFrame) -> pd.DataFrame:
         "lon": num(df[c_lon]),
         "adresse": df[c_adr].fillna("").str.strip() if c_adr else "",
         "cp": df[c_cp].fillna("").str.strip() if c_cp else "",
+        # Pour reconstruire les noms abrégés des écoles de Paris (ecoles.py).
+        "denomination": df[c_denom].fillna("").str.strip() if c_denom else "",
+        "patronyme": df[c_patro].fillna("").str.strip() if c_patro else "",
     })
     out = out[out["dep"].map(lambda d: bool(METROPOLE.fullmatch(d)))]
     # Nom manquant dans l'annuaire (quelques établissements) : dénomination + patronyme, sinon l'UAI.
@@ -427,18 +464,22 @@ def main() -> int:
     log("\n== lycées")
     lyc_meta = lycees.construire(tous, frames, out, problemes)
 
+    log("\n== écoles")
+    eco_meta = ecoles.construire(tous, frames, out, problemes)
+
     meta = {
         "genere_le": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        "perimetre": {"colleges": "France métropolitaine", "lycees": "France métropolitaine"},
+        "perimetre": {"colleges": "France métropolitaine", "lycees": "France métropolitaine", "ecoles": "France métropolitaine"},
         **col_meta,  # colleges, periodes, medianes, medianes_academies
         "lycees": lyc_meta,
+        "ecoles": eco_meta,
         "sources": [{"cle": k, "titre": s["titre"], "page": s.get("page"), "mise_a_jour": s.get("maj"),
                      **({"version_reprise": s["reprise"]} if s.get("reprise") else {})} for k, s in resolved.items()],
         "problemes": problemes,
     }
     (out / "meta.json").write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
 
-    log(f"\n== terminé : {col_meta['colleges']['total']} collèges et {lyc_meta['total']} lycées écrits dans {out}")
+    log(f"\n== terminé : {col_meta['colleges']['total']} collèges, {lyc_meta['total']} lycées et {eco_meta['total']} écoles écrits dans {out}")
     if problemes:
         log("   problèmes :\n   - " + "\n   - ".join(problemes))
     return 0
