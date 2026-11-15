@@ -331,6 +331,8 @@ def rattacher_zone(g, nom: str, cand: pd.DataFrame, niveau: str, ville: pd.DataF
 def construire_ville(vid: str, v: dict, ecoles: pd.DataFrame, frames: dict, resolved: dict, problemes: list) -> tuple[list, dict] | None:
     b = _outils()
     publiques = ecoles[(ecoles["dep"] == v["dep"]) & (ecoles["secteur"] == "public")]
+    # Écoles spécialisées (Clermont-Ferrand : « Chanteranne Education motrice ») : pas de secteur, ni candidates ni attendues.
+    publiques = publiques[~publiques["nom"].str.contains(r"sp[ée]cialis[ée]e", case=False, regex=True, na=False)]
     de_la_ville = publiques[publiques["commune"].isin(v["communes"])]
     features, meta = [], {}
     maj = max((str((resolved.get(cle_source(vid, j)) or {}).get("maj") or "")[:10] for j in v["jeux"].values()), default="") or None
