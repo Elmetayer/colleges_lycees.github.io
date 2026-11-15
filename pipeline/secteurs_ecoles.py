@@ -281,7 +281,7 @@ def rattacher_zone(g, nom: str, cand: pd.DataFrame, niveau: str, ville: pd.DataF
     """Écoles d'une zone : celles du niveau situées dans la zone dont le nom correspond le mieux (ex aequo : secteur
     commun, mais une école du niveau exact passe avant une école primaire du même nom : à Strasbourg, le secteur
     maternelle « ST JEAN » est celui de la maternelle Saint-Jean, pas de l'école primaire Saint-Jean) ; sinon l'unique
-    école du niveau située dans la zone ; sinon une école du niveau au nom complet, à moins de VOISINE de la zone
+    école du niveau située dans la zone (ou l'unique école du niveau exact) ; sinon une école du niveau au nom complet, à moins de VOISINE de la zone
     (Nantes : la zone « Frédureau - Jean Jaures » est celle de l'élémentaire Jean Jaurès, construite juste à côté) ;
     sinon la seule école du niveau de la commune qui porte exactement ce nom, où qu'elle soit (Orléans : les écoles
     des Guernazelles sont placées à 8 km de leur quartier dans l'annuaire). Renvoie (UAI, "nom" | "seule" |
@@ -296,9 +296,14 @@ def rattacher_zone(g, nom: str, cand: pd.DataFrame, niveau: str, ville: pd.DataF
         if any(exact for _, exact in retenues):
             retenues = [(u, exact) for u, exact in retenues if exact]
         return [u for u, _ in retenues], "nom"
-    strict = [u for u, x, y in zip(ici["uai"], ici["lon"], ici["lat"]) if g.contains(Point(x, y))]
+    strict = [(u, nv == niveau) for u, nv, x, y in zip(ici["uai"], ici["niveau"], ici["lon"], ici["lat"]) if g.contains(Point(x, y))]
+    exactes = [u for u, exact in strict if exact]
     if len(strict) == 1:
-        return strict, "seule"
+        return [strict[0][0]], "seule"
+    # Une seule école du niveau exact dans la zone, à côté d'écoles primaires (Orléans : la zone maternelle « GROUPE
+    # SCOLAIRE DES BLOSSIERES » est celle de la maternelle Bastié/Boucher).
+    if len(exactes) == 1:
+        return exactes, "seule"
     proche = g.buffer(VOISINE)
     autour = cand[[proche.contains(Point(x, y)) for x, y in zip(cand["lon"], cand["lat"])]]
     complets = [u for n, u in zip(autour["nom"], autour["uai"]) if score_nom(mz, mots_nom(n)) >= 0.99 and len(mots_nom(n)) >= 2]
