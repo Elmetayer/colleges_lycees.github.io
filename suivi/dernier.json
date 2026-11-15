@@ -1,0 +1,656 @@
+{
+ "version": 1,
+ "genere_le": "2026-11-15T11:43:22+00:00",
+ "statut": "publie",
+ "etat": "ok",
+ "build": {
+  "passage": "43709743648",
+  "lien": "https://github.com/Elmetayer/colleges_lycees.github.io/actions/runs/43709743648",
+  "commit": "1a3634d",
+  "evenement": "push",
+  "branche": "main"
+ },
+ "compte": {
+  "ok": 19,
+  "partiel": 0,
+  "ko": 0
+ },
+ "chiffres": {
+  "colleges": 7268,
+  "lycees": 4468,
+  "ecoles": 46295,
+  "secteurs_departements": 84,
+  "departements": 96,
+  "villes_ecoles": [
+   "Paris",
+   "Strasbourg"
+  ]
+ },
+ "groupes": [
+  {
+   "cle": "etablissements",
+   "titre": "Établissements et indicateurs",
+   "lignes": [
+    {
+     "cle": "etablissements",
+     "titre": "Adresse et géolocalisation des établissements d'enseignement du premier et second degrés",
+     "producteur": "data.education.gouv.fr",
+     "page": "https://data.education.gouv.fr/explore/dataset/fr-en-adresse-et-geolocalisation-etablissements-premier-et-second-degre/",
+     "lignes": 63556,
+     "lignes_precedentes": 63556,
+     "carte": "7 268 collèges, 4 468 lycées, 46 295 écoles",
+     "mise_a_jour": "2026-11-15T06:00:51.278000+00:00",
+     "telecharge_le": "2026-11-15T11:38:26+00:00",
+     "etat": "ok",
+     "details": [
+      [
+       "Adresse lue",
+       "https://data.education.gouv.fr/api/explore/v2.1/catalog/datasets/fr-en-adresse-et-geolocalisation-etablissements-premier-et-second-degre/exports/csv?delimiter=%3B"
+      ],
+      [
+       "Version précédente",
+       "63 556 lignes"
+      ]
+     ]
+    },
+    {
+     "cle": "annuaire_education",
+     "titre": "Annuaire de l'éducation (type de contrat, date d'ouverture, niveaux des écoles, éducation prioritaire)",
+     "producteur": "data.education.gouv.fr",
+     "page": "https://data.education.gouv.fr/explore/dataset/fr-en-annuaire-education/",
+     "lignes": 68555,
+     "lignes_precedentes": 68555,
+     "carte": "type de contrat, date d'ouverture, niveaux des écoles",
+     "mise_a_jour": "2026-11-15T06:01:19.429000+00:00",
+     "telecharge_le": "2026-11-15T11:38:31+00:00",
+     "etat": "ok",
+     "details": [
+      [
+       "Adresse lue",
+       "https://data.education.gouv.fr/api/explore/v2.1/catalog/datasets/fr-en-annuaire-education/exports/csv?delimiter=%3B&select=identifiant_de_l_etablissement,type_contrat_prive,date_ouverture,ecole_maternelle,ecole_elementaire,appartenance_education_prioritaire,restauration,nom_circonscription"
+      ],
+      [
+       "Version précédente",
+       "68 555 lignes"
+      ]
+     ]
+    },
+    {
+     "cle": "ivac",
+     "titre": "Indicateurs de valeur ajoutée des collèges",
+     "producteur": "data.education.gouv.fr",
+     "page": "https://www.data.gouv.fr/datasets/indicateurs-de-valeur-ajoutee-des-colleges",
+     "lignes": 26869,
+     "lignes_precedentes": 26869,
+     "carte": "6 613 collèges avec résultats au brevet",
+     "mise_a_jour": "2026-08-03T09:55:18.316000+00:00",
+     "telecharge_le": "2026-11-15T11:38:34+00:00",
+     "etat": "ok",
+     "details": [
+      [
+       "Adresse lue",
+       "https://data.education.gouv.fr/api/explore/v2.1/catalog/datasets/fr-en-indicateurs-valeur-ajoutee-colleges/exports/csv?delimiter=%3B"
+      ],
+      [
+       "Version précédente",
+       "26 869 lignes"
+      ]
+     ]
+    },
+    {
+     "cle": "ips",
+     "titre": "Indices de position sociale des collèges (à partir de 2023)",
+     "producteur": "data.education.gouv.fr",
+     "page": "https://www.data.gouv.fr/datasets/ips-colleges-a-partir-de-2023",
+     "lignes": 21061,
+     "lignes_precedentes": 21061,
+     "carte": "6 739 collèges avec IPS",
+     "mise_a_jour": "2026-09-01T09:31:02.578000+00:00",
+     "telecharge_le": "2026-11-15T11:38:37+00:00",
+     "etat": "ok",
+     "details": [
+      [
+       "Adresse lue",
+       "https://data.education.gouv.fr/api/explore/v2.1/catalog/datasets/fr-en-ips-colleges-ap2023/exports/csv?delimiter=%3B"
+      ],
+      [
+       "Version précédente",
+       "21 061 lignes"
+      ]
+     ]
+    },
+    {
+     "cle": "eval6e",
+     "titre": "Résultats consolidés aux évaluations nationales de début de sixième par établissement",
+     "producteur": "data.education.gouv.fr",
+     "page": "https://www.data.gouv.fr/datasets/resultats-consolides-aux-evaluations-nationales-de-debut-de-sixieme-par-etablissement",
+     "lignes": 369797,
+     "lignes_precedentes": 369797,
+     "carte": "6 728 collèges avec évaluations",
+     "mise_a_jour": "2026-06-16T08:38:58.396000+00:00",
+     "telecharge_le": "2026-11-15T11:38:43+00:00",
+     "etat": "ok",
+     "details": [
+      [
+       "Adresse lue",
+       "https://data.education.gouv.fr/api/explore/v2.1/catalog/datasets/fr-en-evaluations_nationales_6eme_par_etablissement/exports/csv?delimiter=%3B"
+      ],
+      [
+       "Version précédente",
+       "369 797 lignes"
+      ]
+     ]
+    },
+    {
+     "cle": "ival_gt",
+     "titre": "Indicateurs de valeur ajoutée des lycées d'enseignement général et technologique",
+     "producteur": "data.education.gouv.fr",
+     "page": "https://www.data.gouv.fr/datasets/indicateurs-de-valeur-ajoutee-des-lycees-denseignement-general-et-technologique-2",
+     "lignes": 32485,
+     "lignes_precedentes": 32485,
+     "carte": "2 359 lycées avec résultats",
+     "mise_a_jour": "2026-06-10T10:17:27.564000+00:00",
+     "telecharge_le": "2026-11-15T11:38:59+00:00",
+     "etat": "ok",
+     "details": [
+      [
+       "Adresse lue",
+       "https://data.education.gouv.fr/api/explore/v2.1/catalog/datasets/fr-en-indicateurs-de-resultat-des-lycees-gt_v2/exports/csv?use_labels=true"
+      ],
+      [
+       "Version précédente",
+       "32 485 lignes"
+      ]
+     ]
+    },
+    {
+     "cle": "ival_pro",
+     "titre": "Indicateurs de valeur ajoutée des lycées d'enseignement professionnel",
+     "producteur": "data.education.gouv.fr",
+     "page": "https://www.data.gouv.fr/datasets/indicateurs-de-valeur-ajoutee-des-lycees-denseignement-professionnel",
+     "lignes": 28258,
+     "lignes_precedentes": 28258,
+     "carte": "1 951 lycées avec résultats",
+     "mise_a_jour": "2026-06-10T10:16:56.029000+00:00",
+     "telecharge_le": "2026-11-15T11:39:02+00:00",
+     "etat": "ok",
+     "details": [
+      [
+       "Adresse lue",
+       "https://data.education.gouv.fr/api/explore/v2.1/catalog/datasets/fr-en-indicateurs-de-resultat-des-lycees-pro_v2/exports/csv?use_labels=true"
+      ],
+      [
+       "Version précédente",
+       "28 258 lignes"
+      ]
+     ]
+    },
+    {
+     "cle": "ips_lycees",
+     "titre": "Indices de position sociale des lycées (à partir de 2023)",
+     "producteur": "data.education.gouv.fr",
+     "page": "https://www.data.gouv.fr/datasets/ips-lycees-a-partir-de-2023",
+     "lignes": 10905,
+     "lignes_precedentes": 10905,
+     "carte": "3 446 lycées avec IPS",
+     "mise_a_jour": "2026-06-10T08:20:49.021000+00:00",
+     "telecharge_le": "2026-11-15T11:39:05+00:00",
+     "etat": "ok",
+     "details": [
+      [
+       "Adresse lue",
+       "https://data.education.gouv.fr/api/explore/v2.1/catalog/datasets/fr-en-ips-lycees-ap2023/exports/csv?use_labels=true"
+      ],
+      [
+       "Version précédente",
+       "10 905 lignes"
+      ]
+     ]
+    },
+    {
+     "cle": "ips_ecoles",
+     "titre": "Indices de position sociale des écoles (à partir de 2022)",
+     "producteur": "data.education.gouv.fr",
+     "page": "https://data.education.gouv.fr/explore/dataset/fr-en-ips-ecoles-ap2022/",
+     "lignes": 97080,
+     "lignes_precedentes": 97080,
+     "carte": "29 226 écoles avec IPS",
+     "mise_a_jour": "2026-08-07T07:34:04.835000+00:00",
+     "telecharge_le": "2026-11-15T11:39:07+00:00",
+     "etat": "ok",
+     "details": [
+      [
+       "Adresse lue",
+       "https://data.education.gouv.fr/api/explore/v2.1/catalog/datasets/fr-en-ips-ecoles-ap2022/exports/csv?delimiter=%3B&select=rentree_scolaire,uai,ips"
+      ],
+      [
+       "Version précédente",
+       "97 080 lignes"
+      ]
+     ]
+    },
+    {
+     "cle": "effectifs_ecoles",
+     "titre": "Effectifs d'élèves par école",
+     "producteur": "data.education.gouv.fr",
+     "page": "https://data.education.gouv.fr/explore/dataset/fr-en-ecoles-effectifs-nb_classes/",
+     "lignes": 143509,
+     "lignes_precedentes": 143509,
+     "carte": "45 194 écoles avec effectifs",
+     "mise_a_jour": "2026-08-27T09:25:30.169000+00:00",
+     "telecharge_le": "2026-11-15T11:39:11+00:00",
+     "etat": "ok",
+     "details": [
+      [
+       "Adresse lue",
+       "https://data.education.gouv.fr/api/explore/v2.1/catalog/datasets/fr-en-ecoles-effectifs-nb_classes/exports/csv?delimiter=%3B&select=rentree_scolaire,numero_ecole,nombre_total_eleves,nombre_total_classes&where=rentree_scolaire%20%3E%3D%20date%272023-01-01%27"
+      ],
+      [
+       "Version précédente",
+       "143 509 lignes"
+      ]
+     ]
+    },
+    {
+     "cle": "taille_classes",
+     "titre": "Taille moyenne des classes dans le premier degré",
+     "producteur": "data.education.gouv.fr",
+     "page": "https://data.education.gouv.fr/explore/dataset/fr-en-taille-moyenne-classes-premier-degre/",
+     "lignes": 47148,
+     "lignes_precedentes": 47148,
+     "carte": "45 136 écoles avec taille des classes",
+     "mise_a_jour": "2026-06-16T07:12:44+00:00",
+     "telecharge_le": "2026-11-15T11:39:18+00:00",
+     "etat": "ok",
+     "details": [
+      [
+       "Adresse lue",
+       "https://data.education.gouv.fr/api/explore/v2.1/catalog/datasets/fr-en-taille-moyenne-classes-premier-degre/exports/csv?delimiter=%3B&select=annee,uai,esurc_ecole_preel,esurc_ecole_elem,esurc_commune_preel,esurc_commune_elem,esurc_circo_preel,esurc_circo_elem,esurc_acad_preel,esurc_acad_elem,esurc_fr_preel,esurc_fr_elem"
+      ],
+      [
+       "Version précédente",
+       "47 148 lignes"
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "cle": "secteurs_colleges",
+   "titre": "Secteurs des collèges",
+   "lignes": [
+    {
+     "cle": "carte_scolaire",
+     "titre": "Carte scolaire des collèges publics, secteurs calculés à l'adresse",
+     "producteur": "data.gouv.fr · adresse.data.gouv.fr · geo.api.gouv.fr",
+     "page": "https://www.data.gouv.fr/datasets/carte-scolaire-des-colleges-publics/",
+     "lignes": null,
+     "carte": "84 départements sur 96, 4 869 zones",
+     "mise_a_jour": null,
+     "telecharge_le": null,
+     "etat": "ok",
+     "details": [
+      [
+       "Recalculés",
+       "11, 13, 35, 49, 54, 62, 76, 77, 92"
+      ],
+      [
+       "Inchangés",
+       "75 départements, secteurs repris du calcul précédent"
+      ],
+      [
+       "Adresses",
+       "Base Adresse Nationale : 84 départements"
+      ],
+      [
+       "Absents de la source",
+       "12 départements sans carte scolaire nationale (limite connue)"
+      ]
+     ]
+    },
+    {
+     "cle": "secteurs_officiels",
+     "titre": "Secteurs officiels de Paris et des Hauts-de-Seine (contrôle)",
+     "producteur": "opendata.paris.fr · opendata.hauts-de-seine.fr",
+     "page": null,
+     "lignes": null,
+     "carte": "contrôle de la méthode",
+     "mise_a_jour": null,
+     "telecharge_le": null,
+     "etat": "ok",
+     "details": [
+      [
+       "Concordance Hauts-de-Seine",
+       "92,3 % de la surface attribuée au même collège (98 collèges)"
+      ],
+      [
+       "Concordance Paris",
+       "93,7 % de la surface attribuée au même collège (103 collèges)"
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "cle": "secteurs_ecoles",
+   "titre": "Secteurs des écoles",
+   "lignes": [
+    {
+     "cle": "secteurs_paris_elementaires",
+     "titre": "Secteurs scolaires des écoles élémentaires (Ville de Paris, ODbL)",
+     "producteur": "opendata.paris.fr",
+     "page": "https://opendata.paris.fr/explore/dataset/secteurs-scolaires-ecoles-elementaires/",
+     "lignes": 735,
+     "lignes_precedentes": 735,
+     "carte": "369 secteurs, 2026-2027",
+     "mise_a_jour": "2026-03-03T15:53:30+00:00",
+     "telecharge_le": "2026-11-15T11:39:22+00:00",
+     "etat": "ok",
+     "details": [
+      [
+       "Adresse lue",
+       "https://opendata.paris.fr/api/explore/v2.1/catalog/datasets/secteurs-scolaires-ecoles-elementaires/exports/csv?delimiter=%3B&select=libelle,zone_commune,lib_etab_1,lib_etab_2,lib_etab_3,lib_etab_4,annee_scol,geo_shape&where=annee_scol%20in%20%28%272025-2026%27%2C%20%272026-2027%27%2C%20%272027-2028%27%29"
+      ],
+      [
+       "Version précédente",
+       "735 lignes"
+      ]
+     ]
+    },
+    {
+     "cle": "ecoles_paris_elementaires",
+     "titre": "Établissements scolaires : écoles élémentaires (Ville de Paris, ODbL)",
+     "producteur": "opendata.paris.fr",
+     "page": "https://opendata.paris.fr/explore/dataset/etablissements-scolaires-ecoles-elementaires/",
+     "lignes": 724,
+     "lignes_precedentes": 724,
+     "carte": "rattachement des écoles : 100,0 %",
+     "mise_a_jour": "2026-03-03T15:58:03+00:00",
+     "telecharge_le": "2026-11-15T11:39:24+00:00",
+     "etat": "ok",
+     "details": [
+      [
+       "Adresse lue",
+       "https://opendata.paris.fr/api/explore/v2.1/catalog/datasets/etablissements-scolaires-ecoles-elementaires/exports/csv?delimiter=%3B&select=libelle,adresse,annee_scol,geo_point_2d&where=annee_scol%20in%20%28%272025-2026%27%2C%20%272026-2027%27%2C%20%272027-2028%27%29"
+      ],
+      [
+       "Version précédente",
+       "724 lignes"
+      ]
+     ]
+    },
+    {
+     "cle": "secteurs_paris_maternelles",
+     "titre": "Secteurs scolaires des écoles maternelles (Ville de Paris, ODbL)",
+     "producteur": "opendata.paris.fr",
+     "page": "https://opendata.paris.fr/explore/dataset/secteurs-scolaires-maternelles/",
+     "lignes": 783,
+     "lignes_precedentes": 783,
+     "carte": "390 secteurs, 2026-2027",
+     "mise_a_jour": "2026-03-03T15:53:09+00:00",
+     "telecharge_le": "2026-11-15T11:39:27+00:00",
+     "etat": "ok",
+     "details": [
+      [
+       "Adresse lue",
+       "https://opendata.paris.fr/api/explore/v2.1/catalog/datasets/secteurs-scolaires-maternelles/exports/csv?delimiter=%3B&select=libelle,zone_commune,lib_etab_1,lib_etab_2,lib_etab_3,lib_etab_4,annee_scol,geo_shape&where=annee_scol%20in%20%28%272025-2026%27%2C%20%272026-2027%27%2C%20%272027-2028%27%29"
+      ],
+      [
+       "Version précédente",
+       "783 lignes"
+      ]
+     ]
+    },
+    {
+     "cle": "ecoles_paris_maternelles",
+     "titre": "Établissements scolaires : écoles maternelles (Ville de Paris, ODbL)",
+     "producteur": "opendata.paris.fr",
+     "page": "https://opendata.paris.fr/explore/dataset/etablissements-scolaires-maternelles/",
+     "lignes": 719,
+     "lignes_precedentes": 719,
+     "carte": "rattachement des écoles : 99,6 %",
+     "mise_a_jour": "2026-03-03T15:56:28+00:00",
+     "telecharge_le": "2026-11-15T11:39:29+00:00",
+     "etat": "ok",
+     "details": [
+      [
+       "Adresse lue",
+       "https://opendata.paris.fr/api/explore/v2.1/catalog/datasets/etablissements-scolaires-maternelles/exports/csv?delimiter=%3B&select=libelle,adresse,annee_scol,geo_point_2d&where=annee_scol%20in%20%28%272025-2026%27%2C%20%272026-2027%27%2C%20%272027-2028%27%29"
+      ],
+      [
+       "Version précédente",
+       "719 lignes"
+      ]
+     ]
+    },
+    {
+     "cle": "secteurs_strasbourg_secteurs_scolaires_ecoles_elementaires",
+     "titre": "Secteurs scolaires des écoles élémentaires (Ville de Strasbourg, Licence Ouverte)",
+     "producteur": "data.strasbourg.eu",
+     "page": "https://data.strasbourg.eu/explore/dataset/secteurs_scolaires_ecoles_elementaires/",
+     "lignes": 50,
+     "lignes_precedentes": 50,
+     "carte": "50 secteurs, mis à jour le 01/10/2026",
+     "mise_a_jour": "2026-10-01T17:02:12+00:00",
+     "telecharge_le": "2026-11-15T11:39:31+00:00",
+     "etat": "ok",
+     "details": [
+      [
+       "Adresse lue",
+       "https://data.strasbourg.eu/api/explore/v2.1/catalog/datasets/secteurs_scolaires_ecoles_elementaires/exports/csv?delimiter=%3B&select=nom_secteur,geo_shape"
+      ],
+      [
+       "Version précédente",
+       "50 lignes"
+      ]
+     ]
+    },
+    {
+     "cle": "secteurs_strasbourg_secteurs_scolaires_ecoles_maternelles",
+     "titre": "Secteurs scolaires des écoles maternelles (Ville de Strasbourg, Licence Ouverte)",
+     "producteur": "data.strasbourg.eu",
+     "page": "https://data.strasbourg.eu/explore/dataset/secteurs_scolaires_ecoles_maternelles/",
+     "lignes": 59,
+     "lignes_precedentes": 59,
+     "carte": "59 secteurs, mis à jour le 01/10/2026",
+     "mise_a_jour": "2026-10-01T17:02:09+00:00",
+     "telecharge_le": "2026-11-15T11:39:31+00:00",
+     "etat": "ok",
+     "details": [
+      [
+       "Adresse lue",
+       "https://data.strasbourg.eu/api/explore/v2.1/catalog/datasets/secteurs_scolaires_ecoles_maternelles/exports/csv?delimiter=%3B&select=nom_secteur,geo_shape"
+      ],
+      [
+       "Version précédente",
+       "59 lignes"
+      ]
+     ]
+    }
+   ]
+  }
+ ],
+ "controles": [
+  {
+   "libelle": "Collèges avec résultats au brevet",
+   "valeur": 6613,
+   "seuil": 5300,
+   "unite": "",
+   "ok": true
+  },
+  {
+   "libelle": "Collèges avec IPS",
+   "valeur": 6739,
+   "seuil": 5400,
+   "unite": "",
+   "ok": true
+  },
+  {
+   "libelle": "Collèges avec évaluations de 6e",
+   "valeur": 6728,
+   "seuil": 5400,
+   "unite": "",
+   "ok": true
+  },
+  {
+   "libelle": "Lycées GT avec résultats",
+   "valeur": 2359,
+   "seuil": 1900,
+   "unite": "",
+   "ok": true
+  },
+  {
+   "libelle": "Lycées professionnels avec résultats",
+   "valeur": 1951,
+   "seuil": 1550,
+   "unite": "",
+   "ok": true
+  },
+  {
+   "libelle": "Lycées avec IPS",
+   "valeur": 3446,
+   "seuil": 2750,
+   "unite": "",
+   "ok": true
+  },
+  {
+   "libelle": "Secteurs des écoles, Ville de Paris, élémentaires : rattachement",
+   "valeur": 100.0,
+   "seuil": 95.0,
+   "unite": "%",
+   "ok": true
+  },
+  {
+   "libelle": "Secteurs des écoles, Ville de Paris, élémentaires : couverture",
+   "valeur": 96.6,
+   "seuil": 90.0,
+   "unite": "%",
+   "ok": true
+  },
+  {
+   "libelle": "Secteurs des écoles, Ville de Paris, élémentaires : coherence",
+   "valeur": 97.9,
+   "seuil": 90.0,
+   "unite": "%",
+   "ok": true
+  },
+  {
+   "libelle": "Secteurs des écoles, Ville de Paris, maternelles : rattachement",
+   "valeur": 99.6,
+   "seuil": 95.0,
+   "unite": "%",
+   "ok": true
+  },
+  {
+   "libelle": "Secteurs des écoles, Ville de Paris, maternelles : couverture",
+   "valeur": 99.1,
+   "seuil": 90.0,
+   "unite": "%",
+   "ok": true
+  },
+  {
+   "libelle": "Secteurs des écoles, Ville de Paris, maternelles : coherence",
+   "valeur": 100.0,
+   "seuil": 90.0,
+   "unite": "%",
+   "ok": true
+  },
+  {
+   "libelle": "Secteurs des écoles, Ville de Strasbourg, élémentaires : rattachement",
+   "valeur": 100.0,
+   "seuil": 95.0,
+   "unite": "%",
+   "ok": true
+  },
+  {
+   "libelle": "Secteurs des écoles, Ville de Strasbourg, élémentaires : couverture",
+   "valeur": 96.4,
+   "seuil": 90.0,
+   "unite": "%",
+   "ok": true
+  },
+  {
+   "libelle": "Secteurs des écoles, Ville de Strasbourg, élémentaires : coherence",
+   "valeur": 100.0,
+   "seuil": 90.0,
+   "unite": "%",
+   "ok": true
+  },
+  {
+   "libelle": "Secteurs des écoles, Ville de Strasbourg, maternelles : rattachement",
+   "valeur": 100.0,
+   "seuil": 95.0,
+   "unite": "%",
+   "ok": true
+  },
+  {
+   "libelle": "Secteurs des écoles, Ville de Strasbourg, maternelles : couverture",
+   "valeur": 97.9,
+   "seuil": 90.0,
+   "unite": "%",
+   "ok": true
+  },
+  {
+   "libelle": "Secteurs des écoles, Ville de Strasbourg, maternelles : coherence",
+   "valeur": 100.0,
+   "seuil": 90.0,
+   "unite": "%",
+   "ok": true
+  },
+  {
+   "libelle": "Écoles sur la carte",
+   "valeur": 46295,
+   "seuil": 40000,
+   "unite": "",
+   "ok": true
+  },
+  {
+   "libelle": "Écoles avec IPS",
+   "valeur": 29226,
+   "seuil": 23000,
+   "unite": "",
+   "ok": true
+  },
+  {
+   "libelle": "Écoles avec effectifs",
+   "valeur": 45194,
+   "seuil": 36000,
+   "unite": "",
+   "ok": true
+  },
+  {
+   "libelle": "Écoles avec taille des classes",
+   "valeur": 45136,
+   "seuil": 36000,
+   "unite": "",
+   "ok": true
+  },
+  {
+   "libelle": "Concordance des secteurs des collèges, Paris",
+   "valeur": 93.7,
+   "seuil": 85.0,
+   "unite": "%",
+   "ok": true
+  },
+  {
+   "libelle": "Concordance des secteurs des collèges, Hauts-de-Seine",
+   "valeur": 92.3,
+   "seuil": 85.0,
+   "unite": "%",
+   "ok": true
+  }
+ ],
+ "navigateur": {
+  "ordinateur": {
+   "ok": true,
+   "problemes": []
+  },
+  "téléphone": {
+   "ok": true,
+   "problemes": []
+  }
+ },
+ "verification": "ok",
+ "erreurs": [],
+ "problemes": []
+}
