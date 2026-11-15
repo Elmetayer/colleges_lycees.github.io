@@ -1,57 +1,61 @@
-"""Diagnostic 7c : secteurs des écoles publiés par les villes (portails Explore et data.gouv.fr)."""
-import json, requests
-H = {"User-Agent": "carte-scolaire-diag"}
-def get(url, **p):
-    try:
-        r = requests.get(url, params=p, headers=H, timeout=60); r.raise_for_status(); return r.json()
-    except Exception as e:
-        return {"_erreur": str(e)[:120]}
-PORTAILS = {
-    "Toulouse": "https://data.toulouse-metropole.fr", "Bordeaux": "https://opendata.bordeaux-metropole.fr",
-    "Rennes": "https://data.rennesmetropole.fr", "Nantes": "https://data.nantesmetropole.fr",
-    "Strasbourg": "https://data.strasbourg.eu", "Montpellier": "https://data.montpellier3m.fr",
-    "Lille MEL": "https://opendata.lillemetropole.fr", "Angers": "https://data.angers.fr",
-    "Orléans": "https://data.orleans-metropole.fr", "Clermont": "https://opendata.clermontmetropole.eu",
-    "Nice": "https://opendata.nicecotedazur.org", "Grenoble": "https://data.metropolegrenoble.fr",
-    "Saint-Nazaire": "https://data.agglo-carene.fr", "Hauts-de-Seine": "https://opendata.hauts-de-seine.fr",
-    "Seine-Saint-Denis": "https://data.seine-saint-denis.fr", "Brest": "https://data.brest-metropole.fr",
-    "Le Mans": "https://data.lemans-metropole.fr", "Tours": "https://data.tours-metropole.fr",
-    "Metz": "https://data.eurometropolemetz.eu", "Dijon": "https://data.metropole-dijon.fr",
-    "Lyon": "https://data.grandlyon.com", "Marseille": "https://data.ampmetropole.fr",
-    "Reims": "https://data.grandreims.fr", "Le Havre": "https://data.lehavreseinemetropole.fr",
-}
-for ville, base in PORTAILS.items():
-    vus = set()
-    for q in ["secteur scolaire", "carte scolaire", "périmètre scolaire", "sectorisation"]:
-        d = get(f"{base}/api/explore/v2.1/catalog/datasets", where=f'search("{q}")', limit=20, select="dataset_id")
-        if "_erreur" in d:
-            print(f"{ville:18} | portail : {d['_erreur']}"); break
-        for ds in d.get("results", []):
-            i = ds["dataset_id"]
-            if i in vus: continue
-            vus.add(i)
-            m = get(f"{base}/api/explore/v2.1/catalog/datasets/{i}")
-            mm = (m.get("metas") or {}).get("default", {})
-            champs = [f["name"] for f in m.get("fields", [])]
-            geo = any(f.get("type") == "geo_shape" for f in m.get("fields", []))
-            ex = get(f"{base}/api/explore/v2.1/catalog/datasets/{i}/records", limit=1)
-            r0 = (ex.get("results") or [{}])[0]
-            r0 = {k: (v if not isinstance(v, dict) else "…") for k, v in r0.items()}
-            print(f"{ville:18} | {i} | {mm.get('title')} | {mm.get('records_count')} | maj {str(mm.get('modified'))[:10]} | polygones={geo} | licence {mm.get('license')}")
-            print(f"{'':18}   champs {champs[:25]}")
-            print(f"{'':18}   ex {json.dumps(r0, ensure_ascii=False)[:400]}")
-        else:
-            continue
-        break
-    if not vus: print(f"{ville:18} | rien trouvé")
+"""Diagnostic 7c (2) : contenu des secteurs des villes et écoles de l'annuaire contenues dans chaque zone."""
+import collections, json, requests
+from shapely.geometry import Point, shape
 
-print("\n=== data.gouv.fr")
-vus = set()
-for q in ["secteurs scolaires ecoles", "carte scolaire ecoles", "perimetres scolaires", "sectorisation scolaire", "secteurs scolaires maternelles elementaires", "secteur scolaire 1er degre", "zones de recrutement ecoles"]:
-    d = get("https://www.data.gouv.fr/api/1/datasets/", q=q, page_size=50)
-    for ds in d.get("data", []):
-        if ds["id"] in vus: continue
-        vus.add(ds["id"])
-        fm = sorted({(r.get("format") or "?").lower() for r in ds.get("resources", [])})
-        org = (ds.get("organization") or {}).get("name")
-        print(f"  {ds['title'][:80]} | {org} | {fm} | maj {ds.get('last_update', '')[:10]} | {ds.get('page')}")
+H = {"User-Agent": "carte-scolaire-diag"}
+ANNUAIRE = "https://data.education.gouv.fr/api/explore/v2.1/catalog/datasets/fr-en-annuaire-education/exports/json"
+JEUX = {
+    "Nantes": ("https://data.nantesmetropole.fr", ["244400404_perimetres-scolaires-nantes"], ["44109"]),
+    "Strasbourg": ("https://data.strasbourg.eu", ["secteurs_scolaires_ecoles_elementaires", "secteurs_scolaires_ecoles_maternelles"], ["67482"]),
+    "Orléans": ("https://data.orleans-metropole.fr", ["administratifscol_sect_mater", "administratifscol_sect_elem"], ["45234"]),
+    "Clermont": ("https://opendata.clermontmetropole.eu", ["secteurs-scolaires-des-ecoles-vcf"], ["63113"]),
+    "Tours": ("https://data.tours-metropole.fr", ["sectorisation-polygone-des-ecoles-maternelle-tours", "sectorisation_ecole_elementaire"], ["37261"]),
+    "Saint-Nazaire": ("https://data.agglo-carene.fr", ["214401846_educ_perimetre_ecole_prox_184"], ["44184"]),
+}
+
+
+def get(url, **p):
+    r = requests.get(url, params=p, headers=H, timeout=180)
+    r.raise_for_status()
+    return r.json()
+
+
+for ville, (base, jeux, communes) in JEUX.items():
+    print(f"\n######## {ville}")
+    try:
+        ann = get(ANNUAIRE, where=f"code_commune in ({','.join(repr(c) for c in communes)}) and type_etablissement='Ecole'",
+                  select="identifiant_de_l_etablissement,nom_etablissement,statut_public_prive,ecole_maternelle,ecole_elementaire,latitude,longitude,adresse_1,etat")
+    except Exception as e:
+        print("annuaire :", str(e)[:200]); continue
+    ann = [a for a in ann if a.get("latitude") and a.get("statut_public_prive") == "Public" and (a.get("etat") or "OUVERT") == "OUVERT"]
+    print(f"annuaire : {len(ann)} écoles publiques ouvertes")
+    for jeu in jeux:
+        try:
+            gj = get(f"{base}/api/explore/v2.1/catalog/datasets/{jeu}/exports/geojson")
+        except Exception as e:
+            print(jeu, ":", str(e)[:200]); continue
+        feats = gj["features"]
+        print(f"\n=== {jeu} : {len(feats)} zones")
+        for k in feats[0]["properties"]:
+            vals = collections.Counter(str(f["properties"].get(k))[:40] for f in feats)
+            if len(vals) <= 12:
+                print(f"  {k}: {dict(vals)}")
+        dans_aucune, compte = [], collections.Counter()
+        geoms = []
+        for f in feats:
+            try:
+                geoms.append(shape(f["geometry"]).buffer(0))
+            except Exception:
+                geoms.append(None)
+        for a in ann:
+            p = Point(float(a["longitude"]), float(a["latitude"]))
+            n = sum(1 for g in geoms if g is not None and g.contains(p))
+            compte[n] += 1
+            if n == 0:
+                dans_aucune.append(a["nom_etablissement"])
+        print(f"  écoles publiques par nombre de zones contenantes : {dict(compte)} ; hors zones : {dans_aucune[:12]}")
+        for f, g in list(zip(feats, geoms)):
+            pr = {k: v for k, v in f["properties"].items() if not isinstance(v, (dict, list)) or k == "type"}
+            dedans = [f"{a['nom_etablissement']} [{'M' if a['ecole_maternelle']=='1' else ''}{'E' if a['ecole_elementaire']=='1' else ''}]"
+                      for a in ann if g is not None and g.contains(Point(float(a["longitude"]), float(a["latitude"])))]
+            print(f"  - {json.dumps(pr, ensure_ascii=False)[:230]}  =>  {dedans}")
