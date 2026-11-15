@@ -30,7 +30,6 @@ from datetime import date
 
 import pandas as pd
 from shapely.geometry import Point, mapping, shape
-from shapely.ops import unary_union
 
 PARIS = "https://opendata.paris.fr/api/explore/v2.1/catalog/datasets"
 NIVEAUX = {"elementaire": "elementaires", "maternelle": "maternelles"}
@@ -100,23 +99,28 @@ def cle_adresse(adresse: str) -> tuple[str | None, set[str]]:
 
 
 def rattacher(points: pd.DataFrame, ecoles: pd.DataFrame, niveau: str) -> tuple[dict, list]:
-    """Nom de la Ville -> UAI : numéro et rue de l'adresse, puis distance (à moins de 1,5 km)."""
+    """Nom de la Ville -> UAI : numéro et rue de l'adresse, puis distance (à moins de 1,5 km). À défaut,
+    le nom de la Ville (« TOURNELLES (21) POLY ») retrouvé dans le nom et l'adresse de l'école de
+    l'annuaire (« E.P.PU VOSGES-TOURNELLES 12 places des Vosges »), à moins de 400 m."""
     cand = ecoles[ecoles["niveau"].isin(COMPATIBLES[niveau])]
     cles = [cle_adresse(a) for a in cand["adresse"]]
+    mots_cand = [set(mots(f"{n} {a}")) for n, a in zip(cand["nom"], cand["adresse"])]
     res, rates = {}, []
     for p in points.itertuples():
         num, rue = cle_adresse(p.adresse)
+        nom_ville = {w for w in mots(p.libelle.split("(")[0]) if w not in MOTS_VIDES and len(w) > 1}
         meilleur = None
-        for (cnum, crue), e in zip(cles, cand.itertuples()):
+        for (cnum, crue), mc, e in zip(cles, mots_cand, cand.itertuples()):
             d = ((e.lon - p.lon) * 73000) ** 2 + ((e.lat - p.lat) * 111000) ** 2
             d = d ** 0.5
             if d > 1500:
                 continue
             jac = len(rue & crue) / len(rue | crue) if rue | crue else 0
-            ok = (num and num == cnum and jac >= 0.5) or (jac >= 0.6 and d < 600) or d < 25
+            par_nom = bool(nom_ville) and nom_ville <= mc and d < 400
+            ok = (num and num == cnum and jac >= 0.5) or (jac >= 0.6 and d < 600) or d < 25 or par_nom
             if not ok:
                 continue
-            score = 3 * jac + (2 if num and num == cnum else 0) - d / 400
+            score = 3 * jac + (2 if num and num == cnum else 0) + (1 if par_nom else 0) - d / 400
             if not meilleur or score > meilleur[0]:
                 meilleur = (score, e.uai, round(d))
         if meilleur:
@@ -207,7 +211,9 @@ def construire(ecoles: pd.DataFrame, frames: dict, out_dir, problemes: list) -> 
         f.unlink()
     texte = json.dumps({"type": "FeatureCollection", "features": features}, ensure_ascii=False, separators=(",", ":"), allow_nan=False)
     (dossier / "75.geojson").write_text(texte, encoding="utf-8")
-    emprise = unary_union([shape(f["geometry"]) for f in features]).bounds
+    # Emprise : bornes de chaque zone (l'arrondi des coordonnées peut rendre une union invalide).
+    bornes = [shape(f["geometry"]).bounds for f in features]
+    emprise = (min(x[0] for x in bornes), min(x[1] for x in bornes), max(x[2] for x in bornes), max(x[3] for x in bornes))
     (dossier / "index.json").write_text(json.dumps({"75": {
         "bbox": [round(x, 4) for x in emprise], "annee": meta["annee"], "source": "Ville de Paris", "zones": len(features)}},
         ensure_ascii=False), encoding="utf-8")
