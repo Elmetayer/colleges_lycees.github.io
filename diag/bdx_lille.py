@@ -20,27 +20,20 @@ def analyse(feats, ann, nomk):
         print("  -", json.dumps(pr, ensure_ascii=False)[:260], "=>", ins)
     print("  zones par nombre d'écoles dedans :", dict(sorted(tailles.items())))
 
-print("######## Bordeaux")
-B = "https://opendata.bordeaux-metropole.fr/api/explore/v2.1/catalog/datasets/se_ecole_s"
-m = get(B); md = m.get("metas", {}).get("default", {}); print("META", {k: str(md.get(k))[:400] for k in ("title", "license", "publisher", "modified", "description")})
-feats, off = [], 0
-while True:
-    d = get(B + "/records", limit=100, offset=off)
-    for r in d["results"]:
-        gs = r.pop("geo_shape", None); feats.append({"geometry": (gs or {}).get("geometry"), "properties": r})
-    off += 100
-    if len(d["results"]) < 100: break
-print(len(feats), "zones ; insee :", collections.Counter(str(f["properties"].get("insee")) for f in feats).most_common(10))
-ann = annuaire(["33063"]); print("annuaire Bordeaux :", len(ann))
-analyse([f for f in feats if "33063" in str(f["properties"].get("insee"))], ann, "nom")
-# autres jeux scolaires du portail
-cat = get("https://opendata.bordeaux-metropole.fr/api/explore/v2.1/catalog/datasets", where="search('scolaire') or search('école')", limit=50, select="dataset_id,metas")
-for x in cat.get("results", []):
-    print("  jeu :", x["dataset_id"], "|", (x.get("metas") or {}).get("default", {}).get("title"), "|", (x.get("metas") or {}).get("default", {}).get("modified"))
-
 print("######## Lille")
 ds = get("https://www.data.gouv.fr/api/1/datasets/sectorisation-scolaire/")
 print("dataset :", ds.get("title"), ds.get("organization", {}).get("name"), ds.get("license"), ds.get("last_modified"))
 print(str(ds.get("description"))[:800])
 for r in ds.get("resources", []):
     print("  ressource :", r.get("title"), r.get("format"), r.get("url"))
+
+for r in ds.get("resources", []):
+    u = r.get("url") or ""
+    if "ogc" in (r.get("format") or "").lower() or "collections" in u or "features" in u:
+        try:
+            base = u.split("?")[0].rstrip("/")
+            print("  essai", base)
+            d = requests.get(base, headers=H, timeout=60, params={"f": "json"})
+            print("   ", d.status_code, d.text[:1500])
+        except Exception as e:
+            print("   ", e)
