@@ -5,9 +5,8 @@ from shapely.geometry import Point, shape
 H = {"User-Agent": "carte-scolaire-diag"}
 ANNUAIRE = "https://data.education.gouv.fr/api/explore/v2.1/catalog/datasets/fr-en-annuaire-education/exports/json"
 JEUX = {
-    "Nantes": ("https://data.nantesmetropole.fr", ["244400404_perimetres-scolaires-nantes"], ["44109"]),
-    "Orléans": ("https://data.orleans-metropole.fr", ["administratifscol_sect_mater", "administratifscol_sect_elem"], ["45234"]),
-    "Clermont": ("https://opendata.clermontmetropole.eu", ["secteurs-scolaires-des-ecoles-vcf"], ["63113"]),
+    "Tours": ("https://data.tours-metropole.fr", ["sectorisation-polygone-des-ecoles-maternelle-tours", "sectorisation_ecole_elementaire"], ["37261"]),
+    "Saint-Nazaire": ("https://data.agglo-carene.fr", ["214401846_educ_perimetre_ecole_prox_184"], ["44184"]),
 }
 
 
@@ -41,6 +40,9 @@ for ville, (base, jeux, communes) in JEUX.items():
         except Exception as e:
             print(jeu, ":", str(e)[:200]); continue
         feats = gj["features"]
+        m = get(f"{base}/api/explore/v2.1/catalog/datasets/{jeu}")
+        md = (m.get("metas") or {}).get("default", {})
+        print("META", {k: (str(md.get(k))[:300]) for k in ("title", "license", "publisher", "modified", "description")})
         print(f"\n=== {jeu} : {len(feats)} zones")
         for k in feats[0]["properties"]:
             vals = collections.Counter(str(f["properties"].get(k))[:40] for f in feats)
