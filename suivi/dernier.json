@@ -1,17 +1,17 @@
 {
  "version": 1,
- "genere_le": "2026-11-15T18:24:59+00:00",
+ "genere_le": "2026-11-15T18:39:09+00:00",
  "statut": "publie",
  "etat": "ok",
  "build": {
-  "passage": "43745875652",
-  "lien": "https://github.com/Elmetayer/colleges_lycees.github.io/actions/runs/43745875652",
-  "commit": "651bf8e",
+  "passage": "43747231722",
+  "lien": "https://github.com/Elmetayer/colleges_lycees.github.io/actions/runs/43747231722",
+  "commit": "7ba9ce7",
   "evenement": "push",
   "branche": "main"
  },
  "compte": {
-  "ok": 23,
+  "ok": 26,
   "partiel": 0,
   "ko": 0
  },
@@ -26,6 +26,8 @@
    "Strasbourg",
    "Orléans",
    "Clermont-Ferrand",
+   "Tours",
+   "Saint-Nazaire",
    "Nantes"
   ]
  },
@@ -43,7 +45,7 @@
      "lignes_precedentes": 63556,
      "carte": "7 268 collèges, 4 468 lycées, 46 295 écoles",
      "mise_a_jour": "2026-11-15T06:00:51.278000+00:00",
-     "telecharge_le": "2026-11-15T18:19:08+00:00",
+     "telecharge_le": "2026-11-15T18:34:16+00:00",
      "etat": "ok",
      "details": [
       [
@@ -65,7 +67,7 @@
      "lignes_precedentes": 68555,
      "carte": "type de contrat, date d'ouverture, niveaux des écoles",
      "mise_a_jour": "2026-11-15T06:01:19.429000+00:00",
-     "telecharge_le": "2026-11-15T18:19:13+00:00",
+     "telecharge_le": "2026-11-15T18:34:20+00:00",
      "etat": "ok",
      "details": [
       [
@@ -87,7 +89,7 @@
      "lignes_precedentes": 26869,
      "carte": "6 613 collèges avec résultats au brevet",
      "mise_a_jour": "2026-08-03T09:55:18.316000+00:00",
-     "telecharge_le": "2026-11-15T18:19:16+00:00",
+     "telecharge_le": "2026-11-15T18:34:23+00:00",
      "etat": "ok",
      "details": [
       [
@@ -109,7 +111,7 @@
      "lignes_precedentes": 21061,
      "carte": "6 739 collèges avec IPS",
      "mise_a_jour": "2026-09-01T09:31:02.578000+00:00",
-     "telecharge_le": "2026-11-15T18:19:16+00:00",
+     "telecharge_le": "2026-11-15T18:34:24+00:00",
      "etat": "ok",
      "details": [
       [
@@ -131,7 +133,7 @@
      "lignes_precedentes": 369797,
      "carte": "6 728 collèges avec évaluations",
      "mise_a_jour": "2026-06-16T08:38:58.396000+00:00",
-     "telecharge_le": "2026-11-15T18:19:19+00:00",
+     "telecharge_le": "2026-11-15T18:34:26+00:00",
      "etat": "ok",
      "details": [
       [
@@ -153,7 +155,7 @@
      "lignes_precedentes": 32485,
      "carte": "2 359 lycées avec résultats",
      "mise_a_jour": "2026-06-10T10:17:27.564000+00:00",
-     "telecharge_le": "2026-11-15T18:19:35+00:00",
+     "telecharge_le": "2026-11-15T18:34:43+00:00",
      "etat": "ok",
      "details": [
       [
@@ -175,7 +177,7 @@
      "lignes_precedentes": 28258,
      "carte": "1 951 lycées avec résultats",
      "mise_a_jour": "2026-06-10T10:16:56.029000+00:00",
-     "telecharge_le": "2026-11-15T18:19:37+00:00",
+     "telecharge_le": "2026-11-15T18:34:46+00:00",
      "etat": "ok",
      "details": [
       [
@@ -197,7 +199,7 @@
      "lignes_precedentes": 10905,
      "carte": "3 446 lycées avec IPS",
      "mise_a_jour": "2026-06-10T08:20:49.021000+00:00",
-     "telecharge_le": "2026-11-15T18:19:40+00:00",
+     "telecharge_le": "2026-11-15T18:34:48+00:00",
      "etat": "ok",
      "details": [
       [
@@ -219,7 +221,7 @@
      "lignes_precedentes": 97080,
      "carte": "29 226 écoles avec IPS",
      "mise_a_jour": "2026-08-07T07:34:04.835000+00:00",
-     "telecharge_le": "2026-11-15T18:19:40+00:00",
+     "telecharge_le": "2026-11-15T18:34:48+00:00",
      "etat": "ok",
      "details": [
       [
@@ -241,7 +243,7 @@
      "lignes_precedentes": 143509,
      "carte": "45 194 écoles avec effectifs",
      "mise_a_jour": "2026-08-27T09:25:30.169000+00:00",
-     "telecharge_le": "2026-11-15T18:19:43+00:00",
+     "telecharge_le": "2026-11-15T18:34:51+00:00",
      "etat": "ok",
      "details": [
       [
@@ -263,7 +265,7 @@
      "lignes_precedentes": 47148,
      "carte": "45 136 écoles avec taille des classes",
      "mise_a_jour": "2026-06-16T07:12:44+00:00",
-     "telecharge_le": "2026-11-15T18:19:47+00:00",
+     "telecharge_le": "2026-11-15T18:34:56+00:00",
      "etat": "ok",
      "details": [
       [
@@ -295,11 +297,11 @@
      "details": [
       [
        "Recalculés",
-       "11, 49, 54, 59, 62, 77, 83, 92"
+       "13, 35, 49, 59, 62"
       ],
       [
        "Inchangés",
-       "76 départements, secteurs repris du calcul précédent"
+       "79 départements, secteurs repris du calcul précédent"
       ],
       [
        "Adresses",
@@ -347,7 +349,7 @@
      "lignes_precedentes": 735,
      "carte": "369 secteurs, 2026-2027",
      "mise_a_jour": "2026-03-03T15:53:30+00:00",
-     "telecharge_le": "2026-11-15T18:19:49+00:00",
+     "telecharge_le": "2026-11-15T18:34:57+00:00",
      "etat": "ok",
      "details": [
       [
@@ -369,7 +371,7 @@
      "lignes_precedentes": 724,
      "carte": "rattachement des écoles : 100,0 %",
      "mise_a_jour": "2026-03-03T15:58:03+00:00",
-     "telecharge_le": "2026-11-15T18:19:51+00:00",
+     "telecharge_le": "2026-11-15T18:34:59+00:00",
      "etat": "ok",
      "details": [
       [
@@ -391,7 +393,7 @@
      "lignes_precedentes": 783,
      "carte": "390 secteurs, 2026-2027",
      "mise_a_jour": "2026-03-03T15:53:09+00:00",
-     "telecharge_le": "2026-11-15T18:19:52+00:00",
+     "telecharge_le": "2026-11-15T18:35:00+00:00",
      "etat": "ok",
      "details": [
       [
@@ -413,7 +415,7 @@
      "lignes_precedentes": 719,
      "carte": "rattachement des écoles : 99,6 %",
      "mise_a_jour": "2026-03-03T15:56:28+00:00",
-     "telecharge_le": "2026-11-15T18:19:55+00:00",
+     "telecharge_le": "2026-11-15T18:35:03+00:00",
      "etat": "ok",
      "details": [
       [
@@ -435,7 +437,7 @@
      "lignes_precedentes": 50,
      "carte": "50 secteurs, mis à jour le 01/10/2026",
      "mise_a_jour": "2026-10-01T17:02:12+00:00",
-     "telecharge_le": "2026-11-15T18:19:56+00:00",
+     "telecharge_le": "2026-11-15T18:35:04+00:00",
      "etat": "ok",
      "details": [
       [
@@ -457,7 +459,7 @@
      "lignes_precedentes": 59,
      "carte": "59 secteurs, mis à jour le 01/10/2026",
      "mise_a_jour": "2026-10-01T17:02:09+00:00",
-     "telecharge_le": "2026-11-15T18:19:57+00:00",
+     "telecharge_le": "2026-11-15T18:35:04+00:00",
      "etat": "ok",
      "details": [
       [
@@ -479,7 +481,7 @@
      "lignes_precedentes": 31,
      "carte": "31 secteurs, mis à jour le 21/03/2026",
      "mise_a_jour": "2026-03-21T02:00:13+00:00",
-     "telecharge_le": "2026-11-15T18:19:58+00:00",
+     "telecharge_le": "2026-11-15T18:35:06+00:00",
      "etat": "ok",
      "details": [
       [
@@ -501,7 +503,7 @@
      "lignes_precedentes": 33,
      "carte": "33 secteurs, mis à jour le 21/03/2026",
      "mise_a_jour": "2026-03-21T02:00:13+00:00",
-     "telecharge_le": "2026-11-15T18:19:59+00:00",
+     "telecharge_le": "2026-11-15T18:35:07+00:00",
      "etat": "ok",
      "details": [
       [
@@ -520,15 +522,73 @@
      "producteur": "opendata.clermontmetropole.eu",
      "page": "https://opendata.clermontmetropole.eu/explore/dataset/secteurs-scolaires-des-ecoles-vcf/",
      "lignes": 32,
-     "lignes_precedentes": null,
+     "lignes_precedentes": 32,
      "carte": "30 secteurs, mis à jour le 01/02/2024",
      "mise_a_jour": "2026-07-13T12:00:43.626000+00:00",
-     "telecharge_le": "2026-11-15T18:20:03+00:00",
+     "telecharge_le": "2026-11-15T18:35:08+00:00",
      "etat": "ok",
      "details": [
       [
        "Adresse lue",
        "https://opendata.clermontmetropole.eu/api/explore/v2.1/catalog/datasets/secteurs-scolaires-des-ecoles-vcf/exports/csv?delimiter=%3B&select=nom,type,modification_date,geo_shape"
+      ],
+      [
+       "Version précédente",
+       "32 lignes"
+      ]
+     ]
+    },
+    {
+     "cle": "secteurs_tours_sectorisation_ecole_elementaire",
+     "titre": "Sectorisation des écoles élémentaires (Ville de Tours, Licence Ouverte)",
+     "producteur": "data.tours-metropole.fr",
+     "page": "https://data.tours-metropole.fr/explore/dataset/sectorisation_ecole_elementaire/",
+     "lignes": 33,
+     "lignes_precedentes": null,
+     "carte": "33 secteurs, mis à jour le 03/09/2026",
+     "mise_a_jour": "2022-03-24T14:34:28+00:00",
+     "telecharge_le": "2026-11-15T18:35:09+00:00",
+     "etat": "ok",
+     "details": [
+      [
+       "Adresse lue",
+       "https://data.tours-metropole.fr/api/explore/v2.1/catalog/datasets/sectorisation_ecole_elementaire/exports/csv?delimiter=%3B&select=nom,date_maj,rne,geo_shape"
+      ]
+     ]
+    },
+    {
+     "cle": "secteurs_tours_sectorisation_polygone_des_ecoles_maternelle_",
+     "titre": "Sectorisation des écoles maternelles (Ville de Tours, Licence Ouverte)",
+     "producteur": "data.tours-metropole.fr",
+     "page": "https://data.tours-metropole.fr/explore/dataset/sectorisation-polygone-des-ecoles-maternelle-tours/",
+     "lignes": 35,
+     "lignes_precedentes": null,
+     "carte": "35 secteurs, mis à jour le 06/12/2023",
+     "mise_a_jour": "2022-03-24T14:34:28+00:00",
+     "telecharge_le": "2026-11-15T18:35:10+00:00",
+     "etat": "ok",
+     "details": [
+      [
+       "Adresse lue",
+       "https://data.tours-metropole.fr/api/explore/v2.1/catalog/datasets/sectorisation-polygone-des-ecoles-maternelle-tours/exports/csv?delimiter=%3B&select=nom,date_maj,rne,geo_shape"
+      ]
+     ]
+    },
+    {
+     "cle": "secteurs_saint-nazaire_214401846_educ_perimetre_ecole_prox_1",
+     "titre": "Carte scolaire des écoles primaires (Ville de Saint-Nazaire, Licence Ouverte)",
+     "producteur": "data.agglo-carene.fr",
+     "page": "https://data.agglo-carene.fr/explore/dataset/214401846_educ_perimetre_ecole_prox_184/",
+     "lignes": 20,
+     "lignes_precedentes": null,
+     "carte": "20 secteurs, mis à jour le 24/10/2026",
+     "mise_a_jour": "2026-10-24T23:01:11.651000+00:00",
+     "telecharge_le": "2026-11-15T18:35:11+00:00",
+     "etat": "ok",
+     "details": [
+      [
+       "Adresse lue",
+       "https://data.agglo-carene.fr/api/explore/v2.1/catalog/datasets/214401846_educ_perimetre_ecole_prox_184/exports/csv?delimiter=%3B&select=nom,type,geo_shape"
       ]
      ]
     },
@@ -541,7 +601,7 @@
      "lignes_precedentes": 74,
      "carte": "69 secteurs, mis à jour le 02/11/2026",
      "mise_a_jour": "2026-11-02T04:01:29.852000+00:00",
-     "telecharge_le": "2026-11-15T18:20:04+00:00",
+     "telecharge_le": "2026-11-15T18:35:13+00:00",
      "etat": "ok",
      "details": [
       [
@@ -763,6 +823,90 @@
   },
   {
    "libelle": "Secteurs des écoles, Ville de Clermont-Ferrand, maternelles : coherence",
+   "valeur": 100.0,
+   "seuil": 90.0,
+   "unite": "%",
+   "ok": true
+  },
+  {
+   "libelle": "Secteurs des écoles, Ville de Tours, élémentaires : rattachement",
+   "valeur": 100.0,
+   "seuil": 95.0,
+   "unite": "%",
+   "ok": true
+  },
+  {
+   "libelle": "Secteurs des écoles, Ville de Tours, élémentaires : couverture",
+   "valeur": 97.1,
+   "seuil": 90.0,
+   "unite": "%",
+   "ok": true
+  },
+  {
+   "libelle": "Secteurs des écoles, Ville de Tours, élémentaires : coherence",
+   "valeur": 100.0,
+   "seuil": 90.0,
+   "unite": "%",
+   "ok": true
+  },
+  {
+   "libelle": "Secteurs des écoles, Ville de Tours, maternelles : rattachement",
+   "valeur": 100.0,
+   "seuil": 95.0,
+   "unite": "%",
+   "ok": true
+  },
+  {
+   "libelle": "Secteurs des écoles, Ville de Tours, maternelles : couverture",
+   "valeur": 100.0,
+   "seuil": 90.0,
+   "unite": "%",
+   "ok": true
+  },
+  {
+   "libelle": "Secteurs des écoles, Ville de Tours, maternelles : coherence",
+   "valeur": 100.0,
+   "seuil": 90.0,
+   "unite": "%",
+   "ok": true
+  },
+  {
+   "libelle": "Secteurs des écoles, Ville de Saint-Nazaire, élémentaires : rattachement",
+   "valeur": 100.0,
+   "seuil": 95.0,
+   "unite": "%",
+   "ok": true
+  },
+  {
+   "libelle": "Secteurs des écoles, Ville de Saint-Nazaire, élémentaires : couverture",
+   "valeur": 100.0,
+   "seuil": 90.0,
+   "unite": "%",
+   "ok": true
+  },
+  {
+   "libelle": "Secteurs des écoles, Ville de Saint-Nazaire, élémentaires : coherence",
+   "valeur": 100.0,
+   "seuil": 90.0,
+   "unite": "%",
+   "ok": true
+  },
+  {
+   "libelle": "Secteurs des écoles, Ville de Saint-Nazaire, maternelles : rattachement",
+   "valeur": 100.0,
+   "seuil": 95.0,
+   "unite": "%",
+   "ok": true
+  },
+  {
+   "libelle": "Secteurs des écoles, Ville de Saint-Nazaire, maternelles : couverture",
+   "valeur": 100.0,
+   "seuil": 90.0,
+   "unite": "%",
+   "ok": true
+  },
+  {
+   "libelle": "Secteurs des écoles, Ville de Saint-Nazaire, maternelles : coherence",
    "valeur": 100.0,
    "seuil": 90.0,
    "unite": "%",
