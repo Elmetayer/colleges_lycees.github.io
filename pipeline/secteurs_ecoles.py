@@ -79,6 +79,7 @@ def sources() -> dict:
             "page": f"https://opendata.paris.fr/explore/dataset/secteurs-scolaires-{jeu}/",
             "colonnes": "libelle,zone_commune,lib_etab_1,lib_etab_2,lib_etab_3,lib_etab_4,annee_scol,geo_shape",
             "filtre": f"annee_scol in ({annees})", "obligatoire": False,
+            "ville": {"fichier": "75", "ville": "Paris", "source": "Ville de Paris", "licence": "ODbL", "niveaux": [niv], "role": "secteurs"},
         }
         out[f"ecoles_paris_{pluriel}"] = {
             "titre": f"Établissements scolaires : écoles {'élémentaires' if niv == 'elementaire' else 'maternelles'} (Ville de Paris, ODbL)",
@@ -86,6 +87,7 @@ def sources() -> dict:
             "page": f"https://opendata.paris.fr/explore/dataset/etablissements-scolaires-{jeu}/",
             "colonnes": "libelle,adresse,annee_scol,geo_point_2d",
             "filtre": f"annee_scol in ({annees})", "obligatoire": False,
+            "ville": {"fichier": "75", "ville": "Paris", "source": "Ville de Paris", "licence": "ODbL", "niveaux": [niv], "role": "ecoles"},
         }
     for vid, v in VILLES.items():
         for jeu in dict.fromkeys(v["jeux"].values()):
@@ -94,6 +96,9 @@ def sources() -> dict:
                 "explore_base": f"{v['portail']}/api/explore/v2.1/catalog/datasets", "explore_id": jeu, "datagouv": None,
                 "page": f"{v['portail']}/explore/dataset/{jeu}/",
                 "colonnes": ",".join([v["nom"]] + [v[c] for c in ("type", "date", "uai") if v.get(c)] + ["geo_shape"]), "obligatoire": False,
+                # Pour la page de suivi et la page Sources : ville, fichier de secteurs, niveaux couverts par ce jeu.
+                "ville": {"fichier": vid, "ville": v["communes"][0], "source": v["source"], "licence": v["licence"], "role": "secteurs",
+                          "niveaux": [n for n, j in v["jeux"].items() if j == jeu and n != "*"] or list(NIVEAUX)},
             }
     return out
 
@@ -282,7 +287,8 @@ def construire_paris(ecoles: pd.DataFrame, frames: dict, problemes: list) -> tup
             "rattachement": round(nb_rattaches / noms_cites, 3) if noms_cites else 0,
             "couverture": round(len(cites & attendues) / len(attendues), 3) if attendues else 0,
             "coherence": round(dedans / seuls, 3) if seuls else 0,
-            "non_rattachees": rates[:20], "absentes": sorted(attendues - cites)[:30],
+            "non_rattachees": rates[:20],
+            "absentes": sorted(f"{u} {n}" for u, n in zip(paris["uai"], paris["nom"]) if u in attendues - cites)[:30],
         }
     meta["annee"] = meta["elementaire"]["annee"]
     return features, meta

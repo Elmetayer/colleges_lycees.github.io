@@ -109,8 +109,9 @@
       return;
     }
     const builds = hist.slice(0, 10).reverse();
+    // Sources dans l'ordre du build le plus récent (groupes, puis villes), titres du build le plus récent.
     const titres = {};
-    builds.forEach((b) => Object.assign(titres, b.titres || {}));
+    [...builds].reverse().forEach((b) => Object.entries(b.titres || {}).forEach(([k, t]) => { if (!(k in titres)) titres[k] = t; }));
     const cles = Object.keys(titres);
     const cellule = (e) => (e ? `<span class="carre s-etat-${e}" title="${ETATS[e].label}">${icone(e, 12)}<span class="visually-hidden">${ETATS[e].label}</span></span>` : `<span class="carre absent" title="absente">–</span>`);
     $("suivi-historique").innerHTML = `<div class="suivi-table"><table>

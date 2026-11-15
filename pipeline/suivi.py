@@ -188,14 +188,64 @@ def lignes_secteurs_colleges(meta: dict) -> list[dict]:
     return [calc, off]
 
 
+NOMS_NIV = {"elementaire": "élémentaires", "maternelle": "maternelles"}
+
+
+def ligne_ville(r: dict, info: dict, t: dict, meta: dict) -> dict:
+    """Ligne d'un jeu de secteurs d'écoles : titre préfixé par la ville, ce que le jeu donne sur la carte niveau par
+    niveau, contrôles du rattachement aux écoles dans les détails, date des zones quand elle diffère de celle du fichier."""
+    r["ville"] = info.get("ville")
+    r["titre"] = f"{info.get('ville')} · " + re.sub(r"\s*\([^)]*\)\s*$", "", r["titre"])
+    r["producteur"] = f"{r['producteur']} · {info.get('source')}, {info.get('licence')}"
+    if r["etat"] == "ko":
+        return r
+    bloc = ((meta.get("ecoles") or {}).get("secteurs") or {}).get(info.get("fichier")) or {}
+    niveaux = [n for n in NOMS_NIV if n in (info.get("niveaux") or [])]
+    if info.get("role") == "ecoles":
+        c = bloc.get(niveaux[0]) if niveaux else {}
+        r["carte"] = f"positions des écoles, {pourcent((c or {}).get('rattachement'))} rattachées à l'annuaire"
+        if (c or {}).get("non_rattachees"):
+            r["details"].append(["Non rattachées", ", ".join(c["non_rattachees"][:10]), "attention"])
+        return r
+    parts, dates = [], set()
+    for n in niveaux:
+        c = bloc.get(n) or {}
+        parts.append(f"{nombre(c.get('secteurs'))} secteurs {NOMS_NIV[n]}")
+        if c.get("annee"):
+            r["details"].append([f"Année scolaire", c["annee"]])
+        elif c.get("maj"):
+            dates.add(c["maj"])
+        absentes = c.get("absentes") or []
+        r["details"].append([f"Rattachement ({NOMS_NIV[n]})", f"{pourcent(c.get('rattachement'))} des secteurs rattachés à une école"
+                             + (f" ; non rattachés : {', '.join(c['non_rattachees'][:8])}" if c.get("non_rattachees") else ""),
+                             "" if (c.get("rattachement") or 0) >= 0.95 else "attention"])
+        r["details"].append([f"Couverture ({NOMS_NIV[n]})", f"{pourcent(c.get('couverture'))} des écoles publiques de la ville ont un secteur"
+                             + (f" ; sans secteur : {', '.join(a.split(' ', 1)[-1] for a in absentes[:6])}" if absentes else "")])
+        if c.get("communs"):
+            r["details"].append([f"Secteurs communs ({NOMS_NIV[n]})", f"{c['communs']} (plusieurs écoles pour une même zone)"])
+    r["carte"] = ", ".join(parts)
+    fichier = str(t.get("mise_a_jour") or "")[:10]
+    for d in sorted(dates):
+        if d != fichier:
+            r["carte"] += f" ; zones du {fr_date(d)}"
+            r["details"].append(["Date des zones", f"{fr_date(d)} (date indiquée pour le fichier : {fr_date(fichier) if fichier else '—'})"])
+    return r
+
+
 def rapport(site: Path, statut: str) -> dict:
     data = site / "data"
     tele = lire(data / "telechargements.json") or []
     meta = lire(data / "meta.json") or {}
     verif = lire(data / "verification.json")
     groupes = {g: [] for g, _ in GROUPES}
+    villes = {s["cle"]: s["ville"] for s in meta.get("sources") or [] if s.get("ville")}
     for t in tele:
-        groupes[groupe_de(t["cle"])].append(ligne_source(t, meta, {}))
+        r = ligne_source(t, meta, {})
+        if t["cle"] in villes:
+            r = ligne_ville(r, villes[t["cle"]], t, meta)
+        groupes["secteurs_ecoles" if t["cle"] in villes else groupe_de(t["cle"])].append(r)
+    # Secteurs des écoles rangés par ville, puis secteurs avant positions des écoles, élémentaires avant maternelles.
+    groupes["secteurs_ecoles"].sort(key=lambda r: (r.get("ville") or "", "ecoles" in r["cle"] and r["cle"].startswith("ecoles_"), "mater" in r["cle"]))
     if meta:
         groupes["secteurs_colleges"] = lignes_secteurs_colleges(meta)
     toutes = [r for g in groupes.values() for r in g]
