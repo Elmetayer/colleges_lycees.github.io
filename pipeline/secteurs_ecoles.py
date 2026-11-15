@@ -308,6 +308,15 @@ def mots_nom(s: str) -> list[str]:
     return [ABREVIATIONS.get(w, w) for w in mots(s) if w not in MOTS_ECOLE and (len(w) > 1 or w.isdigit())]
 
 
+def dans(df: pd.DataFrame, geom) -> pd.DataFrame:
+    """Écoles de df situées dans geom (un masque explicite : une liste vide sélectionnerait des colonnes)."""
+    return df[pd.Series([geom.contains(Point(x, y)) for x, y in zip(df["lon"], df["lat"])], index=df.index, dtype=bool)]
+
+
+def specialisee(nom: str) -> bool:
+    return bool(re.search(r"sp[ée]cialis[ée]e", str(nom or ""), re.I))
+
+
 def score_nom(nom_zone: list[str], nom_ecole: list[str]) -> float:
     """Mots du nom de la zone retrouvés dans le nom de l'école (un mot abrégé suffit : « erc » pour « erckmann » ;
     les numéros, « Guynemer 1 & 2 », comptent comme les autres mots), rapportés au plus court des deux noms : une
@@ -330,7 +339,7 @@ def rattacher_zone(g, nom: str, cand: pd.DataFrame, niveau: str, ville: pd.DataF
     des Guernazelles sont placées à 8 km de leur quartier dans l'annuaire). Renvoie (UAI, "nom" | "seule" |
     "voisine" | "commune" | "")."""
     large = g.buffer(MARGE)
-    ici = cand[[large.contains(Point(x, y)) for x, y in zip(cand["lon"], cand["lat"])]]
+    ici = dans(cand, large)
     mz = mots_nom(nom)
     scores = [(score_nom(mz, mots_nom(n)), u, nv == niveau, tuple(mots_nom(n))) for n, u, nv in zip(ici["nom"], ici["uai"], ici["niveau"])]
     meilleur = max((s for s, _, _, _ in scores), default=0)
@@ -342,6 +351,11 @@ def rattacher_zone(g, nom: str, cand: pd.DataFrame, niveau: str, ville: pd.DataF
         # Sanson », élémentaire Montaud et primaire Franc Sanson).
         noms_exacts = {m for _, exact, m in retenues if exact}
         retenues = [r for r in retenues if r[1] or r[2] not in noms_exacts]
+        # Une école spécialisée du même nom qu'une école ordinaire n'a pas le secteur (Clermont-Ferrand : Chanteranne
+        # et « Chanteranne Education motrice »).
+        noms = dict(zip(ici["uai"], ici["nom"]))
+        if any(not specialisee(noms[u]) for u, _, _ in retenues):
+            retenues = [r for r in retenues if not specialisee(noms[r[0]])]
         # Ville à secteurs de quartier : un nom de zone qui ne désigne l'école qu'en partie (« Lac » pour la maternelle
         # « Lac 3 ») au milieu d'autres écoles du niveau est un nom de quartier.
         if quartiers and len(strict) >= 2 and not any(all(any(z == w or (len(z) >= 3 and w.startswith(z)) for z in mz) for w in m)
@@ -360,7 +374,7 @@ def rattacher_zone(g, nom: str, cand: pd.DataFrame, niveau: str, ville: pd.DataF
     if len(exactes) == 1:
         return exactes, "seule"
     proche = g.buffer(VOISINE)
-    autour = cand[[proche.contains(Point(x, y)) for x, y in zip(cand["lon"], cand["lat"])]]
+    autour = dans(cand, proche)
     complets = [u for n, u in zip(autour["nom"], autour["uai"]) if score_nom(mz, mots_nom(n)) >= 0.99 and len(mots_nom(n)) >= 2]
     if complets:
         return complets, "voisine"
@@ -386,9 +400,10 @@ def types_zone(v: dict, valeur) -> list[str]:
 def construire_ville(vid: str, v: dict, ecoles: pd.DataFrame, frames: dict, resolved: dict, problemes: list) -> tuple[list, dict] | None:
     b = _outils()
     publiques = ecoles[(ecoles["dep"] == v["dep"]) & (ecoles["secteur"] == "public")]
-    # Écoles spécialisées (Clermont-Ferrand : « Chanteranne Education motrice ») : pas de secteur, ni candidates ni attendues.
-    publiques = publiques[~publiques["nom"].str.contains(r"sp[ée]cialis[ée]e", case=False, regex=True, na=False)]
     de_la_ville = publiques[publiques["commune"].isin(v["communes"])]
+    # Écoles spécialisées : en général sans secteur, donc pas attendues dans la couverture ; mais certaines en ont un
+    # (Orléans : élémentaire spécialisée René-Guy Cadou), elles restent donc candidates.
+    de_la_ville = de_la_ville[~de_la_ville["nom"].map(specialisee)]
     features, meta = [], {}
     # Date de mise à jour par niveau : celle du jeu, ou celle des zones quand la ville la donne (clé « date »).
     maj_niveau = {}
@@ -437,11 +452,12 @@ def construire_ville(vid: str, v: dict, ecoles: pd.DataFrame, frames: dict, reso
             else:
                 uais, comment = rattacher_zone(g, nom, cand, niv, cand[cand["commune"].isin(v["communes"])], v.get("quartiers", False))
             rattachees += bool(uais)
-            par_nom += comment != "quartier"
+            par_nom += comment not in ("quartier", "")
             if comment == "commune":
                 b.log(f"  {v['source']} {niv} : « {nom} » rattachée par le nom à une école située hors de la zone dans l'annuaire")
             if not uais:
-                rates.append(nom)
+                dedans = dans(cand, g.buffer(MARGE))
+                rates.append(f"{nom} (écoles du niveau dans la zone : {', '.join(dedans['nom']) or 'aucune'})")
             cites.update(uais)
             features.append(zone(g, {"niveau": niv, "uais": " ".join(uais), "commun": len(uais) > 1, "noms": nom}))
             if len(uais) > 1:
