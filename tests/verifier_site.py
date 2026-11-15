@@ -9,7 +9,7 @@
    leurs indicateurs (une fiche impossible à tester, faute d'établissement avec l'indicateur, est un
    échec) ; la fiche d'une école publique donne son collège de secteur, celle d'une école hors
    contrat l'explication de l'absence de données ; les écoles ne s'affichent qu'en zoomant.
-   Secteurs des écoles (Paris) : contrôles du rattachement aux écoles (SECTEURS_ECOLES_MINIMUM) ;
+   Secteurs des écoles (Paris, autres villes) : contrôles du rattachement aux écoles (SECTEURS_ECOLES_MINIMUM) ;
    la fiche d'une école de Paris donne son secteur, dont la zone est dessinée, et l'onglet « Entrée en 6e »
    (évaluations de 6e du collège de secteur).
 3. Les secteurs concordent avec les secteurs officiels de Paris et des Hauts-de-Seine : au moins
@@ -137,13 +137,15 @@ def verifier_ecoles(data, contenus):
             erreurs.append(f"ecoles/{nom} absent ou illisible : {e}")
     contenus["ecoles"] = points
     # Secteurs des écoles : fichiers lisibles et contrôles du rattachement (meta.json, ecoles.secteurs).
-    zones = []
+    zones, par_fichier = [], {}
     for f in sorted((data / "secteurs-ecoles").glob("*.geojson")):
         try:
-            zones += json.loads(f.read_text(encoding="utf-8"), parse_constant=refuser_constante).get("features", [])
+            par_fichier[f.stem] = json.loads(f.read_text(encoding="utf-8"), parse_constant=refuser_constante).get("features", [])
+            zones += par_fichier[f.stem]
         except ValueError as e:
             erreurs.append(f"{f.relative_to(SITE)} n'est pas du JSON valide : {e}")
     contenus["secteurs-ecoles"] = zones
+    contenus["secteurs-ecoles-fichiers"] = par_fichier
     sect = ((contenus.get("meta.json") or {}).get("ecoles") or {}).get("secteurs")
     if not sect:
         avertissements.append("secteurs des écoles absents (Ville de Paris injoignable et aucune version à reprendre ?)")
@@ -151,13 +153,16 @@ def verifier_ecoles(data, contenus):
         for dep, m in sect.items():
             for niv in ("elementaire", "maternelle"):
                 c = m.get(niv) or {}
-                print(f"secteurs des écoles {dep}, {niv} {c.get('annee')} : {c.get('secteurs')} zones, rattachement {c.get('rattachement')}, "
+                print(f"secteurs des écoles {dep}, {niv} {c.get('annee') or c.get('maj')} : {c.get('secteurs')} zones, rattachement {c.get('rattachement')}, "
                       f"couverture {c.get('couverture')}, cohérence {c.get('coherence')}")
                 for k, mini in SECTEURS_ECOLES_MINIMUM.items():
                     if (c.get(k) or 0) < mini:
                         erreurs.append(f"secteurs des écoles {dep} ({niv}) : {k} {c.get(k)} (au moins {mini} attendu)")
         if not zones:
             erreurs.append("secteurs des écoles annoncés dans meta.json mais aucun fichier secteurs-ecoles/*.geojson")
+        for fid in sect:
+            if fid not in par_fichier:
+                erreurs.append(f"secteurs des écoles {fid} annoncés dans meta.json mais fichier secteurs-ecoles/{fid}.geojson absent")
     sans_nom = sum(1 for f in points if not f["properties"].get("nom"))
     couverture = {k: sum(1 for f in points if isinstance(f["properties"].get(k), (int, float))) for k in COUVERTURE_ECOLES}
     print(f"écoles : {len(points)} dans {len(list(dossier.glob('*.geojson')))} départements, {sans_nom} sans nom ; couverture {couverture}")
@@ -191,6 +196,20 @@ def ecole_a_tester(contenus, public=True):
         if not public and p.get("contrat") == "hors":
             return f"{p['nom']} {p['commune']}", p
     return None, None
+
+
+def ecoles_des_villes(contenus):
+    """[(requête, source)] : pour chaque ville hors Paris, une école publique citée dans ses secteurs."""
+    sect = ((contenus.get("meta.json") or {}).get("ecoles") or {}).get("secteurs") or {}
+    out = []
+    for fid, zones in (contenus.get("secteurs-ecoles-fichiers") or {}).items():
+        if fid == "75":
+            continue
+        cites = {u for z in zones for u in z["properties"].get("uais", "").split()}
+        p = next((f["properties"] for f in contenus.get("ecoles", []) if f["properties"]["uai"] in cites and f["properties"].get("secteur") == "public" and "ips" in f["properties"]), None)
+        if p:
+            out.append((f"{p['nom']} {p['commune']}", (sect.get(fid) or {}).get("source") or "Ville de"))
+    return out
 
 
 def college_hors_idf(contenus):
@@ -252,6 +271,7 @@ async def verifier_navigateur(contenus):
     ecole, p_ecole = ecole_a_tester(contenus)
     secteur_ecole = bool(p_ecole) and any(p_ecole["uai"] in z["properties"].get("uais", "").split() for z in contenus.get("secteurs-ecoles", []))
     ecole_hc, _ = ecole_a_tester(contenus, public=False)
+    ecoles_villes = ecoles_des_villes(contenus)
     async with async_playwright() as p:
         b = await p.chromium.launch(args=["--use-gl=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"])
         for appareil, ctx in (("ordinateur", {"viewport": {"width": 1280, "height": 800}}), ("téléphone", p.devices["iPhone 13"])):
@@ -313,6 +333,14 @@ async def verifier_navigateur(contenus):
                     print(f"{appareil} : fiche école « {ecole} » ouverte, {n} écoles à l'écran")
             else:
                 problemes.append("aucune école publique avec IPS et taille des classes dans un département à secteurs : fiche école non testée")
+            # Secteurs des autres villes : une école de chaque ville, avec son secteur et la source.
+            if appareil == "ordinateur":
+                for requete, source in ecoles_villes:
+                    pb = await ouvrir_fiche(pg, requete, ["Voir le secteur sur la carte", source], attente=3000)
+                    if pb:
+                        problemes.append(pb)
+                    else:
+                        print(f"{appareil} : fiche école « {requete} » avec son secteur ({source})")
             if ecole_hc:
                 pb = await ouvrir_fiche(pg, ecole_hc, "hors contrat", "#fiche-contenu .sans-brevet", attente=2000)
                 if pb:

@@ -223,7 +223,7 @@ def construire(tous: pd.DataFrame, frames: dict, out_dir, problemes: list) -> di
         else:
             niveau = "maternelle" if "maternelle" in e.nature else "primaire" if "primaire" in b.norm(e.denomination) else "elementaire"
         niveaux[niveau] += 1
-        lignes.append({"uai": e.uai, "nom": e.nom, "niveau": niveau, "secteur": e.secteur, "dep": e.dep, "adresse": e.adresse, "lon": e.lon, "lat": e.lat})
+        lignes.append({"uai": e.uai, "nom": e.nom, "niveau": niveau, "secteur": e.secteur, "dep": e.dep, "commune": e.commune, "adresse": e.adresse, "lon": e.lon, "lat": e.lat})
         p = {"uai": e.uai, "nom": nom_ecole(e.nom, e.patronyme), "niveau": niveau, "secteur": e.secteur,
              "commune": e.commune, "dep": e.dep}
         if e.secteur == "privé" and a.get("hors_contrat"):
