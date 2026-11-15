@@ -17,7 +17,8 @@ département et chargées par la carte à partir du zoom ZOOM_ECOLES (app.js).
   - <out>/ecoles/index.json          : emprise et nombre d'écoles de chaque département
   - <out>/ecoles/recherche.json      : nom, commune et position de chaque école, pour la recherche
   - <out>/fiches/ecoles-<dep>.json   : IPS par année avec rangs, taille des classes, effectifs
-Renvoie le bloc "ecoles" de meta.json (effectifs, périodes, couleurs, médianes).
+Renvoie le bloc "ecoles" de meta.json (effectifs, périodes, couleurs, médianes) et le tableau des
+écoles (uai, nom de l'annuaire, niveau, secteur, dep, adresse, lon, lat), utilisé par secteurs_ecoles.py.
 """
 
 from __future__ import annotations
@@ -213,7 +214,7 @@ def construire(tous: pd.DataFrame, frames: dict, out_dir, problemes: list) -> di
     eff_by = eff.set_index("uai").to_dict("index") if eff is not None and len(eff) else {}
     tai_by = tai.set_index("uai").to_dict("index") if tai is not None and len(tai) else {}
 
-    feats, fiches, recherche, communes = {}, {}, [], {}
+    feats, fiches, recherche, communes, lignes = {}, {}, [], {}, []
     niveaux = {"maternelle": 0, "elementaire": 0, "primaire": 0}
     for e in ec.itertuples():
         a = ann_by.get(e.uai, {})
@@ -222,6 +223,7 @@ def construire(tous: pd.DataFrame, frames: dict, out_dir, problemes: list) -> di
         else:
             niveau = "maternelle" if "maternelle" in e.nature else "primaire" if "primaire" in b.norm(e.denomination) else "elementaire"
         niveaux[niveau] += 1
+        lignes.append({"uai": e.uai, "nom": e.nom, "niveau": niveau, "secteur": e.secteur, "dep": e.dep, "adresse": e.adresse, "lon": e.lon, "lat": e.lat})
         p = {"uai": e.uai, "nom": nom_ecole(e.nom, e.patronyme), "niveau": niveau, "secteur": e.secteur,
              "commune": e.commune, "dep": e.dep}
         if e.secteur == "privé" and a.get("hors_contrat"):
@@ -268,7 +270,7 @@ def construire(tous: pd.DataFrame, frames: dict, out_dir, problemes: list) -> di
     tous_points = [f["properties"] for fs in feats.values() for f in fs]
     derniere = max((p["rentree"] for p in tous_points if "rentree" in p), default=None)
     for p in tous_points:
-        if p.get("rentree") == derniere:
+        if derniere and p.get("rentree") == derniere:
             del p["rentree"]
 
     compact = lambda o: json.dumps(o, ensure_ascii=False, separators=(",", ":"), allow_nan=False)
@@ -329,4 +331,4 @@ def construire(tous: pd.DataFrame, frames: dict, out_dir, problemes: list) -> di
             b.log(f"   exemple {uai} : {json.dumps(pt, ensure_ascii=False)} ; fiche : {json.dumps(fiches[dep][uai], ensure_ascii=False)}")
     noms = pd.Series([p["nom"] for p in tous_points])
     b.log(f"   noms : {noms.sample(min(15, len(noms)), random_state=2).tolist()}")
-    return meta
+    return meta, pd.DataFrame(lignes)
