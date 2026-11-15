@@ -304,6 +304,7 @@ def construire(tous: pd.DataFrame, frames: dict, out_dir, problemes: list) -> di
     b.log(f"  {len(feats)} collèges écrits")
     couverture = {k: sum(1 for f in feats if k in f["properties"]) for k in ("taux_reussite", "va_reussite", "note_ecrit", "ips", "eval_fr")}
     b.log(f"   couverture des indicateurs : {couverture}")
+    meta["colleges"]["couverture"] = couverture  # lu par la page de suivi
     for k in ("taux_reussite", "taux_mentions", "va_reussite", "note_ecrit", "ips", "eval_fr", "eval_ma", "score"):
         v = pd.Series([f["properties"][k] for f in feats if k in f["properties"]], dtype=float)
         if len(v):

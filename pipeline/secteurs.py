@@ -29,6 +29,7 @@ import gzip
 import hashlib
 import io
 import json
+import os
 import re
 import sys
 import time
@@ -591,6 +592,11 @@ def cmd_calculer(args) -> int:
             log(f"  ! échec {dep} : {type(e).__name__}: {e} ; {'derniers secteurs valides conservés' if garde else 'aucun secteur précédent'}")
             bilan["echecs"].append(dep)
     log(f"== bilan du groupe : {json.dumps(bilan)}")
+    # Bilan lu par l'assemblage pour la page de suivi ; le numéro du passage distingue un bilan resté
+    # dans le cache (groupe qui n'a pas tourné) d'un bilan de ce passage.
+    bilan.update({"groupe": args.groupe, "departements": deps, "passage": os.environ.get("GITHUB_RUN_ID"),
+                  "date": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")})
+    (sortie / f"bilan-g{args.groupe}.json").write_text(json.dumps(bilan, ensure_ascii=False), encoding="utf-8")
     return 0
 
 
@@ -649,7 +655,14 @@ def cmd_assembler(args) -> int:
     meta_path = out / "meta.json"
     meta = json.loads(meta_path.read_text(encoding="utf-8")) if meta_path.exists() else {}
     sources = sorted({v.get("source_adresses") for v in index.values() if v.get("source_adresses")})
-    meta["secteurs"] = {"departements": len(index), "zones": sum(v["zones"] for v in index.values()), "controle": controle,
+    # Bilans des groupes de calcul (page de suivi) : départements recalculés, inchangés, en échec.
+    bilans = [json.loads(p.read_text(encoding="utf-8")) for p in sorted(entree.glob("bilan-g*.json"))]
+    passage = os.environ.get("GITHUB_RUN_ID")
+    bilan = {k: sorted(d for b in bilans for d in b.get(k, [])) for k in ("recalcules", "inchanges", "echecs")}
+    bilan["groupes_anciens"] = sorted(b.get("groupe") for b in bilans if passage and b.get("passage") != passage)
+    bilan["groupes"] = len(bilans)
+    meta["secteurs"] = {"departements": len(index), "zones": sum(v["zones"] for v in index.values()), "controle": controle, "bilan": bilan,
+                        "dates": {d: v.get("date") for d, v in index.items()},
                         "adresses": {d: {k: v[k] for k in ("source_adresses", "adresses", "rattachees_par_regle") if k in v} for d, v in index.items()},
                         "source": "Carte scolaire des collèges publics (DGESCO), " + (" ; ".join(sources) or "adresses") + ", contours geo.api.gouv.fr"}
     meta_path.write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")

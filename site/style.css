@@ -345,3 +345,77 @@ details.valeurs .historique { margin-top: 4px; }
 .graphe-note { margin: 10px 0 0; font-size: 0.82rem; color: var(--encre-douce); }
 
 .proches .info-secteur { padding: 10px 4px; font-size: 0.9rem; color: var(--encre-douce); border-bottom: 1px solid var(--trait); }
+
+/* ---------- page de suivi des données (suivi.html) */
+.visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.page-suivi main { max-width: 75rem; }
+.page-suivi p { max-width: none; }
+.suivi-tete { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 16px; padding-bottom: 16px; border-bottom: 1.5px solid var(--marge); }
+.suivi-tete .chapeau { margin: 0; }
+.suivi-global { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; font-size: 0.9rem; color: #3d4a78; }
+.s-etat { display: inline-flex; align-items: center; gap: 6px; width: fit-content; padding: 3px 10px; border-radius: 16px; font-weight: 700; font-size: 0.82rem; white-space: nowrap; }
+.s-etat-grand { padding: 6px 14px; font-size: 1rem; }
+.s-etat-ok { color: #1f6f43; background: #e5f3ea; }
+.s-etat-partiel { color: #8a4b00; background: #fdf0dc; }
+.s-etat-ko { color: #a3241b; background: #fbe6e4; }
+.suivi-alerte { margin: 16px 0 0; padding: 12px 14px; border-radius: 10px; background: #fdf3e7; border: 1px solid #f0d3ad; color: #5a3a12; }
+.suivi-tuiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: 12px; margin: 24px 0; }
+.suivi-tuile { display: flex; flex-direction: column; gap: 2px; padding: 14px 16px; border: 1px solid var(--trait); border-radius: 12px; background: #fff; }
+.suivi-tuile span, .suivi-tuile small { font-size: 0.82rem; color: var(--encre-douce); }
+.suivi-tuile b { font-size: 1.6rem; font-variant-numeric: tabular-nums; }
+.suivi-filtres { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; }
+.suivi-filtres [role="group"] { display: flex; flex-wrap: wrap; gap: 6px; }
+.suivi-filtre { min-height: 40px; padding: 0 14px; border-radius: 20px; border: 1.5px solid var(--encre); background: #fff; color: var(--encre); font: 700 0.9rem var(--ui); cursor: pointer; }
+.suivi-filtre[aria-pressed="true"] { background: var(--encre); color: #fff; }
+.suivi-legende { margin: 0; font-size: 0.82rem; color: #3d4a78; }
+.suivi-bloc { margin-top: 28px; }
+.suivi-titre-bloc { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 4px 12px; margin-bottom: 8px; }
+.suivi-titre-bloc h2 { margin: 0 !important; }
+.suivi-titre-bloc span { font-size: 0.82rem; color: var(--encre-douce); }
+.suivi-table { position: relative; overflow-x: auto; border: 1px solid var(--trait); border-radius: 12px; background: #fff; }
+.page-suivi .suivi-table table { margin: 0; min-width: 58rem; }
+.page-suivi .suivi-table th, .page-suivi .suivi-table td { padding: 10px 12px; vertical-align: middle; border-bottom: 1px solid #eef1f6; }
+.page-suivi .suivi-table thead th { font-size: 0.78rem; font-weight: 700; }
+.suivi-table .nb { text-align: right; font-variant-numeric: tabular-nums; }
+.suivi-source { display: block; font-weight: 700; }
+.suivi-table small { display: block; font-size: 0.78rem; color: var(--encre-douce); }
+.suivi-table .maj { font-size: 0.85rem; color: #3d4a78; }
+.suivi-bouton { min-height: 36px; padding: 0 12px; border-radius: 18px; border: 1.5px solid #c9cede; background: #fff; color: var(--encre); font: 700 0.82rem var(--ui); cursor: pointer; }
+.suivi-details td { padding-top: 0 !important; }
+.suivi-details dl { margin: 0; padding: 12px 14px; border-radius: 10px; background: #f4f6fb; display: flex; flex-direction: column; gap: 6px; font-size: 0.85rem; }
+.suivi-details dl div { display: grid; grid-template-columns: 11rem 1fr; gap: 12px; }
+.suivi-details dt { color: var(--encre-douce); }
+.suivi-details dd { margin: 0; color: #3d4a78; overflow-wrap: anywhere; }
+.suivi-details .ton-alerte { color: #a3241b; font-weight: 700; }
+.suivi-details .ton-attention { color: #8a4b00; font-weight: 700; }
+.suivi-table .vide, .suivi-bloc .vide { color: var(--encre-douce); padding: 14px 16px; margin: 0; }
+.suivi-controles { display: grid; grid-template-columns: repeat(auto-fit, minmax(21rem, 1fr)); gap: 0 24px; padding: 6px 16px; border: 1px solid var(--trait); border-radius: 12px; background: #fff; }
+.suivi-controle { display: grid; grid-template-columns: 1fr 7.5rem 6rem; gap: 10px; align-items: center; padding: 9px 0; border-bottom: 1px solid #eef1f6; font-size: 0.9rem; }
+.suivi-controle .nb { text-align: right; font-variant-numeric: tabular-nums; }
+.suivi-controle small { display: block; font-size: 0.75rem; color: var(--encre-douce); }
+.suivi-controle .jauge { position: relative; height: 10px; border-radius: 5px; background: #eef1f6; }
+.suivi-controle .jauge span { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 5px; background: var(--encre); }
+.suivi-controle .jauge i { position: absolute; top: -4px; bottom: -4px; width: 2px; background: var(--marge); }
+.suivi-controle.rate b { color: #a3241b; }
+.suivi-controle.rate .jauge span { background: #a3241b; }
+.suivi-note { font-size: 0.82rem; color: var(--encre-douce); }
+.suivi-historique .suivi-table table { min-width: 0; }
+.page-suivi .suivi-historique th[scope="row"] { font-weight: 400; color: var(--encre); font-size: 0.85rem; min-width: 14rem; }
+.page-suivi .suivi-historique td { text-align: center; }
+.suivi-historique .col-build { text-align: center; white-space: nowrap; }
+.suivi-historique .ligne-global th, .suivi-historique .ligne-global td { background: #f7f8fc; font-weight: 700; }
+.carre { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 5px; }
+.carre.absent { color: var(--absent); }
+.suivi-pied { display: flex; flex-wrap: wrap; gap: 8px 24px; margin-top: 32px; padding-top: 14px; border-top: 1px solid var(--trait); font-size: 0.9rem; }
+.suivi-pied span { color: var(--encre-douce); }
+@media (max-width: 40rem) {
+  .suivi-global { align-items: flex-start; }
+  .suivi-controle { grid-template-columns: 1fr 5rem 5.5rem; }
+}
+.page-suivi .table-sources { table-layout: fixed; }
+.table-sources th:nth-child(1) { width: 30%; }
+.table-sources th:nth-child(2) { width: 10%; }
+.table-sources th:nth-child(3) { width: 24%; }
+.table-sources th:nth-child(4) { width: 16%; }
+.table-sources th:nth-child(5) { width: 10%; }
+.table-sources th:nth-child(6) { width: 10%; }

@@ -65,6 +65,9 @@ jobs:
     needs: secteurs
     if: always()
     runs-on: ubuntu-latest
+    permissions:
+      # Écriture : le rapport de suivi est rangé dans la branche suivi-donnees (page suivi.html).
+      contents: write
     steps:
       - uses: actions/checkout@v7
 
@@ -108,6 +111,10 @@ jobs:
         continue-on-error: true
         run: python pipeline/secteurs.py assembler --entree secteurs-out --out site/data
 
+      - name: Rapport de suivi provisoire (testé par la vérification)
+        continue-on-error: true
+        run: python pipeline/suivi.py rapport --site site --statut en_cours
+
       - name: Version des fichiers (évite le cache du navigateur après une mise à jour)
         run: sed -i "s/__VERSION__/${GITHUB_SHA::7}/g" site/*.html
 
@@ -119,6 +126,20 @@ jobs:
           pip install playwright
           python -m playwright install --with-deps chromium
           python tests/verifier_site.py site
+
+      - name: Rapport de suivi
+        # Écrit même si une étape a échoué : la page suivi.html montre alors ce qui manque.
+        if: always()
+        continue-on-error: true
+        run: python pipeline/suivi.py rapport --site site --statut ${{ job.status }}
+
+      - name: Ranger le rapport dans la branche suivi-donnees
+        # Builds de main seulement (pas les PR) ; un build en échec n'est pas publié sur le site, son rapport l'est.
+        if: always() && github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python pipeline/suivi.py publier --site site --branche suivi-donnees
 
       - name: Résumé
         run: |
