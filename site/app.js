@@ -1691,7 +1691,7 @@
   }
 
   // ---------------------------------------------------------------- secteurs des écoles
-  // Secteurs des écoles publiques publiés par les villes (Paris, Strasbourg… : pipeline/secteurs_ecoles.py).
+  // Secteurs des écoles publiques publiés par les villes (Paris, Strasbourg, Nantes… : pipeline/secteurs_ecoles.py).
   // Un fichier par département (data/secteurs-ecoles/<dep>.geojson), chargé avec les écoles du département.
   // Maternelles et élémentaires ont chacune leurs secteurs, qui couvrent toute la ville : la carte n'en montre
   // qu'un jeu, selon le réglage Niveau du calque Écoles (élémentaires, ou maternelles si seules elles sont cochées).

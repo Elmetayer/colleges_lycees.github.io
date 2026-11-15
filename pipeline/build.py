@@ -147,7 +147,7 @@ SOURCES = {
                     "esurc_circo_preel,esurc_circo_elem,esurc_acad_preel,esurc_acad_elem,esurc_fr_preel,esurc_fr_elem",
         "obligatoire": False,
     },
-    # Secteurs des écoles publiés par les villes (Paris, Strasbourg…) : voir secteurs_ecoles.py.
+    # Secteurs des écoles publiés par les villes (Paris, Strasbourg, Nantes…) : voir secteurs_ecoles.py.
     **secteurs_ecoles.sources(),
 }
 

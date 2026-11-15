@@ -104,8 +104,8 @@ def cle_source(vid: str, jeu: str) -> str:
 
 # Autres villes. jeux : niveau -> jeu Explore ; "*" : un seul jeu pour les deux niveaux, la colonne type disant
 # à quels niveaux s'applique chaque zone (types : valeur -> niveaux, par exemple {"M": ["maternelle"], "P": [...]}).
-# Nantes (data.nantesmetropole.fr, 244400404_perimetres-scolaires-nantes, colonnes lib et type) attend que son
-# portail réponde à nouveau (erreurs 504 le 15/11/2026) pour vérifier les valeurs de type.
+# Nantes : un seul jeu, type P (les deux niveaux, 66 zones), M (maternelle, 5) ou E (élémentaire, 3) ; le nom de
+# la zone cite souvent deux écoles (« Molière Leon Blum » : maternelle Molière, élémentaire Léon Blum).
 VILLES = {
     "67-strasbourg": {
         "dep": "67", "communes": ["Strasbourg"], "source": "Ville de Strasbourg", "licence": "Licence Ouverte",
@@ -114,6 +114,13 @@ VILLES = {
         "titres": {"secteurs_scolaires_ecoles_elementaires": "Secteurs scolaires des écoles élémentaires",
                    "secteurs_scolaires_ecoles_maternelles": "Secteurs scolaires des écoles maternelles"},
     },
+    "44-nantes": {
+        "dep": "44", "communes": ["Nantes"], "source": "Ville de Nantes", "licence": "Licence Ouverte",
+        "portail": "https://data.nantesmetropole.fr", "nom": "lib", "type": "type",
+        "jeux": {"*": "244400404_perimetres-scolaires-nantes"},
+        "types": {"P": ["maternelle", "elementaire"], "M": ["maternelle"], "E": ["elementaire"]},
+        "titres": {"244400404_perimetres-scolaires-nantes": "Périmètres scolaires des écoles publiques de Nantes"},
+    },
 }
 # Mots sans valeur pour reconnaître une école à son nom ; abréviations des noms de secteurs.
 MOTS_ECOLE = {"ecole", "ecoles", "groupe", "scolaire", "gs", "maternelle", "mat", "elementaire", "elem", "elelentaire", "primaire",
@@ -121,6 +128,8 @@ MOTS_ECOLE = {"ecole", "ecoles", "groupe", "scolaire", "gs", "maternelle", "mat"
 ABREVIATIONS = {"st": "saint", "ste": "sainte", "sts": "saints"}
 # Une école est cherchée dans sa zone à cette marge près (degrés, environ 150 m) : écoles en limite de secteur.
 MARGE = 0.0015
+# École nommée par la zone mais construite hors de celle-ci : cherchée jusqu'à cette distance (degrés, environ 1 km).
+VOISINE = 0.01
 
 
 def _outils():
@@ -251,19 +260,23 @@ def mots_nom(s: str) -> list[str]:
 
 
 def score_nom(nom_zone: list[str], nom_ecole: list[str]) -> float:
-    """Part des mots du nom de la zone retrouvés dans le nom de l'école (un mot abrégé suffit : « erc » pour
-    « erckmann ») ; les numéros (« Guynemer 1 & 2 ») comptent comme les autres mots."""
-    if not nom_zone:
+    """Mots du nom de la zone retrouvés dans le nom de l'école (un mot abrégé suffit : « erc » pour « erckmann » ;
+    les numéros, « Guynemer 1 & 2 », comptent comme les autres mots), rapportés au plus court des deux noms : une
+    zone qui nomme deux écoles (Nantes : « Maisdon Pajot - Fraternité », maternelle et élémentaire) reconnaît
+    chacune d'elles entière."""
+    if not nom_zone or not nom_ecole:
         return 0
     trouves = sum(1 for w in nom_zone if any(e == w or (len(w) >= 3 and not w.isdigit() and e.startswith(w)) for e in nom_ecole))
-    return trouves / len(nom_zone)
+    return min(1.0, trouves / min(len(nom_zone), len(nom_ecole)))
 
 
 def rattacher_zone(g, nom: str, cand: pd.DataFrame, niveau: str) -> tuple[list[str], str]:
     """Écoles d'une zone : celles du niveau situées dans la zone dont le nom correspond le mieux (ex aequo : secteur
     commun, mais une école du niveau exact passe avant une école primaire du même nom : à Strasbourg, le secteur
     maternelle « ST JEAN » est celui de la maternelle Saint-Jean, pas de l'école primaire Saint-Jean) ; sinon l'unique
-    école du niveau située dans la zone. Renvoie (UAI, "nom" | "seule" | "")."""
+    école du niveau située dans la zone ; sinon une école du niveau au nom complet, à moins de VOISINE de la zone
+    (Nantes : la zone « Frédureau - Jean Jaures » est celle de l'élémentaire Jean Jaurès, construite juste à côté).
+    Renvoie (UAI, "nom" | "seule" | "voisine" | "")."""
     large = g.buffer(MARGE)
     ici = cand[[large.contains(Point(x, y)) for x, y in zip(cand["lon"], cand["lat"])]]
     mz = mots_nom(nom)
@@ -277,6 +290,11 @@ def rattacher_zone(g, nom: str, cand: pd.DataFrame, niveau: str) -> tuple[list[s
     strict = [u for u, x, y in zip(ici["uai"], ici["lon"], ici["lat"]) if g.contains(Point(x, y))]
     if len(strict) == 1:
         return strict, "seule"
+    proche = g.buffer(VOISINE)
+    autour = cand[[proche.contains(Point(x, y)) for x, y in zip(cand["lon"], cand["lat"])]]
+    complets = [u for n, u in zip(autour["nom"], autour["uai"]) if score_nom(mz, mots_nom(n)) >= 0.99 and len(mots_nom(n)) >= 2]
+    if complets:
+        return complets, "voisine"
     return [], ""
 
 
@@ -316,7 +334,7 @@ def construire_ville(vid: str, v: dict, ecoles: pd.DataFrame, frames: dict, reso
         for nom, g in zones:
             uais, comment = rattacher_zone(g, nom, cand, niv)
             rattachees += bool(uais)
-            par_nom += comment == "nom"
+            par_nom += comment in ("nom", "voisine")
             if not uais:
                 rates.append(nom)
             cites.update(uais)
