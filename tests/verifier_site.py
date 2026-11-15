@@ -10,7 +10,8 @@
    échec) ; la fiche d'une école publique donne son collège de secteur, celle d'une école hors
    contrat l'explication de l'absence de données ; les écoles ne s'affichent qu'en zoomant.
    Secteurs des écoles (Paris) : contrôles du rattachement aux écoles (SECTEURS_ECOLES_MINIMUM) ;
-   la fiche d'une école de Paris donne son secteur, dont la zone est dessinée.
+   la fiche d'une école de Paris donne son secteur, dont la zone est dessinée, et l'onglet « Entrée en 6e »
+   (évaluations de 6e du collège de secteur).
 3. Les secteurs concordent avec les secteurs officiels de Paris et des Hauts-de-Seine : au moins
    CONCORDANCE_MINIMALE de la surface attribuée au même collège (meta.json, secteurs.controle).
    Si les secteurs officiels n'ont pas pu être téléchargés, simple avertissement.
@@ -212,7 +213,7 @@ def exemple(contenus, fichier, cle):
     return None
 
 
-async def ouvrir_fiche(pg, nom, attendu, selecteur="#fiche-contenu .onglets button", attente=1200, interdit=None):
+async def ouvrir_fiche(pg, nom, attendu, selecteur="#fiche-contenu .onglets button", attente=1200, interdit=None, onglet=None):
     await pg.fill("#recherche", nom)
     await pg.wait_for_timeout(attente)
     await pg.keyboard.press("ArrowDown")
@@ -228,6 +229,16 @@ async def ouvrir_fiche(pg, nom, attendu, selecteur="#fiche-contenu .onglets butt
             return f"la fiche « {nom} » ne contient pas « {a} » : {texte[:300]!r}"
     if interdit and interdit in texte:
         return f"la fiche « {nom} » contient « {interdit} » : {texte[:300]!r}"
+    if onglet:
+        # (clé de l'onglet, texte attendu dans son contenu)
+        bouton = await pg.query_selector(f"#fiche-contenu [data-onglet={onglet[0]}]")
+        if not bouton:
+            return f"la fiche « {nom} » n'a pas d'onglet « {onglet[0]} »"
+        await bouton.click()
+        await pg.wait_for_timeout(300)
+        contenu = await pg.inner_text("#fiche-graphe")
+        if onglet[1] not in contenu or "svg" not in (await pg.inner_html("#fiche-graphe")):
+            return f"l'onglet « {onglet[0]} » de la fiche « {nom} » est incomplet : {contenu[:300]!r}"
     await pg.click("#fermer")
     return None
 
@@ -284,7 +295,8 @@ async def verifier_navigateur(contenus):
             # École publique : fiche avec IPS (rangs) et collège de secteur ; écoles affichées une fois zoomé.
             if ecole:
                 attendus = ["Collège de secteur"] + (["Voir le secteur sur la carte"] if secteur_ecole else [])
-                pb = await ouvrir_fiche(pg, ecole, attendus, attente=3000, interdit="Non disponible")
+                pb = await ouvrir_fiche(pg, ecole, attendus, attente=3000, interdit="Non disponible",
+                                        onglet=("entree6e", "Ce ne sont pas les résultats de cette école"))
                 if pb:
                     problemes.append(pb)
                 await pg.wait_for_timeout(1500)
