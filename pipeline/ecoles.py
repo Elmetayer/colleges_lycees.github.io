@@ -270,7 +270,7 @@ def construire(tous: pd.DataFrame, frames: dict, out_dir, problemes: list) -> di
     tous_points = [f["properties"] for fs in feats.values() for f in fs]
     derniere = max((p["rentree"] for p in tous_points if "rentree" in p), default=None)
     for p in tous_points:
-        if p.get("rentree") == derniere:
+        if derniere and p.get("rentree") == derniere:
             del p["rentree"]
 
     compact = lambda o: json.dumps(o, ensure_ascii=False, separators=(",", ":"), allow_nan=False)
