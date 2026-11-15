@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Écoles – Documentation – Carte scolaire</title>
+  <meta name="description" content="Écoles maternelles et élémentaires : IPS et rangs, taille des classes, effectifs, collège de secteur.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Literata:opsz,wght@7..72,500;7..72,650&display=swap" rel="stylesheet">
+  <link href="style.css?v=__VERSION__" rel="stylesheet">
+</head>
+<body class="page-doc">
+  <header class="barre">
+    <a class="titre" href="./">Carte scolaire</a>
+    <a class="lien-doc" href="./">Retour à la carte</a>
+  </header>
+
+  <main>
+    <p class="fil"><a href="documentation.html">Documentation</a> › Écoles</p>
+    <h1 id="ecoles">Écoles</h1>
+    <nav class="doc-sommaire" aria-label="Sur cette page" hidden></nav>
+    <p class="chapeau">Aucun résultat d'évaluation nationale n'est publié école par école : la fiche d'une école décrit l'école et ses élèves, pas leur niveau.</p>
+    <p>Les évaluations nationales du CP au CM2 ne sont diffusées que par département, académie et région. Pour les écoles, les données publiques donnent le milieu social des élèves (IPS), le nombre d'élèves et la taille moyenne des classes. La carte montre les écoles maternelles, élémentaires et primaires (maternelle et élémentaire réunies) de France métropolitaine, publiques et privées.</p>
+    <p id="ecoles-chiffres"></p>
+
+    <h2 id="ecoles-carte">Sur la carte</h2>
+    <p>Les écoles sont des cercles, plus petits que les carrés des collèges et les triangles des lycées. Elles sont trop nombreuses pour être toutes affichées en vue de la France : elles apparaissent quand on zoome à l'échelle d'une ville, département par département. Les couleurs sont pourtant réparties sur l'ensemble des écoles de France métropolitaine, comme pour les collèges et les lycées : une même couleur veut dire la même chose partout. Le réglage <b>Niveau</b> affiche les maternelles, les élémentaires ou les deux ; les écoles primaires restent affichées tant qu'un des deux niveaux est coché.</p>
+
+    <h2 id="ecoles-ips">Indice de position sociale et rang</h2>
+    <p>L'IPS résume le milieu social des familles à partir de la profession des parents : plus il est élevé, plus les familles sont favorisées. Il est publié depuis la rentrée 2022 pour les écoles qui ont des classes du CP au CM2, publiques et privées sous contrat ; il ne l'est pas pour les maternelles, dont la fiche renvoie à l'école élémentaire voisine quand elle est à la même adresse. Le calcul a été revu en 2022 : les valeurs plus anciennes ne sont pas comparables et ne sont pas reprises.</p>
+    <p>Comme pour le score des collèges et des lycées, la fiche donne le rang de l'école chaque année, en France métropolitaine et dans son académie, et la courbe de l'IPS avec la médiane de l'académie en pointillés. Le rang 1 correspond à l'IPS le plus élevé, c'est-à-dire aux familles les plus favorisées. Ce rang classe le milieu social des élèves, pas les résultats de l'école.</p>
+
+    <h2 id="ecoles-classes">Taille des classes</h2>
+    <p>Nombre moyen d'élèves par classe à la dernière rentrée publiée, séparément pour les classes élémentaires et les classes de maternelle. La fiche le compare à la commune (à Paris, Lyon et Marseille : l'arrondissement), à la circonscription d'inspection, à l'académie et à la France. Sur la carte, la couleur « Élèves par classe » suit les classes élémentaires, ou les classes de maternelle pour une maternelle.</p>
+
+    <h2 id="ecoles-effectifs">Effectifs</h2>
+    <p>Nombre d'élèves de l'école à la dernière rentrée publiée, affiché en tête de la fiche comme pour les lycées.</p>
+
+    <h2 id="ecoles-secteur">Collège de secteur et écoles voisines</h2>
+    <p>Pour une école publique, la fiche indique le collège de secteur de l'endroit où se trouve l'école, d'après les <a href="documentation-secteurs.html">secteurs reconstitués des collèges</a>. C'est un repère : les élèves d'une école n'habitent pas tous dans le même secteur de collège. Dans les départements absents du fichier national de carte scolaire, ce collège n'est pas connu. La fiche signale aussi les écoles à la même adresse (souvent une maternelle et une élémentaire du même groupe scolaire). Les écoles privées n'ont pas de secteur : elles inscrivent les familles directement. Les secteurs des écoles elles-mêmes arriveront d'abord pour Paris, puis pour les villes qui les publient.</p>
+
+    <h2 id="ecoles-hors-contrat">Écoles privées hors contrat</h2>
+    <p>Les données publiques ne donnent ni les effectifs, ni l'IPS, ni la taille des classes des écoles privées hors contrat. Leur fiche se limite au nom, à l'adresse et à une phrase d'explication.</p>
+
+    <nav class="doc-suite" aria-label="Pages de la documentation">
+      <a class="prec" href="documentation-lycees.html"><small>Page précédente</small>Indicateurs des lycées</a>
+      <a class="suiv" href="documentation-secteurs.html"><small>Page suivante</small>Secteurs des collèges</a>
+    </nav>
+  </main>
+
+  <script src="parametres.js?v=__VERSION__"></script>
+  <script src="documentation.js?v=__VERSION__"></script>
+</body>
+</html>

@@ -46,7 +46,15 @@ if (nav && titres.length >= 3) {
     if (resume) resume.textContent =
       `Données générées le ${date(m.genere_le)} : ${c.total} collèges (${c.publics} publics, ${c.prives} privés). ` +
       `Sessions du brevet : ${liste(p.brevet)}. IPS : ${liste(p.ips)}. Évaluations de 6e : ${liste(p.eval6e)}.` +
-      (m.lycees ? ` ${m.lycees.total} lycées (${m.lycees.publics} publics, ${m.lycees.prives} privés). Sessions du bac : ${liste(m.lycees.periodes.gt)}. IPS des lycées : ${liste(m.lycees.periodes.ips)}.` : "");
+      (m.lycees ? ` ${m.lycees.total} lycées (${m.lycees.publics} publics, ${m.lycees.prives} privés). Sessions du bac : ${liste(m.lycees.periodes.gt)}. IPS des lycées : ${liste(m.lycees.periodes.ips)}.` : "") +
+      (m.ecoles ? ` ${m.ecoles.total} écoles (${m.ecoles.publics} publiques, ${m.ecoles.prives} privées). IPS des écoles : ${liste(m.ecoles.periodes.ips)}. Effectifs : rentrée ${m.ecoles.periodes.effectifs || "non disponible"}. Taille des classes : ${m.ecoles.periodes.classes || "non disponible"}.` : "");
+    const ec = m.ecoles, ecEl = document.getElementById("ecoles-chiffres");
+    if (ec && ecEl) {
+      const n = (v) => Number(v || 0).toLocaleString("fr-FR"), cv = ec.couverture || {}, nv = ec.niveaux || {};
+      ecEl.textContent = `${n(ec.total)} écoles sur la carte : ${n(nv.maternelle)} maternelles, ${n(nv.elementaire)} élémentaires et ${n(nv.primaire)} primaires ; ` +
+        `${n(ec.publics)} publiques et ${n(ec.prives)} privées, dont ${n(ec.hors_contrat)} hors contrat. IPS connu pour ${n(cv.ips)} écoles, ` +
+        `effectifs pour ${n(cv.eleves)}, taille des classes pour ${n(cv.classe)}.`;
+    }
   }).catch(() => {
     const sourcesEl = document.getElementById("liste-sources");
     if (sourcesEl) sourcesEl.innerHTML = "<tr><td colspan='2'>La liste des sources n'a pas pu être chargée.</td></tr>";

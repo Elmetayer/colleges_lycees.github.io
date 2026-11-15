@@ -319,3 +319,27 @@ details.valeurs .historique { margin-top: 4px; }
 .historique.detail caption { text-align: left; font-weight: 700; padding-bottom: 4px; }
 .historique.detail tr.sous th { padding-left: 14px; font-weight: 400; color: var(--encre-douce); }
 .historique.detail tr.sous td { color: var(--encre-douce); }
+
+/* ---------- fiche école */
+.fiche .lieu small { font-size: 0.85rem; }
+.note-ecole { margin: 0 0 14px; padding: 8px 10px; border-radius: 10px; background: #f1f3f9; font-size: 0.85rem; color: #3d4a78; line-height: 1.4; }
+.liens-ecole { list-style: none; margin: 0 0 16px; padding: 0; border-top: 1px solid var(--trait); }
+.liens-ecole li { padding: 8px 0; border-bottom: 1px solid var(--trait); }
+.liens-ecole .lien-titre { display: block; font-size: 0.78rem; color: var(--encre-douce); }
+.liens-ecole .lien-texte { font-size: 0.92rem; }
+.liens-ecole button {
+  display: block; width: 100%; min-height: 44px; padding: 2px 0; border: 0; background: transparent; color: var(--encre);
+  font: 700 1rem var(--ui); text-align: left; cursor: pointer;
+}
+.liens-ecole .lien-nom { text-decoration: underline; text-underline-offset: 3px; }
+.liens-ecole button small { display: block; font-weight: 400; font-size: 0.8rem; color: var(--encre-douce); }
+.barres { margin-top: 10px; }
+.barres-titre { margin: 0 0 4px; font-size: 0.85rem; font-weight: 700; }
+.barre-ligne { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 0.85rem; color: #3d4a78; }
+.barre-ligne.moi { color: var(--encre); font-weight: 700; }
+.barre-nom { flex: 1; min-width: 0; }
+.barre-piste { position: relative; flex: none; width: 112px; height: 12px; border-radius: 6px; background: #eef1f6; }
+.barre-piste span { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 6px; background: #a9b3cc; }
+.barre-ligne.moi .barre-piste span { background: var(--encre); }
+.barre-val { width: 36px; text-align: right; font-variant-numeric: tabular-nums; }
+.graphe-note { margin: 10px 0 0; font-size: 0.82rem; color: var(--encre-douce); }
