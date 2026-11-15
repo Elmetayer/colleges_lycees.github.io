@@ -6,11 +6,6 @@ H = {"User-Agent": "carte-scolaire-diag"}
 ANNUAIRE = "https://data.education.gouv.fr/api/explore/v2.1/catalog/datasets/fr-en-annuaire-education/exports/json"
 JEUX = {
     "Nantes": ("https://data.nantesmetropole.fr", ["244400404_perimetres-scolaires-nantes"], ["44109"]),
-    "Strasbourg": ("https://data.strasbourg.eu", ["secteurs_scolaires_ecoles_elementaires", "secteurs_scolaires_ecoles_maternelles"], ["67482"]),
-    "Orléans": ("https://data.orleans-metropole.fr", ["administratifscol_sect_mater", "administratifscol_sect_elem"], ["45234"]),
-    "Clermont": ("https://opendata.clermontmetropole.eu", ["secteurs-scolaires-des-ecoles-vcf"], ["63113"]),
-    "Tours": ("https://data.tours-metropole.fr", ["sectorisation-polygone-des-ecoles-maternelle-tours", "sectorisation_ecole_elementaire"], ["37261"]),
-    "Saint-Nazaire": ("https://data.agglo-carene.fr", ["214401846_educ_perimetre_ecole_prox_184"], ["44184"]),
 }
 
 
@@ -31,7 +26,16 @@ for ville, (base, jeux, communes) in JEUX.items():
     print(f"annuaire : {len(ann)} écoles publiques ouvertes")
     for jeu in jeux:
         try:
-            gj = get(f"{base}/api/explore/v2.1/catalog/datasets/{jeu}/exports/geojson")
+            feats, off = [], 0
+            while True:
+                d = get(f"{base}/api/explore/v2.1/catalog/datasets/{jeu}/records", limit=100, offset=off)
+                rs = d["results"]
+                for r in rs:
+                    gs = r.pop("geo_shape", None); r.pop("geo_point_2d", None)
+                    feats.append({"type": "Feature", "geometry": (gs or {}).get("geometry"), "properties": r})
+                off += 100
+                if len(rs) < 100: break
+            gj = {"features": feats}
         except Exception as e:
             print(jeu, ":", str(e)[:200]); continue
         feats = gj["features"]
