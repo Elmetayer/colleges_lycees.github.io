@@ -1150,7 +1150,7 @@
       montres.forEach((niv) => {
         const z = zoneDeLEcole(p.uai, niv);
         const titre = niveaux.length > 1 ? `Secteur ${NOMS_NIVEAU[niv]}` : "Secteur de l'école";
-        if (!z) { liens.push({ titre, detail: `Pas de secteur trouvé pour cette école dans les données de la ${infoSect.source} (${periodeSecteurs(infoSect, niv)}).` }); return; }
+        if (!z) { liens.push({ titre, detail: `Pas de secteur trouvé pour cette école dans les données de ${infoSect.par || "la " + infoSect.source} (${periodeSecteurs(infoSect, niv)}).` }); return; }
         const autres = zoneUais(z).filter((u) => u !== p.uai).map((u) => (ecolesParUai.get(u) || { properties: { nom: u } }).properties.nom);
         liens.push({ titre, texte: "Voir le secteur sur la carte", zone: z, niveau: niv,
           detail: (autres.length ? `Secteur commun avec ${autres.join(", ")}. ` : "") + `${infoSect.source}, ${periodeSecteurs(infoSect, niv)}` });
@@ -1462,7 +1462,7 @@
           <span class="distance">${distance(distanceKm(a.coord, e.geometry.coordinates))}</span></button></li>`).join("")
           : `<li class="info-secteur">Aucun secteur ${NOMS_NIVEAU[s.niv]} trouvé pour cette adresse.</li>`)).join("")}
       </ul>
-      <p class="avertissement">${ecolesSecteur.some((s) => s.commun) ? "Secteur commun : l'enfant est inscrit dans l'une de ces écoles. " : ""}Secteurs publiés par la ${echapper(infoEcoles.source)} (${echapper(periodeSecteurs(infoEcoles))}). Pour l'inscription, la réponse qui fait foi est celle de la mairie.</p>
+      <p class="avertissement">${ecolesSecteur.some((s) => s.commun) ? "Secteur commun : l'enfant est inscrit dans l'une de ces écoles. " : ""}Secteurs publiés par ${echapper(infoEcoles.par || "la " + infoEcoles.source)} (${echapper(periodeSecteurs(infoEcoles))}). Pour l'inscription, la réponse qui fait foi est celle de la mairie.</p>
       <h3>Collèges</h3>` : "";
     $("fiche-contenu").innerHTML = `
       <h2 id="fiche-nom">${echapper(a.libelle)}</h2>

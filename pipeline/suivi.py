@@ -270,7 +270,7 @@ def rapport(site: Path, statut: str) -> dict:
         "chiffres": {
             "colleges": (meta.get("colleges") or {}).get("total"), "lycees": (meta.get("lycees") or {}).get("total"), "ecoles": eco.get("total"),
             "secteurs_departements": (meta.get("secteurs") or {}).get("departements"), "departements": DEPARTEMENTS_METROPOLE,
-            "villes_ecoles": [re.sub(r"^Ville d(e |')", "", m.get("source", fid)) for fid, m in (eco.get("secteurs") or {}).items()],
+            "villes_ecoles": [m.get("ville") or re.sub(r"^Ville d(e |')", "", m.get("source", fid)) for fid, m in (eco.get("secteurs") or {}).items()],
         },
         "groupes": [{"cle": g, "titre": titre, "lignes": groupes[g]} for g, titre in GROUPES],
         "controles": (verif or {}).get("controles") or [],
