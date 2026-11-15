@@ -28,9 +28,38 @@ site/                     site statique publié sur GitHub Pages
 
 ## Fonctionnement
 
-Le workflow GitHub Actions lance `pipeline/build.py`, qui écrit `site/data/colleges.geojson` et `site/data/meta.json`, puis publie le dossier `site/` sur GitHub Pages. Il tourne à chaque modification de `main`, le 3 de chaque mois, et à la demande depuis l'onglet Actions.
+Le workflow GitHub Actions calcule les secteurs des collèges, lance `pipeline/build.py` (données des établissements et des secteurs des écoles), vérifie le site dans un vrai navigateur (`tests/verifier_site.py`), puis publie le dossier `site/` sur GitHub Pages. Une vérification en échec bloque la publication : le site garde sa version précédente. Il tourne à chaque modification de `main`, le 3 de chaque mois, et à la demande depuis l'onglet Actions.
 
 Dans les réglages du dépôt, Settings → Pages doit avoir « GitHub Actions » comme source.
+
+## Branches
+
+| Branche | Contenu | Durée de vie |
+|---|---|---|
+| `main` | Code du site et du pipeline, workflow de build | Permanente |
+| `suivi-donnees` | Rapport du dernier build (`suivi/dernier.json`) et historique des 10 derniers (`suivi/historique.json`) | Permanente : **ne pas supprimer** |
+| `diag-ecoles` | Scripts de diagnostic des portails open data des villes, avec leur propre petit workflow | Temporaire, à supprimer à la fin du jalon 7 |
+
+Les autres branches sont celles des pull requests : une par livraison, à supprimer après la fusion.
+
+```
+  branche d'une PR ──(fusion)──► main
+                                  │
+               build (à chaque fusion, le 3 du mois, à la demande)
+                  │                              │
+      si tout est OK : publie           dans tous les cas : écrit
+      le site (GitHub Pages)            le rapport dans suivi-donnees
+                  │                              │
+                  └────── suivi.html lit ────────┘
+                          les deux
+
+  diag-ecoles : indépendante, ses diagnostics tournent à part
+```
+
+- Une pull request lance un build de vérification, sans publication ni rapport dans `suivi-donnees`.
+- À la fin de chaque build de `main`, réussi ou non, l'étape « Ranger le rapport » (`pipeline/suivi.py publier`) copie la seule branche `suivi-donnees` dans un dossier temporaire, y écrit le rapport, met à jour l'historique, puis pousse un commit au nom de `github-actions[bot]`, avec le jeton fourni au build (permission `contents: write`). Si la branche n'existe pas, elle est recréée vide ; seul l'historique est alors perdu.
+- `suivi-donnees` ne contient aucun workflow : un push sur elle ne déclenche rien (et GitHub ne lance jamais de workflow sur un push fait avec le jeton d'un build).
+- La page `suivi.html` lit le rapport du site publié (`data/suivi.json`) et celui de `suivi-donnees` sur `raw.githubusercontent.com`. Si le dernier build a échoué, elle le signale : la carte affichée est alors celle du build précédent.
 
 ## Lancer en local
 
