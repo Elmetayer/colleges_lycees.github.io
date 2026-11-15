@@ -56,7 +56,8 @@ ECOLES_MINIMUM = 40000
 COUVERTURE_ECOLES = {"ips": 23000, "eleves": 36000, "classe": 36000,
                      # Entrée en 6e : évaluations du collège de secteur (pipeline/ecoles_6e.py), écoles publiques
                      # des départements qui ont une carte scolaire des collèges.
-                     "e6_fr": 20000, "e6_ma": 20000}
+                     # 34 887 / 34 876 le 15/11/2026 (40 743 écoles publiques, 84 départements).
+                     "e6_fr": 31000, "e6_ma": 31000}
 # Secteurs des écoles de Paris (jalon 7b), valeurs du 15/11/2026 : rattachement des noms de la Ville aux UAI
 # 0,998 / 0,994 ; écoles publiques citées dans un secteur 0,963 / 0,989 ; écoles dans leur propre secteur 0,979 / 1.
 SECTEURS_ECOLES_MINIMUM = {"rattachement": 0.95, "couverture": 0.9, "coherence": 0.9}
@@ -195,6 +196,11 @@ def verifier_ecoles(data, contenus):
     for k, mini in COUVERTURE_ECOLES.items():
         if not controle(LIBELLES.get(("ecoles", k), f"écoles {k}"), couverture[k], mini):
             erreurs.append(f"écoles : indicateur {k} présent pour {couverture[k]} écoles seulement (au moins {mini} attendues)")
+    # Le menu du calque ne propose un indicateur que si meta.json donne son échelle de couleurs.
+    couleurs = ((contenus.get("meta.json") or {}).get("ecoles") or {}).get("couleurs") or {}
+    for k in COUVERTURE_ECOLES:
+        if k != "eleves" and k not in couleurs:
+            erreurs.append(f"écoles : pas d'échelle de couleurs pour {k} dans meta.json (indicateur absent du menu du calque)")
     hc = sum(1 for f in points if f["properties"].get("contrat") == "hors")
     if hc < 500:
         avertissements.append(f"seulement {hc} écoles hors contrat repérées (annuaire de l'éducation indisponible ?)")
