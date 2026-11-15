@@ -93,7 +93,7 @@ def sources() -> dict:
                 "titre": f"{v['titres'][jeu]} ({v['source']}, {v['licence']})",
                 "explore_base": f"{v['portail']}/api/explore/v2.1/catalog/datasets", "explore_id": jeu, "datagouv": None,
                 "page": f"{v['portail']}/explore/dataset/{jeu}/",
-                "colonnes": ",".join([v["nom"]] + [v[c] for c in ("type", "date") if v.get(c)] + ["geo_shape"]), "obligatoire": False,
+                "colonnes": ",".join([v["nom"]] + [v[c] for c in ("type", "date", "uai") if v.get(c)] + ["geo_shape"]), "obligatoire": False,
             }
     return out
 
@@ -107,6 +107,9 @@ def cle_source(vid: str, jeu: str) -> str:
 # Clermont-Ferrand : un seul jeu (type Maternelle-Elementaire ou Maternelle) ; la Ville indique que la cartographie
 # est « en cours de mise à jour » (zones du 01/02/2024) : publiée quand même, avec la date des zones (choix de Bruno,
 # 15/11/2026).
+# Tours : un jeu par niveau, avec le code UAI de l'école (rne) et la date de chaque zone (élémentaires mises à jour
+# en septembre 2026, maternelles en 2022-2023). Saint-Nazaire : un seul jeu, 20 zones « Ecole de proximité », valables
+# pour les deux niveaux.
 # Nantes : un seul jeu, type P (les deux niveaux, 66 zones), M (maternelle, 5) ou E (élémentaire, 3) ; le nom de
 # la zone cite souvent deux écoles (« Molière Leon Blum » : maternelle Molière, élémentaire Léon Blum).
 VILLES = {
@@ -130,6 +133,20 @@ VILLES = {
         "jeux": {"*": "secteurs-scolaires-des-ecoles-vcf"},
         "types": {"Maternelle-Elementaire": ["maternelle", "elementaire"], "Maternelle": ["maternelle"], "Elementaire": ["elementaire"]},
         "titres": {"secteurs-scolaires-des-ecoles-vcf": "Secteurs scolaires des écoles"},
+    },
+    "37-tours": {
+        "dep": "37", "communes": ["Tours"], "source": "Ville de Tours", "licence": "Licence Ouverte",
+        "portail": "https://data.tours-metropole.fr", "nom": "nom", "uai": "rne", "date": "date_maj",
+        "jeux": {"elementaire": "sectorisation_ecole_elementaire", "maternelle": "sectorisation-polygone-des-ecoles-maternelle-tours"},
+        "titres": {"sectorisation_ecole_elementaire": "Sectorisation des écoles élémentaires",
+                   "sectorisation-polygone-des-ecoles-maternelle-tours": "Sectorisation des écoles maternelles"},
+    },
+    "44-saint-nazaire": {
+        "dep": "44", "communes": ["Saint-Nazaire"], "source": "Ville de Saint-Nazaire", "licence": "Licence Ouverte",
+        "portail": "https://data.agglo-carene.fr", "nom": "nom", "type": "type",
+        "jeux": {"*": "214401846_educ_perimetre_ecole_prox_184"},
+        "types": {"Ecole de proximité": ["maternelle", "elementaire"]},
+        "titres": {"214401846_educ_perimetre_ecole_prox_184": "Carte scolaire des écoles primaires"},
     },
     "44-nantes": {
         "dep": "44", "communes": ["Nantes"], "source": "Ville de Nantes", "licence": "Licence Ouverte",
@@ -335,7 +352,8 @@ def construire_ville(vid: str, v: dict, ecoles: pd.DataFrame, frames: dict, reso
     publiques = publiques[~publiques["nom"].str.contains(r"sp[ée]cialis[ée]e", case=False, regex=True, na=False)]
     de_la_ville = publiques[publiques["commune"].isin(v["communes"])]
     features, meta = [], {}
-    maj = max((str((resolved.get(cle_source(vid, j)) or {}).get("maj") or "")[:10] for j in v["jeux"].values()), default="") or None
+    # Date de mise à jour par niveau : celle du jeu, ou celle des zones quand la ville la donne (clé « date »).
+    maj_niveau = {}
     zones_par_niveau = {"maternelle": [], "elementaire": []}
     for niv_jeu, jeu in v["jeux"].items():
         k = cle_source(vid, jeu)
@@ -346,12 +364,16 @@ def construire_ville(vid: str, v: dict, ecoles: pd.DataFrame, frames: dict, reso
         df = frames[k]
         c_nom, c_geo = b.pick(df, rf"^{v['nom']}$"), b.pick(df, r"geo_shape")
         c_type = b.pick(df, rf"^{v['type']}$") if v.get("type") else None
+        c_uai = b.pick(df, rf"^{v['uai']}$") if v.get("uai") else None
+        maj = str((resolved.get(k) or {}).get("maj") or "")[:10] or None
         # Date des zones elles-mêmes, quand la ville la donne et qu'elle diffère de celle du jeu (Clermont-Ferrand :
         # jeu republié en 2026, zones de février 2024) : c'est elle que montrent la fiche et la page de suivi.
         if v.get("date"):
             dates = pd.to_datetime(df[b.pick(df, rf"^{v['date']}$")], errors="coerce", utc=True).dropna()
             if len(dates):
                 maj = dates.max().strftime("%Y-%m-%d")
+        for niv in (["maternelle", "elementaire"] if niv_jeu == "*" else [niv_jeu]):
+            maj_niveau[niv] = maj
         inconnus = set()
         for r in df.itertuples(index=False):
             r = r._asdict()
@@ -362,17 +384,22 @@ def construire_ville(vid: str, v: dict, ecoles: pd.DataFrame, frames: dict, reso
                 g = shape(json.loads(r[c_geo])).buffer(0)
             except (TypeError, ValueError):
                 continue
+            # Code UAI de l'école, quand la ville le donne (Tours : « 0371584WM », partie maternelle d'une primaire).
+            uai = str(r[c_uai] or "").strip().upper()[:8] if c_uai else ""
             for niv in niveaux:
-                zones_par_niveau[niv].append((str(r[c_nom] or "").strip(), g))
+                zones_par_niveau[niv].append((str(r[c_nom] or "").strip(), g, uai))
         if inconnus:
             b.log(f"  ! {v['source']} : types de zones inconnus {sorted(map(str, inconnus))}")
     for niv, zones in zones_par_niveau.items():
         cand = publiques[publiques["niveau"].isin(COMPATIBLES[niv])]
         cites, par_nom, rattachees, rates, communs = set(), 0, 0, [], []
-        for nom, g in zones:
-            uais, comment = rattacher_zone(g, nom, cand, niv, cand[cand["commune"].isin(v["communes"])])
+        for nom, g, uai in zones:
+            if uai and uai in set(cand["uai"]):
+                uais, comment = [uai], "code"
+            else:
+                uais, comment = rattacher_zone(g, nom, cand, niv, cand[cand["commune"].isin(v["communes"])])
             rattachees += bool(uais)
-            par_nom += comment in ("nom", "voisine", "commune")
+            par_nom += comment in ("code", "nom", "voisine", "commune")
             if comment == "commune":
                 b.log(f"  {v['source']} {niv} : « {nom} » rattachée par le nom à une école située hors de la zone dans l'annuaire")
             if not uais:
@@ -386,14 +413,15 @@ def construire_ville(vid: str, v: dict, ecoles: pd.DataFrame, frames: dict, reso
         attendues = set(de_la_ville[de_la_ville["niveau"].isin(COMPATIBLES[niv] if niv == "elementaire" else {niv})]["uai"])
         absentes = de_la_ville[de_la_ville["uai"].isin(attendues - cites)]
         meta[niv] = {
-            "annee": None, "maj": maj, "secteurs": len(zones), "communs": sum(1 for f in features if f["properties"]["niveau"] == niv and f["properties"]["commun"]),
+            "annee": None, "maj": maj_niveau.get(niv), "secteurs": len(zones), "communs": sum(1 for f in features if f["properties"]["niveau"] == niv and f["properties"]["commun"]),
             "rattachement": round(rattachees / len(zones), 3) if zones else 0,
-            "couverture": round(len(cites & attendues) / len(attendues), 3) if attendues else 0,
+            # Aucune école attendue (ville sans maternelle séparée) : rien à couvrir.
+            "couverture": round(len(cites & attendues) / len(attendues), 3) if attendues else 1.0,
             "coherence": round(par_nom / rattachees, 3) if rattachees else 0,
             "non_rattachees": rates[:20], "absentes": sorted(f"{u} {n}" for u, n in zip(absentes["uai"], absentes["nom"]))[:30],
         }
         b.log(f"  {v['source']} {niv} : secteurs communs {communs}")
-    meta["annee"], meta["maj"] = None, maj
+    meta["annee"], meta["maj"] = None, max(filter(None, maj_niveau.values()), default=None)
     return features, meta
 
 
@@ -422,7 +450,8 @@ def construire(ecoles: pd.DataFrame, frames: dict, out_dir, problemes: list, res
         bornes = [shape(f["geometry"]).bounds for f in features]
         emprise = (min(x[0] for x in bornes), min(x[1] for x in bornes), max(x[2] for x in bornes), max(x[3] for x in bornes))
         index[fid] = {"dep": v["dep"], "communes": v["communes"], "bbox": [round(x, 4) for x in emprise], "annee": meta["annee"],
-                      "maj": meta.get("maj"), "source": v["source"], "licence": v["licence"], "zones": len(features)}
+                      "maj": meta.get("maj"), "maj_niveaux": {n: (meta.get(n) or {}).get("maj") for n in NIVEAUX},
+                      "source": v["source"], "licence": v["licence"], "zones": len(features)}
         metas[fid] = dict(meta, source=v["source"], licence=v["licence"])
         b.log(f"  {v['source']} : {len(features)} zones, {len(texte) / 1e6:.2f} Mo")
     if not index:

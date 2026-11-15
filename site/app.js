@@ -1150,10 +1150,10 @@
       montres.forEach((niv) => {
         const z = zoneDeLEcole(p.uai, niv);
         const titre = niveaux.length > 1 ? `Secteur ${NOMS_NIVEAU[niv]}` : "Secteur de l'école";
-        if (!z) { liens.push({ titre, detail: `Pas de secteur trouvé pour cette école dans les données de la ${infoSect.source} (${periodeSecteurs(infoSect)}).` }); return; }
+        if (!z) { liens.push({ titre, detail: `Pas de secteur trouvé pour cette école dans les données de la ${infoSect.source} (${periodeSecteurs(infoSect, niv)}).` }); return; }
         const autres = zoneUais(z).filter((u) => u !== p.uai).map((u) => (ecolesParUai.get(u) || { properties: { nom: u } }).properties.nom);
         liens.push({ titre, texte: "Voir le secteur sur la carte", zone: z, niveau: niv,
-          detail: (autres.length ? `Secteur commun avec ${autres.join(", ")}. ` : "") + `${infoSect.source}, ${periodeSecteurs(infoSect)}` });
+          detail: (autres.length ? `Secteur commun avec ${autres.join(", ")}. ` : "") + `${infoSect.source}, ${periodeSecteurs(infoSect, niv)}` });
       });
     }
     memeAdresse.forEach((x) => liens.push({ titre: "Même adresse", texte: x.properties.nom, ecole: x }));
@@ -1740,9 +1740,10 @@
     return id ? indexSecteursEcoles[id] : null;
   }
   const MOIS = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
-  function periodeSecteurs(info) {
+  // Date par niveau quand elle diffère (Tours : élémentaires 2026, maternelles 2022-2023), sinon la plus récente.
+  function periodeSecteurs(info, niv) {
     if (info.annee) return `année scolaire ${info.annee}`;
-    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(info.maj || "");
+    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(((niv && info.maj_niveaux) ? info.maj_niveaux[niv] : null) || info.maj || "");
     return m ? `données mises à jour le ${eme(Number(m[3])).replace(/e$/, "")} ${MOIS[Number(m[2]) - 1]} ${m[1]}` : "date de mise à jour inconnue";
   }
 
