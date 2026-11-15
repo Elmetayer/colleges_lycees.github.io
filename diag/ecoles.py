@@ -6,11 +6,13 @@ H = {"User-Agent": "carte-scolaire-diag"}
 ANNUAIRE = "https://data.education.gouv.fr/api/explore/v2.1/catalog/datasets/fr-en-annuaire-education/exports/json"
 JEUX = {
     "Nantes": ("https://data.nantesmetropole.fr", ["244400404_perimetres-scolaires-nantes"], ["44109"]),
+    "Orléans": ("https://data.orleans-metropole.fr", ["administratifscol_sect_mater", "administratifscol_sect_elem"], ["45234"]),
+    "Clermont": ("https://opendata.clermontmetropole.eu", ["secteurs-scolaires-des-ecoles-vcf"], ["63113"]),
 }
 
 
 def get(url, **p):
-    r = requests.get(url, params=p, headers=H, timeout=180)
+    r = requests.get(url, params=p, headers=H, timeout=90)
     r.raise_for_status()
     return r.json()
 
@@ -60,6 +62,6 @@ for ville, (base, jeux, communes) in JEUX.items():
         print(f"  écoles publiques par nombre de zones contenantes : {dict(compte)} ; hors zones : {dans_aucune[:12]}")
         for f, g in list(zip(feats, geoms)):
             pr = {k: v for k, v in f["properties"].items() if not isinstance(v, (dict, list)) or k == "type"}
-            dedans = [f"{a['nom_etablissement']} [{'M' if a['ecole_maternelle']=='1' else ''}{'E' if a['ecole_elementaire']=='1' else ''}]"
+            dedans = [f"{a['nom_etablissement']} [{a.get('ecole_maternelle')}/{a.get('ecole_elementaire')}]"
                       for a in ann if g is not None and g.contains(Point(float(a["longitude"]), float(a["latitude"])))]
             print(f"  - {json.dumps(pr, ensure_ascii=False)[:230]}  =>  {dedans}")
