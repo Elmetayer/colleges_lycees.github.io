@@ -114,6 +114,13 @@ VILLES = {
         "titres": {"secteurs_scolaires_ecoles_elementaires": "Secteurs scolaires des écoles élémentaires",
                    "secteurs_scolaires_ecoles_maternelles": "Secteurs scolaires des écoles maternelles"},
     },
+    "45-orleans": {
+        "dep": "45", "communes": ["Orléans"], "source": "Ville d'Orléans", "licence": "Licence Ouverte",
+        "portail": "https://data.orleans-metropole.fr", "nom": "si_designa",
+        "jeux": {"elementaire": "administratifscol_sect_elem", "maternelle": "administratifscol_sect_mater"},
+        "titres": {"administratifscol_sect_elem": "Carte scolaire des écoles élémentaires",
+                   "administratifscol_sect_mater": "Carte scolaire des écoles maternelles"},
+    },
     "44-nantes": {
         "dep": "44", "communes": ["Nantes"], "source": "Ville de Nantes", "licence": "Licence Ouverte",
         "portail": "https://data.nantesmetropole.fr", "nom": "lib", "type": "type",
@@ -270,13 +277,15 @@ def score_nom(nom_zone: list[str], nom_ecole: list[str]) -> float:
     return min(1.0, trouves / min(len(nom_zone), len(nom_ecole)))
 
 
-def rattacher_zone(g, nom: str, cand: pd.DataFrame, niveau: str) -> tuple[list[str], str]:
+def rattacher_zone(g, nom: str, cand: pd.DataFrame, niveau: str, ville: pd.DataFrame | None = None) -> tuple[list[str], str]:
     """Écoles d'une zone : celles du niveau situées dans la zone dont le nom correspond le mieux (ex aequo : secteur
     commun, mais une école du niveau exact passe avant une école primaire du même nom : à Strasbourg, le secteur
     maternelle « ST JEAN » est celui de la maternelle Saint-Jean, pas de l'école primaire Saint-Jean) ; sinon l'unique
     école du niveau située dans la zone ; sinon une école du niveau au nom complet, à moins de VOISINE de la zone
-    (Nantes : la zone « Frédureau - Jean Jaures » est celle de l'élémentaire Jean Jaurès, construite juste à côté).
-    Renvoie (UAI, "nom" | "seule" | "voisine" | "")."""
+    (Nantes : la zone « Frédureau - Jean Jaures » est celle de l'élémentaire Jean Jaurès, construite juste à côté) ;
+    sinon la seule école du niveau de la commune qui porte exactement ce nom, où qu'elle soit (Orléans : les écoles
+    des Guernazelles sont placées à 8 km de leur quartier dans l'annuaire). Renvoie (UAI, "nom" | "seule" |
+    "voisine" | "commune" | "")."""
     large = g.buffer(MARGE)
     ici = cand[[large.contains(Point(x, y)) for x, y in zip(cand["lon"], cand["lat"])]]
     mz = mots_nom(nom)
@@ -295,6 +304,12 @@ def rattacher_zone(g, nom: str, cand: pd.DataFrame, niveau: str) -> tuple[list[s
     complets = [u for n, u in zip(autour["nom"], autour["uai"]) if score_nom(mz, mots_nom(n)) >= 0.99 and len(mots_nom(n)) >= 2]
     if complets:
         return complets, "voisine"
+    if ville is not None and len(ville):
+        memes = [(u, nv == niveau) for n, u, nv in zip(ville["nom"], ville["uai"], ville["niveau"]) if score_nom(mz, mots_nom(n)) >= 0.99]
+        if any(exact for _, exact in memes):
+            memes = [m for m in memes if m[1]]
+        if len(memes) == 1:
+            return [memes[0][0]], "commune"
     return [], ""
 
 
@@ -332,9 +347,11 @@ def construire_ville(vid: str, v: dict, ecoles: pd.DataFrame, frames: dict, reso
         cand = publiques[publiques["niveau"].isin(COMPATIBLES[niv])]
         cites, par_nom, rattachees, rates, communs = set(), 0, 0, [], []
         for nom, g in zones:
-            uais, comment = rattacher_zone(g, nom, cand, niv)
+            uais, comment = rattacher_zone(g, nom, cand, niv, cand[cand["commune"].isin(v["communes"])])
             rattachees += bool(uais)
-            par_nom += comment in ("nom", "voisine")
+            par_nom += comment in ("nom", "voisine", "commune")
+            if comment == "commune":
+                b.log(f"  {v['source']} {niv} : « {nom} » rattachée par le nom à une école située hors de la zone dans l'annuaire")
             if not uais:
                 rates.append(nom)
             cites.update(uais)

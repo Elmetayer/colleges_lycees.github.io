@@ -19,6 +19,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -82,7 +83,7 @@ def sur_la_carte(cle: str, meta: dict) -> str:
     # Secteurs des écoles : bloc de la ville (« Ville de Paris »…), retrouvé par le titre de la source.
     for fid, m in ((eco.get("secteurs") or {}).items()):
         if (fid == "75" and "paris" in cle) or (fid != "75" and fid.split("-", 1)[-1] in cle):
-            niv = "maternelle" if "maternelle" in cle else "elementaire"
+            niv = "maternelle" if "mater" in cle else "elementaire"
             c = m.get(niv) or {}
             if cle.startswith("ecoles_paris"):
                 return f"rattachement des écoles : {pourcent(c.get('rattachement'))}"
@@ -219,7 +220,7 @@ def rapport(site: Path, statut: str) -> dict:
         "chiffres": {
             "colleges": (meta.get("colleges") or {}).get("total"), "lycees": (meta.get("lycees") or {}).get("total"), "ecoles": eco.get("total"),
             "secteurs_departements": (meta.get("secteurs") or {}).get("departements"), "departements": DEPARTEMENTS_METROPOLE,
-            "villes_ecoles": [m.get("source", fid).removeprefix("Ville de ") for fid, m in (eco.get("secteurs") or {}).items()],
+            "villes_ecoles": [re.sub(r"^Ville d(e |')", "", m.get("source", fid)) for fid, m in (eco.get("secteurs") or {}).items()],
         },
         "groupes": [{"cle": g, "titre": titre, "lignes": groupes[g]} for g, titre in GROUPES],
         "controles": (verif or {}).get("controles") or [],
