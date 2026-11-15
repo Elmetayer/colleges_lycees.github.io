@@ -5,8 +5,7 @@ from shapely.geometry import Point, shape
 H = {"User-Agent": "carte-scolaire-diag"}
 ANNUAIRE = "https://data.education.gouv.fr/api/explore/v2.1/catalog/datasets/fr-en-annuaire-education/exports/json"
 JEUX = {
-    "Tours": ("https://data.tours-metropole.fr", ["sectorisation-polygone-des-ecoles-maternelle-tours", "sectorisation_ecole_elementaire"], ["37261"]),
-    "Saint-Nazaire": ("https://data.agglo-carene.fr", ["214401846_educ_perimetre_ecole_prox_184"], ["44184"]),
+    "Orléans": ("https://data.orleans-metropole.fr", ["administratifscol_sect_elem"], ["45234"]),
 }
 
 

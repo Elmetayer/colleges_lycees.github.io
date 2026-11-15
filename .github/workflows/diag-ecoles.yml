@@ -8,4 +8,4 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - run: pip install -r pipeline/requirements.txt
-      - run: python diag/bdx_lille.py
+      - run: python diag/ecoles.py
