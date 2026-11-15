@@ -1143,7 +1143,11 @@
     const infoSect = infoSecteursEcole(p);
     if (p.secteur === "public" && infoSect) {
       const niveaux = niveauxSecteur(p);
-      niveaux.forEach((niv) => {
+      // École primaire hors Paris : souvent seule la partie élémentaire a un secteur à son nom (une maternelle voisine
+      // a le secteur maternelle) ; on ne signale alors pas l'absence de secteur maternelle.
+      const trouves = niveaux.filter((niv) => zoneDeLEcole(p.uai, niv));
+      const montres = infoSect.communes && trouves.length ? trouves : niveaux;
+      montres.forEach((niv) => {
         const z = zoneDeLEcole(p.uai, niv);
         const titre = niveaux.length > 1 ? `Secteur ${NOMS_NIVEAU[niv]}` : "Secteur de l'école";
         if (!z) { liens.push({ titre, detail: `Pas de secteur trouvé pour cette école dans les données de la ${infoSect.source} (${periodeSecteurs(infoSect)}).` }); return; }
@@ -1687,7 +1691,7 @@
   }
 
   // ---------------------------------------------------------------- secteurs des écoles
-  // Secteurs des écoles publiques publiés par les villes (Paris, Strasbourg, Nantes… : pipeline/secteurs_ecoles.py).
+  // Secteurs des écoles publiques publiés par les villes (Paris, Strasbourg… : pipeline/secteurs_ecoles.py).
   // Un fichier par département (data/secteurs-ecoles/<dep>.geojson), chargé avec les écoles du département.
   // Maternelles et élémentaires ont chacune leurs secteurs, qui couvrent toute la ville : la carte n'en montre
   // qu'un jeu, selon le réglage Niveau du calque Écoles (élémentaires, ou maternelles si seules elles sont cochées).

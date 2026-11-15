@@ -13,7 +13,7 @@ Paris (opendata.paris.fr, Ville de Paris, licence ODbL) :
   Année montrée : la dernière publiée, sans dépasser la rentrée suivante (les familles préparent les
   inscriptions dès que la Ville publie les secteurs de la rentrée suivante, vers mars).
 
-Autres villes (VILLES) : un polygone par secteur, nommé d'après son école (« L. DE VINCI », « Louis Pergaud »),
+Autres villes (VILLES) : un polygone par secteur, nommé d'après son école (« L. DE VINCI »),
 sans année scolaire (la date de mise à jour du jeu est montrée à la place). L'école est cherchée parmi les écoles
 publiques de l'annuaire situées dans la zone (à 150 m près), du niveau de la zone, par les mots du nom ; à défaut
 de nom reconnu, l'unique école du niveau située dans la zone (diagnostic du 15/11/2026 : à Strasbourg, chaque
@@ -23,7 +23,8 @@ Propriétés des zones : niveau (maternelle | elementaire), uais (codes UAI sép
 commun (secteur de plusieurs écoles), noms (ceux de la ville).
 Renvoie le bloc "secteurs" de meta.json ecoles (un bloc par fichier), avec les contrôles lus par tests/verifier_site.py :
   - rattachement : part des écoles nommées (Paris) ou des zones (autres villes) rattachées à un UAI
-  - couverture : part des écoles publiques de la ville (du niveau) citées dans un secteur
+  - couverture : part des écoles publiques de la ville (du niveau) citées dans un secteur (autres villes : les écoles
+    primaires comptent pour les secteurs élémentaires seulement)
   - coherence : Paris, part des secteurs à une seule école qui contiennent cette école (à 50 m près) ;
     autres villes, part des zones rattachées par le nom (et non par l'unique école de la zone)
 """
@@ -102,7 +103,9 @@ def cle_source(vid: str, jeu: str) -> str:
 
 
 # Autres villes. jeux : niveau -> jeu Explore ; "*" : un seul jeu pour les deux niveaux, la colonne type disant
-# à quels niveaux s'applique chaque zone (types : valeur -> niveaux).
+# à quels niveaux s'applique chaque zone (types : valeur -> niveaux, par exemple {"M": ["maternelle"], "P": [...]}).
+# Nantes (data.nantesmetropole.fr, 244400404_perimetres-scolaires-nantes, colonnes lib et type) attend que son
+# portail réponde à nouveau (erreurs 504 le 15/11/2026) pour vérifier les valeurs de type.
 VILLES = {
     "67-strasbourg": {
         "dep": "67", "communes": ["Strasbourg"], "source": "Ville de Strasbourg", "licence": "Licence Ouverte",
@@ -110,13 +113,6 @@ VILLES = {
         "jeux": {"elementaire": "secteurs_scolaires_ecoles_elementaires", "maternelle": "secteurs_scolaires_ecoles_maternelles"},
         "titres": {"secteurs_scolaires_ecoles_elementaires": "Secteurs scolaires des écoles élémentaires",
                    "secteurs_scolaires_ecoles_maternelles": "Secteurs scolaires des écoles maternelles"},
-    },
-    "44-nantes": {
-        "dep": "44", "communes": ["Nantes"], "source": "Ville de Nantes", "licence": "Licence Ouverte",
-        "portail": "https://data.nantesmetropole.fr", "nom": "lib", "type": "type",
-        "jeux": {"*": "244400404_perimetres-scolaires-nantes"},
-        "types": {"M": ["maternelle"], "E": ["elementaire"], "P": ["maternelle", "elementaire"]},
-        "titres": {"244400404_perimetres-scolaires-nantes": "Périmètres scolaires de la ville de Nantes"},
     },
 }
 # Mots sans valeur pour reconnaître une école à son nom ; abréviations des noms de secteurs.
@@ -263,16 +259,21 @@ def score_nom(nom_zone: list[str], nom_ecole: list[str]) -> float:
     return trouves / len(nom_zone)
 
 
-def rattacher_zone(g, nom: str, cand: pd.DataFrame) -> tuple[list[str], str]:
+def rattacher_zone(g, nom: str, cand: pd.DataFrame, niveau: str) -> tuple[list[str], str]:
     """Écoles d'une zone : celles du niveau situées dans la zone dont le nom correspond le mieux (ex aequo : secteur
-    commun) ; sinon l'unique école du niveau située dans la zone. Renvoie (UAI, "nom" | "seule" | "")."""
+    commun, mais une école du niveau exact passe avant une école primaire du même nom : à Strasbourg, le secteur
+    maternelle « ST JEAN » est celui de la maternelle Saint-Jean, pas de l'école primaire Saint-Jean) ; sinon l'unique
+    école du niveau située dans la zone. Renvoie (UAI, "nom" | "seule" | "")."""
     large = g.buffer(MARGE)
     ici = cand[[large.contains(Point(x, y)) for x, y in zip(cand["lon"], cand["lat"])]]
     mz = mots_nom(nom)
-    scores = [(score_nom(mz, mots_nom(n)), u) for n, u in zip(ici["nom"], ici["uai"])]
-    meilleur = max((s for s, _ in scores), default=0)
+    scores = [(score_nom(mz, mots_nom(n)), u, nv == niveau) for n, u, nv in zip(ici["nom"], ici["uai"], ici["niveau"])]
+    meilleur = max((s for s, _, _ in scores), default=0)
     if meilleur >= 0.5:
-        return [u for s, u in scores if s == meilleur], "nom"
+        retenues = [(u, exact) for s, u, exact in scores if s == meilleur]
+        if any(exact for _, exact in retenues):
+            retenues = [(u, exact) for u, exact in retenues if exact]
+        return [u for u, _ in retenues], "nom"
     strict = [u for u, x, y in zip(ici["uai"], ici["lon"], ici["lat"]) if g.contains(Point(x, y))]
     if len(strict) == 1:
         return strict, "seule"
@@ -311,16 +312,20 @@ def construire_ville(vid: str, v: dict, ecoles: pd.DataFrame, frames: dict, reso
             b.log(f"  ! {v['source']} : types de zones inconnus {sorted(map(str, inconnus))}")
     for niv, zones in zones_par_niveau.items():
         cand = publiques[publiques["niveau"].isin(COMPATIBLES[niv])]
-        cites, par_nom, rattachees, rates = set(), 0, 0, []
+        cites, par_nom, rattachees, rates, communs = set(), 0, 0, [], []
         for nom, g in zones:
-            uais, comment = rattacher_zone(g, nom, cand)
+            uais, comment = rattacher_zone(g, nom, cand, niv)
             rattachees += bool(uais)
             par_nom += comment == "nom"
             if not uais:
                 rates.append(nom)
             cites.update(uais)
             features.append(zone(g, {"niveau": niv, "uais": " ".join(uais), "commun": len(uais) > 1, "noms": nom}))
-        attendues = set(de_la_ville[de_la_ville["niveau"].isin(COMPATIBLES[niv])]["uai"])
+            if len(uais) > 1:
+                communs.append(f"{nom} : " + ", ".join(cand[cand["uai"].isin(uais)]["nom"]))
+        # Écoles attendues : élémentaires et primaires pour les secteurs élémentaires, maternelles seulement pour les
+        # secteurs maternelle (une école primaire voisine d'une maternelle n'a pas de secteur maternelle à son nom).
+        attendues = set(de_la_ville[de_la_ville["niveau"].isin(COMPATIBLES[niv] if niv == "elementaire" else {niv})]["uai"])
         absentes = de_la_ville[de_la_ville["uai"].isin(attendues - cites)]
         meta[niv] = {
             "annee": None, "maj": maj, "secteurs": len(zones), "communs": sum(1 for f in features if f["properties"]["niveau"] == niv and f["properties"]["commun"]),
@@ -329,6 +334,7 @@ def construire_ville(vid: str, v: dict, ecoles: pd.DataFrame, frames: dict, reso
             "coherence": round(par_nom / rattachees, 3) if rattachees else 0,
             "non_rattachees": rates[:20], "absentes": sorted(f"{u} {n}" for u, n in zip(absentes["uai"], absentes["nom"]))[:30],
         }
+        b.log(f"  {v['source']} {niv} : secteurs communs {communs}")
     meta["annee"], meta["maj"] = None, maj
     return features, meta
 
