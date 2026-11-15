@@ -11,7 +11,7 @@ puis confie les calculs aux modules colleges.py, lycees.py et ecoles.py. Fichier
   - <out>/ecoles/<dep>.geojson     : écoles d'un département (trop nombreuses pour un seul fichier),
                                      avec ecoles/index.json et ecoles/recherche.json (voir ecoles.py)
   - <out>/fiches/ecoles-<dep>.json : IPS avec rangs, taille des classes des écoles d'un département
-  - <out>/secteurs-ecoles/         : secteurs des écoles publiques (Paris ; voir secteurs_ecoles.py)
+  - <out>/secteurs-ecoles/         : secteurs des écoles publiques, un fichier par ville (voir secteurs_ecoles.py)
   - <out>/meta.json                : date de génération, sessions, médianes, sources
 
 Usage : python pipeline/build.py --out site/data --cache-dir sources-cache
@@ -147,7 +147,7 @@ SOURCES = {
                     "esurc_circo_preel,esurc_circo_elem,esurc_acad_preel,esurc_acad_elem,esurc_fr_preel,esurc_fr_elem",
         "obligatoire": False,
     },
-    # Secteurs des écoles de Paris (Ville de Paris) : voir secteurs_ecoles.py.
+    # Secteurs des écoles publiés par les villes (Paris, Strasbourg…) : voir secteurs_ecoles.py.
     **secteurs_ecoles.sources(),
 }
 
@@ -473,7 +473,7 @@ def main() -> int:
 
     log("\n== secteurs des écoles")
     try:
-        secteurs = secteurs_ecoles.construire(eco_df, frames, out, problemes)
+        secteurs = secteurs_ecoles.construire(eco_df, frames, out, problemes, resolved)
     except ColonneIntrouvable as exc:
         log(f"  ! secteurs des écoles ignorés : {exc}")
         problemes.append(f"secteurs des écoles : {exc}")

@@ -1,24 +1,32 @@
-"""Secteurs des écoles publiques (jalon 7b : Paris).
+"""Secteurs des écoles publiques publiés par les villes (jalon 7b : Paris ; 7c : autres villes).
 
-Appelé par build.py après ecoles.py. Sources (opendata.paris.fr, Ville de Paris, licence ODbL) :
+Appelé par build.py après ecoles.py. Un fichier par ville : <out>/secteurs-ecoles/<id>.geojson, décrit dans
+<out>/secteurs-ecoles/index.json (département, communes couvertes, source, année ou date de mise à jour, emprise).
+
+Paris (opendata.paris.fr, Ville de Paris, licence ODbL) :
   - secteurs_paris_elementaires / secteurs_paris_maternelles : un polygone par secteur, avec les
     noms des écoles du secteur (lib_etab_1 à 4 ; « secteur commun » quand il y en a plusieurs) ;
   - ecoles_paris_elementaires / ecoles_paris_maternelles : les écoles (nom, adresse, position).
-Les fichiers de la Ville ne donnent pas le code UAI des écoles : chaque nom est rattaché à une école
-de l'annuaire national en croisant le numéro et la rue de l'adresse avec la distance (diagnostic du
-15/11/2026 : 33 écoles à plus de 50 m de leur point dans l'annuaire).
+  Les fichiers de la Ville ne donnent pas le code UAI des écoles : chaque nom est rattaché à une école
+  de l'annuaire national en croisant le numéro et la rue de l'adresse avec la distance (diagnostic du
+  15/11/2026 : 33 écoles à plus de 50 m de leur point dans l'annuaire).
+  Année montrée : la dernière publiée, sans dépasser la rentrée suivante (les familles préparent les
+  inscriptions dès que la Ville publie les secteurs de la rentrée suivante, vers mars).
 
-Année montrée : la dernière publiée, sans dépasser la rentrée suivante (les familles préparent les
-inscriptions dès que la Ville publie les secteurs de la rentrée suivante, vers mars).
+Autres villes (VILLES) : un polygone par secteur, nommé d'après son école (« L. DE VINCI »),
+sans année scolaire (la date de mise à jour du jeu est montrée à la place). L'école est cherchée parmi les écoles
+publiques de l'annuaire situées dans la zone (à 150 m près), du niveau de la zone, par les mots du nom ; à défaut
+de nom reconnu, l'unique école du niveau située dans la zone (diagnostic du 15/11/2026 : à Strasbourg, chaque
+école publique est dans une zone de chaque niveau, et l'école nommée y est toujours).
 
-Écrit :
-  - <out>/secteurs-ecoles/75.geojson : les zones, propriétés niveau (maternelle | elementaire),
-    uais (codes UAI séparés par des espaces), commun (secteur de plusieurs écoles), noms (ceux de la Ville)
-  - <out>/secteurs-ecoles/index.json : emprise, année et source de chaque département
-Renvoie le bloc "secteurs" de meta.json ecoles, avec les contrôles lus par tests/verifier_site.py :
-  - rattachement : part des noms d'écoles des secteurs rattachés à un UAI
-  - couverture : part des écoles publiques de Paris (du niveau) citées dans un secteur
-  - coherence : part des secteurs à une seule école qui contiennent cette école (à 50 m près)
+Propriétés des zones : niveau (maternelle | elementaire), uais (codes UAI séparés par des espaces),
+commun (secteur de plusieurs écoles), noms (ceux de la ville).
+Renvoie le bloc "secteurs" de meta.json ecoles (un bloc par fichier), avec les contrôles lus par tests/verifier_site.py :
+  - rattachement : part des écoles nommées (Paris) ou des zones (autres villes) rattachées à un UAI
+  - couverture : part des écoles publiques de la ville (du niveau) citées dans un secteur (autres villes : les écoles
+    primaires comptent pour les secteurs élémentaires seulement)
+  - coherence : Paris, part des secteurs à une seule école qui contiennent cette école (à 50 m près) ;
+    autres villes, part des zones rattachées par le nom (et non par l'unique école de la zone)
 """
 
 from __future__ import annotations
@@ -79,7 +87,40 @@ def sources() -> dict:
             "colonnes": "libelle,adresse,annee_scol,geo_point_2d",
             "filtre": f"annee_scol in ({annees})", "obligatoire": False,
         }
+    for vid, v in VILLES.items():
+        for jeu in dict.fromkeys(v["jeux"].values()):
+            out[cle_source(vid, jeu)] = {
+                "titre": f"{v['titres'][jeu]} ({v['source']}, {v['licence']})",
+                "explore_base": f"{v['portail']}/api/explore/v2.1/catalog/datasets", "explore_id": jeu, "datagouv": None,
+                "page": f"{v['portail']}/explore/dataset/{jeu}/",
+                "colonnes": ",".join([v["nom"]] + ([v["type"]] if v.get("type") else []) + ["geo_shape"]), "obligatoire": False,
+            }
     return out
+
+
+def cle_source(vid: str, jeu: str) -> str:
+    return f"secteurs_{vid.split('-', 1)[1]}_{re.sub(r'[^a-z0-9]+', '_', jeu.lower())}"[:60]
+
+
+# Autres villes. jeux : niveau -> jeu Explore ; "*" : un seul jeu pour les deux niveaux, la colonne type disant
+# à quels niveaux s'applique chaque zone (types : valeur -> niveaux, par exemple {"M": ["maternelle"], "P": [...]}).
+# Nantes (data.nantesmetropole.fr, 244400404_perimetres-scolaires-nantes, colonnes lib et type) attend que son
+# portail réponde à nouveau (erreurs 504 le 15/11/2026) pour vérifier les valeurs de type.
+VILLES = {
+    "67-strasbourg": {
+        "dep": "67", "communes": ["Strasbourg"], "source": "Ville de Strasbourg", "licence": "Licence Ouverte",
+        "portail": "https://data.strasbourg.eu", "nom": "nom_secteur",
+        "jeux": {"elementaire": "secteurs_scolaires_ecoles_elementaires", "maternelle": "secteurs_scolaires_ecoles_maternelles"},
+        "titres": {"secteurs_scolaires_ecoles_elementaires": "Secteurs scolaires des écoles élémentaires",
+                   "secteurs_scolaires_ecoles_maternelles": "Secteurs scolaires des écoles maternelles"},
+    },
+}
+# Mots sans valeur pour reconnaître une école à son nom ; abréviations des noms de secteurs.
+MOTS_ECOLE = {"ecole", "ecoles", "groupe", "scolaire", "gs", "maternelle", "mat", "elementaire", "elem", "elelentaire", "primaire",
+              "publique", "public", "pu", "ep", "de", "du", "des", "la", "le", "les", "d", "l", "et", "a", "au", "aux", "en"}
+ABREVIATIONS = {"st": "saint", "ste": "sainte", "sts": "saints"}
+# Une école est cherchée dans sa zone à cette marge près (degrés, environ 150 m) : écoles en limite de secteur.
+MARGE = 0.0015
 
 
 def _outils():
@@ -148,10 +189,15 @@ def arrondir(g):
     return g
 
 
-def construire(ecoles: pd.DataFrame, frames: dict, out_dir, problemes: list) -> dict | None:
+def zone(g, props: dict) -> dict:
+    g = g.simplify(TOLERANCE, preserve_topology=True)
+    return {"type": "Feature", "geometry": {"type": g.geom_type, "coordinates": arrondir(mapping(g)["coordinates"])}, "properties": props}
+
+
+def construire_paris(ecoles: pd.DataFrame, frames: dict, problemes: list) -> tuple[list, dict] | None:
     b = _outils()
     paris = ecoles[(ecoles["dep"] == "75") & (ecoles["secteur"] == "public")]
-    features, meta = [], {"source": "Ville de Paris", "licence": "ODbL"}
+    features, meta = [], {}
     for niv, pluriel in NIVEAUX.items():
         ks, kp = f"secteurs_paris_{pluriel}", f"ecoles_paris_{pluriel}"
         if ks not in frames or kp not in frames:
@@ -168,18 +214,14 @@ def construire(ecoles: pd.DataFrame, frames: dict, out_dir, problemes: list) -> 
         b.log(f"  {pluriel} {annee} : {len(sec)} secteurs, {len(pts)} écoles de la Ville, {len(lien)} rattachées à un UAI "
               f"({len(loin)} à plus de 50 m : {loin[:6]}) ; non rattachées : {rates[:10]}")
         c_libs = [b.pick(sec, rf"^lib_etab_{i}$") for i in range(1, 5)]
-        c_geo, c_lib = b.pick(sec, r"geo_shape"), b.pick(sec, r"^libelle$")
-        cites, noms_cites, ok_commun, dedans, seuls = set(), 0, 0, 0, 0
+        c_geo = b.pick(sec, r"geo_shape")
+        cites, noms_cites, nb_rattaches, dedans, seuls = set(), 0, 0, 0, 0
         for s in sec.itertuples(index=False):
             r = s._asdict()
-            libs = [r[c] for c in c_libs if isinstance(r[c], str) and r[c].strip()]
-            uais = []
-            for lib in libs:
-                noms_cites += 1
-                if lib.strip() in lien:
-                    uais.append(lien[lib.strip()][0])
-            uais = list(dict.fromkeys(uais))
-            ok_commun += len(uais) == len(libs)
+            libs = [r[c].strip() for c in c_libs if isinstance(r[c], str) and r[c].strip()]
+            noms_cites += len(libs)
+            nb_rattaches += sum(lib in lien for lib in libs)
+            uais = list(dict.fromkeys(lien[lib][0] for lib in libs if lib in lien))
             cites.update(uais)
             try:
                 g = shape(json.loads(r[c_geo])).buffer(0)
@@ -190,12 +232,8 @@ def construire(ecoles: pd.DataFrame, frames: dict, out_dir, problemes: list) -> 
                 e = paris[paris["uai"] == uais[0]]
                 if len(e) and g.buffer(0.0005).contains(Point(e.iloc[0]["lon"], e.iloc[0]["lat"])):
                     dedans += 1
-            g = g.simplify(TOLERANCE, preserve_topology=True)
-            features.append({"type": "Feature", "geometry": {"type": g.geom_type, "coordinates": arrondir(mapping(g)["coordinates"])},
-                             "properties": {"niveau": niv, "uais": " ".join(uais), "commun": len(libs) > 1, "noms": " / ".join(libs)}})
+            features.append(zone(g, {"niveau": niv, "uais": " ".join(uais), "commun": len(libs) > 1, "noms": " / ".join(libs)}))
         attendues = set(paris[paris["niveau"].isin(COMPATIBLES[niv])]["uai"])
-        nb_rattaches = sum(1 for s in sec.itertuples(index=False) for c in c_libs
-                           if isinstance(s._asdict()[c], str) and s._asdict()[c].strip() in lien)
         meta[niv] = {
             "annee": annee, "secteurs": len(sec), "communs": int(sum(1 for f in features if f["properties"]["niveau"] == niv and f["properties"]["commun"])),
             "rattachement": round(nb_rattaches / noms_cites, 3) if noms_cites else 0,
@@ -203,20 +241,133 @@ def construire(ecoles: pd.DataFrame, frames: dict, out_dir, problemes: list) -> 
             "coherence": round(dedans / seuls, 3) if seuls else 0,
             "non_rattachees": rates[:20], "absentes": sorted(attendues - cites)[:30],
         }
-        b.log(f"  contrôle {pluriel} : {json.dumps({k: v for k, v in meta[niv].items() if k not in ('non_rattachees', 'absentes')}, ensure_ascii=False)} ; "
-              f"écoles publiques sans secteur : {len(attendues - cites)} {sorted(attendues - cites)[:15]}")
     meta["annee"] = meta["elementaire"]["annee"]
+    return features, meta
+
+
+def mots_nom(s: str) -> list[str]:
+    """« ERC.CHATRIAN » -> [erc, chatrian] ; « Ecole maternelle Sainte-Aurèlie » -> [sainte, aurelie]."""
+    return [ABREVIATIONS.get(w, w) for w in mots(s) if w not in MOTS_ECOLE and (len(w) > 1 or w.isdigit())]
+
+
+def score_nom(nom_zone: list[str], nom_ecole: list[str]) -> float:
+    """Part des mots du nom de la zone retrouvés dans le nom de l'école (un mot abrégé suffit : « erc » pour
+    « erckmann ») ; les numéros (« Guynemer 1 & 2 ») comptent comme les autres mots."""
+    if not nom_zone:
+        return 0
+    trouves = sum(1 for w in nom_zone if any(e == w or (len(w) >= 3 and not w.isdigit() and e.startswith(w)) for e in nom_ecole))
+    return trouves / len(nom_zone)
+
+
+def rattacher_zone(g, nom: str, cand: pd.DataFrame, niveau: str) -> tuple[list[str], str]:
+    """Écoles d'une zone : celles du niveau situées dans la zone dont le nom correspond le mieux (ex aequo : secteur
+    commun, mais une école du niveau exact passe avant une école primaire du même nom : à Strasbourg, le secteur
+    maternelle « ST JEAN » est celui de la maternelle Saint-Jean, pas de l'école primaire Saint-Jean) ; sinon l'unique
+    école du niveau située dans la zone. Renvoie (UAI, "nom" | "seule" | "")."""
+    large = g.buffer(MARGE)
+    ici = cand[[large.contains(Point(x, y)) for x, y in zip(cand["lon"], cand["lat"])]]
+    mz = mots_nom(nom)
+    scores = [(score_nom(mz, mots_nom(n)), u, nv == niveau) for n, u, nv in zip(ici["nom"], ici["uai"], ici["niveau"])]
+    meilleur = max((s for s, _, _ in scores), default=0)
+    if meilleur >= 0.5:
+        retenues = [(u, exact) for s, u, exact in scores if s == meilleur]
+        if any(exact for _, exact in retenues):
+            retenues = [(u, exact) for u, exact in retenues if exact]
+        return [u for u, _ in retenues], "nom"
+    strict = [u for u, x, y in zip(ici["uai"], ici["lon"], ici["lat"]) if g.contains(Point(x, y))]
+    if len(strict) == 1:
+        return strict, "seule"
+    return [], ""
+
+
+def construire_ville(vid: str, v: dict, ecoles: pd.DataFrame, frames: dict, resolved: dict, problemes: list) -> tuple[list, dict] | None:
+    b = _outils()
+    publiques = ecoles[(ecoles["dep"] == v["dep"]) & (ecoles["secteur"] == "public")]
+    de_la_ville = publiques[publiques["commune"].isin(v["communes"])]
+    features, meta = [], {}
+    maj = max((str((resolved.get(cle_source(vid, j)) or {}).get("maj") or "")[:10] for j in v["jeux"].values()), default="") or None
+    zones_par_niveau = {"maternelle": [], "elementaire": []}
+    for niv_jeu, jeu in v["jeux"].items():
+        k = cle_source(vid, jeu)
+        if k not in frames:
+            b.log(f"  ! {v['source']} : {jeu} indisponible")
+            problemes.append(f"secteurs des écoles ({v['source']}) : {jeu} indisponible")
+            return None
+        df = frames[k]
+        c_nom, c_geo = b.pick(df, rf"^{v['nom']}$"), b.pick(df, r"geo_shape")
+        c_type = b.pick(df, rf"^{v['type']}$") if v.get("type") else None
+        inconnus = set()
+        for r in df.itertuples(index=False):
+            r = r._asdict()
+            niveaux = [niv_jeu] if niv_jeu != "*" else v["types"].get(str(r[c_type]).strip(), [])
+            if not niveaux:
+                inconnus.add(r[c_type])
+            try:
+                g = shape(json.loads(r[c_geo])).buffer(0)
+            except (TypeError, ValueError):
+                continue
+            for niv in niveaux:
+                zones_par_niveau[niv].append((str(r[c_nom] or "").strip(), g))
+        if inconnus:
+            b.log(f"  ! {v['source']} : types de zones inconnus {sorted(map(str, inconnus))}")
+    for niv, zones in zones_par_niveau.items():
+        cand = publiques[publiques["niveau"].isin(COMPATIBLES[niv])]
+        cites, par_nom, rattachees, rates, communs = set(), 0, 0, [], []
+        for nom, g in zones:
+            uais, comment = rattacher_zone(g, nom, cand, niv)
+            rattachees += bool(uais)
+            par_nom += comment == "nom"
+            if not uais:
+                rates.append(nom)
+            cites.update(uais)
+            features.append(zone(g, {"niveau": niv, "uais": " ".join(uais), "commun": len(uais) > 1, "noms": nom}))
+            if len(uais) > 1:
+                communs.append(f"{nom} : " + ", ".join(cand[cand["uai"].isin(uais)]["nom"]))
+        # Écoles attendues : élémentaires et primaires pour les secteurs élémentaires, maternelles seulement pour les
+        # secteurs maternelle (une école primaire voisine d'une maternelle n'a pas de secteur maternelle à son nom).
+        attendues = set(de_la_ville[de_la_ville["niveau"].isin(COMPATIBLES[niv] if niv == "elementaire" else {niv})]["uai"])
+        absentes = de_la_ville[de_la_ville["uai"].isin(attendues - cites)]
+        meta[niv] = {
+            "annee": None, "maj": maj, "secteurs": len(zones), "communs": sum(1 for f in features if f["properties"]["niveau"] == niv and f["properties"]["commun"]),
+            "rattachement": round(rattachees / len(zones), 3) if zones else 0,
+            "couverture": round(len(cites & attendues) / len(attendues), 3) if attendues else 0,
+            "coherence": round(par_nom / rattachees, 3) if rattachees else 0,
+            "non_rattachees": rates[:20], "absentes": sorted(f"{u} {n}" for u, n in zip(absentes["uai"], absentes["nom"]))[:30],
+        }
+        b.log(f"  {v['source']} {niv} : secteurs communs {communs}")
+    meta["annee"], meta["maj"] = None, maj
+    return features, meta
+
+
+def construire(ecoles: pd.DataFrame, frames: dict, out_dir, problemes: list, resolved: dict | None = None) -> dict | None:
+    b = _outils()
     dossier = out_dir / "secteurs-ecoles"
     dossier.mkdir(exist_ok=True)
     for f in dossier.glob("*"):
         f.unlink()
-    texte = json.dumps({"type": "FeatureCollection", "features": features}, ensure_ascii=False, separators=(",", ":"), allow_nan=False)
-    (dossier / "75.geojson").write_text(texte, encoding="utf-8")
-    # Emprise : bornes de chaque zone (l'arrondi des coordonnées peut rendre une union invalide).
-    bornes = [shape(f["geometry"]).bounds for f in features]
-    emprise = (min(x[0] for x in bornes), min(x[1] for x in bornes), max(x[2] for x in bornes), max(x[3] for x in bornes))
-    (dossier / "index.json").write_text(json.dumps({"75": {
-        "bbox": [round(x, 4) for x in emprise], "annee": meta["annee"], "source": "Ville de Paris", "zones": len(features)}},
-        ensure_ascii=False), encoding="utf-8")
-    b.log(f"  secteurs des écoles de Paris : {len(features)} zones, {len(texte) / 1e6:.2f} Mo")
-    return {"75": meta}
+    index, metas = {}, {}
+    fichiers = [("75", {"dep": "75", "communes": None, "source": "Ville de Paris", "licence": "ODbL"})] + list(VILLES.items())
+    for fid, v in fichiers:
+        b.log(f"  -- {v['source']}")
+        res = (construire_paris(ecoles, frames, problemes) if fid == "75"
+               else construire_ville(fid, v, ecoles, frames, resolved or {}, problemes))
+        if not res:
+            continue
+        features, meta = res
+        for niv in NIVEAUX:
+            c = meta[niv]
+            b.log(f"  contrôle {v['source']} {niv} : {json.dumps({k: x for k, x in c.items() if k not in ('non_rattachees', 'absentes')}, ensure_ascii=False)} ; "
+                  f"zones non rattachées : {c['non_rattachees'][:10]} ; écoles publiques sans secteur : {len(c['absentes'])} {c['absentes'][:15]}")
+        texte = json.dumps({"type": "FeatureCollection", "features": features}, ensure_ascii=False, separators=(",", ":"), allow_nan=False)
+        (dossier / f"{fid}.geojson").write_text(texte, encoding="utf-8")
+        # Emprise : bornes de chaque zone (l'arrondi des coordonnées peut rendre une union invalide).
+        bornes = [shape(f["geometry"]).bounds for f in features]
+        emprise = (min(x[0] for x in bornes), min(x[1] for x in bornes), max(x[2] for x in bornes), max(x[3] for x in bornes))
+        index[fid] = {"dep": v["dep"], "communes": v["communes"], "bbox": [round(x, 4) for x in emprise], "annee": meta["annee"],
+                      "maj": meta.get("maj"), "source": v["source"], "licence": v["licence"], "zones": len(features)}
+        metas[fid] = dict(meta, source=v["source"], licence=v["licence"])
+        b.log(f"  {v['source']} : {len(features)} zones, {len(texte) / 1e6:.2f} Mo")
+    if not index:
+        return None
+    (dossier / "index.json").write_text(json.dumps(index, ensure_ascii=False), encoding="utf-8")
+    return metas

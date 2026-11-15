@@ -1093,7 +1093,7 @@
     fiche.scrollTop = 0;
     $("fermer").focus({ preventScroll: true });
     const secteursPrets = p.secteur === "public" && coord ? Promise.all(departementsAuPoint(coord).map(chargerSecteursDep)
-      .concat(indexSecteursEcoles[p.dep] ? [chargerSecteursEcolesDep(p.dep)] : [])).catch(() => {}) : null;
+      .concat(idsSecteursEcoles(p.dep).map(chargerSecteursEcoles))).catch(() => {}) : null;
     Promise.all([chargerFiches(p.dep, "ecoles"), secteursPrets]).then(([dep]) => {
       const col = collegeDeSecteur(p, coord);
       return (col ? chargerFiches(col.properties.dep, "colleges").catch(() => ({})) : Promise.resolve({})).then((fc) => {
@@ -1140,16 +1140,20 @@
       else if (!indexSecteurs[normDep(p.dep)]) liens.push({ titre: "Collège de secteur", detail: "Non disponible : ce département ne figure pas dans le fichier national de carte scolaire." });
     }
     // Secteur de l'école (villes qui publient les secteurs de leurs écoles).
-    const infoSect = indexSecteursEcoles[p.dep];
+    const infoSect = infoSecteursEcole(p);
     if (p.secteur === "public" && infoSect) {
       const niveaux = niveauxSecteur(p);
-      niveaux.forEach((niv) => {
+      // École primaire hors Paris : souvent seule la partie élémentaire a un secteur à son nom (une maternelle voisine
+      // a le secteur maternelle) ; on ne signale alors pas l'absence de secteur maternelle.
+      const trouves = niveaux.filter((niv) => zoneDeLEcole(p.uai, niv));
+      const montres = infoSect.communes && trouves.length ? trouves : niveaux;
+      montres.forEach((niv) => {
         const z = zoneDeLEcole(p.uai, niv);
         const titre = niveaux.length > 1 ? `Secteur ${NOMS_NIVEAU[niv]}` : "Secteur de l'école";
-        if (!z) { liens.push({ titre, detail: `Pas de secteur trouvé pour cette école dans les données de la ${infoSect.source} (${infoSect.annee}).` }); return; }
+        if (!z) { liens.push({ titre, detail: `Pas de secteur trouvé pour cette école dans les données de la ${infoSect.source} (${periodeSecteurs(infoSect)}).` }); return; }
         const autres = zoneUais(z).filter((u) => u !== p.uai).map((u) => (ecolesParUai.get(u) || { properties: { nom: u } }).properties.nom);
         liens.push({ titre, texte: "Voir le secteur sur la carte", zone: z, niveau: niv,
-          detail: (autres.length ? `Secteur commun avec ${autres.join(", ")}. ` : "") + `${infoSect.source}, ${infoSect.annee}` });
+          detail: (autres.length ? `Secteur commun avec ${autres.join(", ")}. ` : "") + `${infoSect.source}, ${periodeSecteurs(infoSect)}` });
       });
     }
     memeAdresse.forEach((x) => liens.push({ titre: "Même adresse", texte: x.properties.nom, ecole: x }));
@@ -1399,7 +1403,7 @@
   // Adresse choisie : repère sur la carte et liste des collèges publics les plus proches.
   // Les secteurs des départements autour de l'adresse sont chargés avant de chercher son secteur.
   function montrerAdresse(a) {
-    Promise.all(departementsAuPoint(a.coord).map(chargerSecteursDep).concat(depsSecteursEcolesAuPoint(a.coord).map(chargerSecteursEcolesDep)))
+    Promise.all(departementsAuPoint(a.coord).map(chargerSecteursDep).concat(depsSecteursEcolesAuPoint(a.coord).map(chargerSecteursEcoles)))
       .catch(() => {}).then(() => afficherAdresse(a));
   }
 
@@ -1436,13 +1440,15 @@
       : "";
     // Écoles de secteur (villes qui publient les secteurs de leurs écoles).
     const depEcoles = depsSecteursEcolesAuPoint(a.coord)[0];
-    const infoEcoles = depEcoles ? indexSecteursEcoles[depEcoles] : null;
+    let infoEcoles = depEcoles ? indexSecteursEcoles[depEcoles] : null;
     const ecolesSecteur = [];
     if (infoEcoles) ["maternelle", "elementaire"].forEach((niv) => {
       const z = zoneEcoleAuPoint(a.coord, niv);
       const uais = z ? zoneUais(z) : [];
-      ecolesSecteur.push({ niv, commun: uais.length > 1, ecoles: uais.map((u) => ecolesParUai.get(u)).filter(Boolean) });
+      ecolesSecteur.push({ niv, zone: Boolean(z), commun: uais.length > 1, ecoles: uais.map((u) => ecolesParUai.get(u)).filter(Boolean) });
     });
+    // Adresse dans l'emprise d'une ville mais hors de ses secteurs (commune voisine) : pas de bloc.
+    if (infoEcoles && infoEcoles.communes && !ecolesSecteur.some((s) => s.zone)) infoEcoles = null;
     if (infoEcoles) {
       const z = zoneEcoleAuPoint(a.coord, niveauZones());
       if (z && carte.getLayer("secteurs-ecoles-surligne"))
@@ -1456,7 +1462,7 @@
           <span class="distance">${distance(distanceKm(a.coord, e.geometry.coordinates))}</span></button></li>`).join("")
           : `<li class="info-secteur">Aucun secteur ${NOMS_NIVEAU[s.niv]} trouvé pour cette adresse.</li>`)).join("")}
       </ul>
-      <p class="avertissement">${ecolesSecteur.some((s) => s.commun) ? "Secteur commun : l'enfant est inscrit dans l'une de ces écoles. " : ""}Secteurs publiés par la ${echapper(infoEcoles.source)} pour l'année scolaire ${echapper(infoEcoles.annee)}. Pour l'inscription, la réponse qui fait foi est celle de la mairie.</p>
+      <p class="avertissement">${ecolesSecteur.some((s) => s.commun) ? "Secteur commun : l'enfant est inscrit dans l'une de ces écoles. " : ""}Secteurs publiés par la ${echapper(infoEcoles.source)} (${echapper(periodeSecteurs(infoEcoles))}). Pour l'inscription, la réponse qui fait foi est celle de la mairie.</p>
       <h3>Collèges</h3>` : "";
     $("fiche-contenu").innerHTML = `
       <h2 id="fiche-nom">${echapper(a.libelle)}</h2>
@@ -1645,7 +1651,7 @@
     });
     if (reglages.ecoles.zones) Object.keys(indexSecteursEcoles).forEach((d) => {
       const b = indexSecteursEcoles[d].bbox;
-      if (b && b[0] <= v.getEast() && b[2] >= v.getWest() && b[1] <= v.getNorth() && b[3] >= v.getSouth()) chargerSecteursEcolesDep(d);
+      if (b && b[0] <= v.getEast() && b[2] >= v.getWest() && b[1] <= v.getNorth() && b[3] >= v.getSouth()) chargerSecteursEcoles(d);
     });
   }
 
@@ -1685,7 +1691,7 @@
   }
 
   // ---------------------------------------------------------------- secteurs des écoles
-  // Secteurs des écoles publiques publiés par les villes (pour l'instant Paris : pipeline/secteurs_ecoles.py).
+  // Secteurs des écoles publiques publiés par les villes (Paris, Strasbourg… : pipeline/secteurs_ecoles.py).
   // Un fichier par département (data/secteurs-ecoles/<dep>.geojson), chargé avec les écoles du département.
   // Maternelles et élémentaires ont chacune leurs secteurs, qui couvrent toute la ville : la carte n'en montre
   // qu'un jeu, selon le réglage Niveau du calque Écoles (élémentaires, ou maternelles si seules elles sont cochées).
@@ -1709,21 +1715,35 @@
     return features;
   }
 
-  function chargerSecteursEcolesDep(dep) {
-    const info = indexSecteursEcoles[dep];
+  // Un fichier par ville (identifiant « 75 », « 67-strasbourg »…), décrit dans index.json : département,
+  // communes couvertes (toutes celles du département si absent), source, année scolaire ou date de mise à jour.
+  function chargerSecteursEcoles(id) {
+    const info = indexSecteursEcoles[id];
     if (!info) return Promise.resolve();
-    if (!secteursEcolesDep.has(dep)) {
-      secteursEcolesDep.set(dep, Promise.all([
-        fetch(`data/secteurs-ecoles/${encodeURIComponent(dep)}.geojson`).then((r) => (r.ok ? r.json() : Promise.reject(r.status))),
-        chargerEcolesDep(dep),
+    if (!secteursEcolesDep.has(id)) {
+      secteursEcolesDep.set(id, Promise.all([
+        fetch(`data/secteurs-ecoles/${encodeURIComponent(id)}.geojson`).then((r) => (r.ok ? r.json() : Promise.reject(r.status))),
+        chargerEcolesDep(info.dep || id),
       ]).then(([geo]) => {
         secteursEcoles.features.push(...enrichirZonesEcoles(geo.features));
         const src = carte.getSource("secteurs-ecoles");
         if (src) src.setData(secteursEcoles);
         if (ficheCourante && ficheCourante.type === "ecole") surlignerSecteurEcole(ficheCourante.p);
-      }).catch((e) => { secteursEcolesDep.delete(dep); console.warn(`Secteurs des écoles du département ${dep} indisponibles`, e); }));
+      }).catch((e) => { secteursEcolesDep.delete(id); console.warn(`Secteurs des écoles ${id} indisponibles`, e); }));
     }
-    return secteursEcolesDep.get(dep);
+    return secteursEcolesDep.get(id);
+  }
+  const idsSecteursEcoles = (dep) => Object.keys(indexSecteursEcoles).filter((id) => (indexSecteursEcoles[id].dep || id) === dep);
+  // Fichier de secteurs qui couvre une école (même département, et commune couverte).
+  function infoSecteursEcole(p) {
+    const id = idsSecteursEcoles(p.dep).find((i) => !indexSecteursEcoles[i].communes || indexSecteursEcoles[i].communes.includes(p.commune));
+    return id ? indexSecteursEcoles[id] : null;
+  }
+  const MOIS = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
+  function periodeSecteurs(info) {
+    if (info.annee) return `année scolaire ${info.annee}`;
+    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(info.maj || "");
+    return m ? `données mises à jour le ${eme(Number(m[3])).replace(/e$/, "")} ${MOIS[Number(m[2]) - 1]} ${m[1]}` : "date de mise à jour inconnue";
   }
 
   const depsSecteursEcolesAuPoint = (pt) => Object.keys(indexSecteursEcoles).filter((d) => dansBbox(indexSecteursEcoles[d].bbox, pt[0], pt[1], 0.005));
@@ -1760,9 +1780,10 @@
 
   function ajouterSecteursEcoles(index) {
     indexSecteursEcoles = Object.fromEntries(Object.entries(index).map(([d, v]) => [String(d), v]));
-    const annees = [...new Set(Object.values(indexSecteursEcoles).map((v) => v.annee))].join(", ");
+    const villes = Object.values(indexSecteursEcoles).map((v) => (v.communes ? v.communes.join(", ") : v.source.replace(/^Ville de /, "")));
+    const liste = villes.length > 1 ? `${villes.slice(0, -1).join(", ")} et ${villes[villes.length - 1]}` : villes.join("");
     calque("ecoles").zones = { libelle: "Secteurs des écoles publiques",
-      note: `Pour l'instant à Paris, d'après la Ville de Paris (année scolaire ${annees}). Les secteurs suivent le réglage Niveau : ceux des élémentaires, ou ceux des maternelles quand seules les maternelles sont cochées. Ils apparaissent avec les écoles, en zoomant sur une ville.` };
+      note: `Pour l'instant à ${liste}, d'après les secteurs publiés par chaque ville. Les secteurs suivent le réglage Niveau : ceux des élémentaires, ou ceux des maternelles quand seules les maternelles sont cochées. Ils apparaissent avec les écoles, en zoomant sur une ville.` };
     carte.addSource("secteurs-ecoles", { type: "geojson", data: secteursEcoles });
     const avant = carte.getLayer("colleges") ? "colleges" : undefined;
     carte.addLayer({ id: "secteurs-ecoles-fond", type: "fill", source: "secteurs-ecoles", minzoom: ZOOM_ECOLES, paint: { "fill-color": ABSENT, "fill-opacity": 0.3 } }, avant);
