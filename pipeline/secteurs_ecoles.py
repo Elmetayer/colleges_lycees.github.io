@@ -332,14 +332,22 @@ def rattacher_zone(g, nom: str, cand: pd.DataFrame, niveau: str, ville: pd.DataF
     large = g.buffer(MARGE)
     ici = cand[[large.contains(Point(x, y)) for x, y in zip(cand["lon"], cand["lat"])]]
     mz = mots_nom(nom)
-    scores = [(score_nom(mz, mots_nom(n)), u, nv == niveau) for n, u, nv in zip(ici["nom"], ici["uai"], ici["niveau"])]
-    meilleur = max((s for s, _, _ in scores), default=0)
-    if meilleur >= 0.5:
-        retenues = [(u, exact) for s, u, exact in scores if s == meilleur]
-        if any(exact for _, exact in retenues):
-            retenues = [(u, exact) for u, exact in retenues if exact]
-        return [u for u, _ in retenues], "nom"
+    scores = [(score_nom(mz, mots_nom(n)), u, nv == niveau, tuple(mots_nom(n))) for n, u, nv in zip(ici["nom"], ici["uai"], ici["niveau"])]
+    meilleur = max((s for s, _, _, _ in scores), default=0)
     strict = [(u, nv == niveau) for u, nv, x, y in zip(ici["uai"], ici["niveau"], ici["lon"], ici["lat"]) if g.contains(Point(x, y))]
+    if meilleur >= 0.5:
+        retenues = [(u, exact, m) for s, u, exact, m in scores if s == meilleur]
+        # Le niveau exact passe avant une école primaire du même nom seulement (Strasbourg, « ST JEAN ») : deux écoles
+        # de noms différents, toutes deux citées par la zone, restent ensemble (Bordeaux : « Montaud-Nuits-Franc
+        # Sanson », élémentaire Montaud et primaire Franc Sanson).
+        noms_exacts = {m for _, exact, m in retenues if exact}
+        retenues = [r for r in retenues if r[1] or r[2] not in noms_exacts]
+        # Ville à secteurs de quartier : un nom de zone qui ne désigne l'école qu'en partie (« Lac » pour la maternelle
+        # « Lac 3 ») au milieu d'autres écoles du niveau est un nom de quartier.
+        if quartiers and len(strict) >= 2 and not any(all(any(z == w or (len(z) >= 3 and w.startswith(z)) for z in mz) for w in m)
+                                                      for _, _, m in retenues):
+            return [u for u, _ in strict], "quartier"
+        return [u for u, _, _ in retenues], "nom"
     exactes = [u for u, exact in strict if exact]
     if len(strict) == 1:
         return [strict[0][0]], "seule"
