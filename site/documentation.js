@@ -22,8 +22,48 @@ if (nav && titres.length >= 3) {
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   fetch("data/meta.json").then((r) => r.json()).then((m) => {
     const sourcesEl = document.getElementById("liste-sources");
-    if (sourcesEl) sourcesEl.innerHTML = m.sources.map((s) =>
-      `<tr><td>${s.page ? `<a href="${esc(s.page)}">${esc(s.titre)}</a>` : esc(s.titre)}</td><td>${date(s.mise_a_jour)}${s.version_reprise ? `<br><small>Source injoignable lors du dernier calcul : version téléchargée le ${date(s.version_reprise)} conservée</small>` : ""}</td></tr>`).join("");
+    // Deux groupes : jeux nationaux, puis secteurs des écoles publiés par les villes (rangés par ville, avec
+    // l'année scolaire ou la date des zones quand elle diffère de celle du fichier).
+    const ligne = (s, titre, note) =>
+      `<tr><td>${s.page ? `<a href="${esc(s.page)}">${esc(titre)}</a>` : esc(titre)}</td><td>${date(s.mise_a_jour)}${note ? `<br><small>${esc(note)}</small>` : ""}${s.version_reprise ? `<br><small>Source injoignable lors du dernier calcul : version téléchargée le ${date(s.version_reprise)} conservée</small>` : ""}</td></tr>`;
+    const secteursEcoles = (m.ecoles && m.ecoles.secteurs) || {};
+    const noteVille = (s) => {
+      if (s.ville.role === "ecoles") return "positions des écoles, pour les rattacher à l'annuaire";
+      const b = secteursEcoles[s.ville.fichier] || {};
+      const notes = [...new Set((s.ville.niveaux || []).map((n) => (b[n] || {}).annee ? `année scolaire ${b[n].annee}`
+        : (b[n] || {}).maj && (b[n].maj !== String(s.mise_a_jour || "").slice(0, 10)) ? `zones datées du ${date(b[n].maj)}` : null).filter(Boolean))];
+      return notes.join(", ");
+    };
+    // Page Écoles : une ligne par ville (secteurs par niveau, date, couverture), lue dans meta.json.
+    const villesEl = document.getElementById("liste-villes-ecoles");
+    if (villesEl) {
+      const pct = (x) => (x == null ? "—" : `${(x * 100).toLocaleString("fr-FR", { maximumFractionDigits: 1 })} %`);
+      const pages = {};
+      m.sources.filter((s) => s.ville && s.ville.role === "secteurs").forEach((s) => { (pages[s.ville.fichier] = pages[s.ville.fichier] || []).push(s); });
+      const lignes = Object.entries(secteursEcoles).map(([fid, b]) => {
+        const src = pages[fid] || [];
+        const ville = src.length ? src[0].ville.ville : String(b.source || fid).replace(/^Ville d(e |')/, "");
+        const niv = (n, nom) => (b[n] ? `${(b[n].secteurs || 0).toLocaleString("fr-FR")} ${nom}` : null);
+        const parNiveau = [["elementaire", "élémentaires"], ["maternelle", "maternelles"]].filter(([n]) => b[n])
+          .map(([n, nom]) => [nom, b[n].annee ? `année ${b[n].annee}` : b[n].maj ? date(b[n].maj) : null]).filter(([, d]) => d);
+        // Une seule date si les niveaux ont la même, sinon une par niveau (Tours).
+        const dates = new Set(parNiveau.map(([, d]) => d)).size <= 1 ? [...new Set(parNiveau.map(([, d]) => d))] : parNiveau.map(([nom, d]) => `${nom} : ${d}`);
+        const liens = src.map((s) => `<a href="${esc(s.page)}">${esc(s.ville.source)}</a>`).filter((v, i, t) => t.indexOf(v) === i).join(", ");
+        return { ville, html: `<tr><td><b>${esc(ville)}</b><br><small>${liens || esc(b.source || "")}, ${esc(b.licence || (src[0] && src[0].ville.licence) || "")}</small></td>`
+          + `<td>${[niv("elementaire", "élémentaires"), niv("maternelle", "maternelles")].filter(Boolean).join(", ")}</td>`
+          + `<td>${esc(dates.join(" ; ") || "—")}</td>`
+          + `<td>${b.elementaire ? `élémentaires ${pct(b.elementaire.couverture)}` : ""}${b.elementaire && b.maternelle ? ", " : ""}${b.maternelle ? `maternelles ${pct(b.maternelle.couverture)}` : ""}</td></tr>` };
+      }).sort((x, y) => x.ville.localeCompare(y.ville, "fr"));
+      villesEl.innerHTML = lignes.map((l) => l.html).join("") || "<tr><td colspan='4'>Aucune ville pour l'instant.</td></tr>";
+    }
+    const nationales = m.sources.filter((s) => !s.ville);
+    const villes = m.sources.filter((s) => s.ville).sort((a, b) => a.ville.ville.localeCompare(b.ville.ville, "fr")
+      || (a.ville.role === "ecoles") - (b.ville.role === "ecoles") || a.titre.localeCompare(b.titre, "fr"));
+    if (sourcesEl) sourcesEl.innerHTML =
+      `<tr class="groupe"><th colspan="2" scope="colgroup">Établissements, indicateurs et secteurs des collèges</th></tr>`
+      + nationales.map((s) => ligne(s, s.titre)).join("")
+      + (villes.length ? `<tr class="groupe"><th colspan="2" scope="colgroup">Secteurs des écoles, publiés par les villes</th></tr>`
+        + villes.map((s) => ligne(s, `${s.ville.ville} · ${s.titre.replace(/\s*\([^)]*\)\s*$/, "")} (${s.ville.licence})`, noteVille(s))).join("") : "");
     const ctrl = m.secteurs && m.secteurs.controle;
     if (ctrl && Object.keys(ctrl).length && document.getElementById("controle-secteurs")) {
       const pc = (v) => Math.round(v * 100) + " %";
@@ -58,6 +98,8 @@ if (nav && titres.length >= 3) {
   }).catch(() => {
     const sourcesEl = document.getElementById("liste-sources");
     if (sourcesEl) sourcesEl.innerHTML = "<tr><td colspan='2'>La liste des sources n'a pas pu être chargée.</td></tr>";
+    const villesEl = document.getElementById("liste-villes-ecoles");
+    if (villesEl) villesEl.innerHTML = "<tr><td colspan='4'>La liste des villes n'a pas pu être chargée.</td></tr>";
     const resume = document.getElementById("resume-donnees");
     if (resume) resume.textContent = "Le résumé des données n'a pas pu être chargé.";
   });

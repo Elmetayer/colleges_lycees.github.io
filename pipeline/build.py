@@ -508,7 +508,8 @@ def main() -> int:
         "lycees": lyc_meta,
         "ecoles": eco_meta,
         "sources": [{"cle": k, "titre": s["titre"], "page": s.get("page"), "mise_a_jour": s.get("maj"),
-                     **({"version_reprise": s["reprise"]} if s.get("reprise") else {})} for k, s in resolved.items()],
+                     **({"version_reprise": s["reprise"]} if s.get("reprise") else {}),
+                     **({"ville": s["ville"]} if s.get("ville") else {})} for k, s in resolved.items()],
         "problemes": problemes,
     }
     (out / "meta.json").write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")

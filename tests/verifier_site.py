@@ -394,7 +394,7 @@ async def verifier_navigateur(contenus):
             for page in sorted(SITE.glob("documentation*.html")):
                 await pg.goto(f"http://localhost:8765/{page.name}")
                 await pg.wait_for_timeout(800)
-                for sel, vide in (("#liste-sources", "Chargement"), ("#resume-donnees", "Chargement")):
+                for sel, vide in (("#liste-sources", "Chargement"), ("#resume-donnees", "Chargement"), ("#liste-villes-ecoles", "Chargement")):
                     el = await pg.query_selector(sel)
                     if el and (vide in await el.inner_text() or "pas pu" in await el.inner_text()):
                         problemes.append(f"{page.name} : {sel} n'est pas rempli")

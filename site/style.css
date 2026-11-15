@@ -419,3 +419,5 @@ details.valeurs .historique { margin-top: 4px; }
 .table-sources th:nth-child(4) { width: 16%; }
 .table-sources th:nth-child(5) { width: 10%; }
 .table-sources th:nth-child(6) { width: 10%; }
+.page-doc .sources tr.groupe th { padding: 16px 0 6px; font-family: var(--titre, inherit); font-size: 1rem; text-align: left; border-bottom: 1.5px solid var(--trait); }
+.page-doc .sources td small { color: var(--encre-douce); }
