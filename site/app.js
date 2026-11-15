@@ -876,7 +876,7 @@
     const o = liste.find((x) => x.cle === ongletsChoisis[ficheCourante.type]) || liste[0];
     document.querySelectorAll("#fiche .onglets button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.onglet === o.cle)));
     const avecMediane = o.graphe && o.graphe.panneaux.some((pan) => pan.series.some((s) => s.med && s.med.some(num)));
-    const ce = { lycee: "ce lycée", ecole: "cette école" }[ficheCourante.type] || "ce collège";
+    const ce = o.ce || { lycee: "ce lycée", ecole: "cette école" }[ficheCourante.type] || "ce collège";
     $("fiche-graphe").innerHTML = `
       <div class="graphe-tete">
         <h3>${o.titre}</h3>
@@ -1028,6 +1028,19 @@
     return `<div class="barres" role="img" aria-label="${echapper(aria)}"><p class="barres-titre" aria-hidden="true">${echapper(titre)}</p><div aria-hidden="true">${lignes}</div></div>`;
   }
 
+  // Onglet « Entrée en 6e » : évaluations de 6e du collège de secteur, en repère du niveau des élèves en fin
+  // d'école primaire dans le quartier (aucun résultat n'est publié école par école). Reprend l'onglet de la fiche collège.
+  function ongletEntree6e(col, histCol) {
+    const o = histCol && onglets(col.properties, histCol).find((x) => x.cle === "eval");
+    if (!o) return null;
+    return Object.assign({}, o, {
+      cle: "entree6e", nom: "Entrée en 6e", titre: "Évaluations de 6e du collège de secteur",
+      ce: col.properties.nom,
+      contexte: `${col.properties.nom} : scores moyens de ses élèves à leur entrée en 6e. ${o.contexte}`,
+      note: "Ce ne sont pas les résultats de cette école : le collège accueille les élèves de plusieurs écoles du secteur, et parfois d'ailleurs. Ces évaluations donnent un repère du niveau des élèves en fin d'école primaire dans le quartier.",
+    });
+  }
+
   function ongletsEcole(p, f) {
     const hist = f.hist || {}, res = [];
     const ip = hist.ips || [];
@@ -1082,8 +1095,11 @@
     const secteursPrets = p.secteur === "public" && coord ? Promise.all(departementsAuPoint(coord).map(chargerSecteursDep)
       .concat(indexSecteursEcoles[p.dep] ? [chargerSecteursEcolesDep(p.dep)] : [])).catch(() => {}) : null;
     Promise.all([chargerFiches(p.dep, "ecoles"), secteursPrets]).then(([dep]) => {
-      if (!ficheCourante || ficheCourante.p.uai !== p.uai) return;
-      remplirFicheEcole(p, coord, dep[p.uai] || {});
+      const col = collegeDeSecteur(p, coord);
+      return (col ? chargerFiches(col.properties.dep, "colleges").catch(() => ({})) : Promise.resolve({})).then((fc) => {
+        if (!ficheCourante || ficheCourante.p.uai !== p.uai) return;
+        remplirFicheEcole(p, coord, dep[p.uai] || {}, col, col ? (fc[col.properties.uai] || {}).hist : null);
+      });
     }).catch((e) => {
       console.warn("Fiches indisponibles", e);
       if (ficheCourante && ficheCourante.p.uai === p.uai)
@@ -1091,8 +1107,17 @@
     });
   }
 
-  function remplirFicheEcole(p, coord, f) {
+  // Collège de secteur d'une école publique : la zone de collège public où se trouve l'école.
+  function collegeDeSecteur(p, coord) {
+    if (p.secteur !== "public" || !coord) return null;
+    const uai = secteurDe(coord);
+    return (uai && donnees.features.find((x) => x.properties.uai === uai)) || null;
+  }
+
+  function remplirFicheEcole(p, coord, f, col, histCol) {
     const liste = p.contrat === "hors" ? [] : ongletsEcole(p, f);
+    const entree = col ? ongletEntree6e(col, histCol) : null;
+    if (entree) liste.push(entree);
     ficheCourante = { type: "ecole", p, coord, onglets: liste };
     const lieu = [`${NIVEAUX[p.niveau] || "École"} ${secteurLibelle(p).replace(/^public$/, "publique").replace("privé", "privée")}`, p.ep, `${p.commune} (${p.departement})`].filter(Boolean).join(", ");
     const chiffres = [];
@@ -1111,8 +1136,6 @@
     // Collège de secteur : la zone de collège public où se trouve l'école (écoles publiques seulement).
     const liens = [];
     if (p.secteur === "public" && coord) {
-      const uai = secteurDe(coord);
-      const col = uai && donnees.features.find((x) => x.properties.uai === uai);
       if (col) liens.push({ titre: "Collège de secteur", texte: col.properties.nom, detail: "d'après la position de l'école", college: col });
       else if (!indexSecteurs[normDep(p.dep)]) liens.push({ titre: "Collège de secteur", detail: "Non disponible : ce département ne figure pas dans le fichier national de carte scolaire." });
     }
@@ -1136,7 +1159,7 @@
       <p class="lieu">${echapper(lieu)}${f.adresse ? `<br><small>${echapper(f.adresse)}</small>` : ""}</p>
       ${chiffres.length ? `<dl class="cles">${chiffres.map(([t, v, d]) => `<div><dt>${t}</dt><dd>${v}</dd><dd class="detail">${echapper(d || "")}</dd></div>`).join("")}</dl>` : ""}
       ${raison ? `<p class="sans-brevet">${echapper(raison)}</p>` : ""}
-      ${p.contrat === "hors" ? "" : `<p class="note-ecole">Aucun résultat d'évaluation nationale (du CP au CM2) n'est publié école par école : cette fiche décrit l'école et ses élèves, pas leur niveau.</p>`}
+      ${p.contrat === "hors" ? "" : `<p class="note-ecole">Aucun résultat d'évaluation nationale (du CP au CM2) n'est publié école par école : cette fiche décrit l'école et ses élèves, pas leur niveau.${entree ? " En repère, l'onglet « Entrée en 6e » donne les résultats du collège de secteur à l'entrée en 6e." : ""}</p>`}
       ${liens.length ? `<ul class="liens-ecole">${liens.map((l, i) => `<li><span class="lien-titre">${l.titre}</span>${l.college || l.ecole || l.zone
         ? `<button type="button" data-lien="${i}"><span class="lien-nom">${echapper(l.texte)}</span>${l.detail ? `<small>${echapper(l.detail)}</small>` : ""}</button>`
         : `<span class="lien-texte">${echapper(l.detail || l.texte || "")}</span>`}</li>`).join("")}</ul>` : ""}
