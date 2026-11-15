@@ -34,8 +34,9 @@ from shapely.geometry import Point, mapping, shape
 PARIS = "https://opendata.paris.fr/api/explore/v2.1/catalog/datasets"
 NIVEAUX = {"elementaire": "elementaires", "maternelle": "maternelles"}
 COMPATIBLES = {"elementaire": {"elementaire", "primaire"}, "maternelle": {"maternelle", "primaire"}}
-# Simplification des contours (degrés, environ 1 m) : les fichiers de la Ville sont très détaillés.
-TOLERANCE = 0.00001
+# Simplification des contours (degrés, environ 2,5 m) et coordonnées au mètre : les fichiers de la Ville sont
+# très détaillés (3,8 Mo à 1 m de tolérance le 15/11/2026, pour un fichier chargé sur téléphone).
+TOLERANCE = 0.000025
 MOTS_VIDES = {"rue", "avenue", "av", "boulevard", "bd", "place", "pl", "square", "villa", "passage", "impasse", "allee",
               "cite", "quai", "places", "cours", "chemin", "sentier", "hameau", "rond", "point", "porte", "de", "du", "des", "la",
               "le", "les", "d", "l", "et", "a", "au", "aux", "bis", "ter", "b", "t", "elem", "mat", "poly"}
@@ -143,7 +144,7 @@ def lire_points(df: pd.DataFrame, annee: str) -> pd.DataFrame:
 
 def arrondir(g):
     if isinstance(g, (list, tuple)):
-        return [arrondir(x) for x in g] if g and isinstance(g[0], (list, tuple)) else [round(g[0], 6), round(g[1], 6)]
+        return [arrondir(x) for x in g] if g and isinstance(g[0], (list, tuple)) else [round(g[0], 5), round(g[1], 5)]
     return g
 
 

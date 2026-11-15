@@ -343,3 +343,5 @@ details.valeurs .historique { margin-top: 4px; }
 .barre-ligne.moi .barre-piste span { background: var(--encre); }
 .barre-val { width: 36px; text-align: right; font-variant-numeric: tabular-nums; }
 .graphe-note { margin: 10px 0 0; font-size: 0.82rem; color: var(--encre-douce); }
+
+.proches .info-secteur { padding: 10px 4px; font-size: 0.9rem; color: var(--encre-douce); border-bottom: 1px solid var(--trait); }
