@@ -1,10 +1,10 @@
 import json, requests
 H = {"User-Agent": "carte-scolaire-diag"}
 ANN = "https://data.education.gouv.fr/api/explore/v2.1/catalog/datasets/fr-en-annuaire-education/exports/json"
-for q in ["ROLLAND", "GUERNAZELLES", "Rolland", "Guernazelles"]:
+for q in ["ROLLAND", "GUERNAZELLES", "Rolland", "Guernazelles", "Source"]:
     try:
-        r = requests.get(ANN, params={"where": f"code_departement='045' and nom_etablissement like '%{q}%'",
-                                      "select": "identifiant_de_l_etablissement,nom_etablissement,type_etablissement,statut_public_prive,nom_commune,adresse_1,etat,date_fermeture,latitude,longitude"}, headers=H, timeout=90)
+        r = requests.get(ANN, params={"where": f"code_departement='045' and (nom_etablissement like '%{q}%' or adresse_1 like '%{q.upper()}%')",
+                                      "select": "identifiant_de_l_etablissement,nom_etablissement,type_etablissement,statut_public_prive,nom_commune,adresse_1,etat,latitude,longitude"}, headers=H, timeout=90)
         print(q, r.status_code, json.dumps(r.json(), ensure_ascii=False)[:1500])
     except Exception as e:
         print(q, e)
