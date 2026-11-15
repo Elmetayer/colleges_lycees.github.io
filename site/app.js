@@ -1155,6 +1155,13 @@
           sauverReglages(); majPanneau();
         }
         surlignerSecteurEcole(Object.assign({}, p, { niveau: l.niveau }));
+        // Sur téléphone, la fiche couvre la carte : elle se replie (la zone reste surlignée ; toucher l'école la rouvre).
+        if (window.innerWidth < 760) {
+          $("fiche").hidden = true;
+          document.body.classList.remove("fiche-ouverte");
+          $("panneau").classList.add("replie");
+          $("panneau-tete").setAttribute("aria-expanded", "false");
+        }
         cadrerZone(l.zone);
         return;
       }
@@ -1698,7 +1705,7 @@
 
   const depsSecteursEcolesAuPoint = (pt) => Object.keys(indexSecteursEcoles).filter((d) => dansBbox(indexSecteursEcoles[d].bbox, pt[0], pt[1], 0.005));
 
-  // Zone d'un niveau contenant un point, ou zone d'une école.
+  // Zone d'un niveau contenant un point, ou zone d'une école. Sur téléphone, cadrerZone suppose la fiche repliée.
   function zoneEcoleAuPoint(pt, niveau) {
     return secteursEcoles.features.find((f) => {
       if (f.properties.niveau !== niveau) return false;
@@ -1722,8 +1729,10 @@
     const parcourir = (c) => { if (typeof c[0] === "number") b = b ? [Math.min(b[0], c[0]), Math.min(b[1], c[1]), Math.max(b[2], c[0]), Math.max(b[3], c[1])] : [c[0], c[1], c[0], c[1]]; else c.forEach(parcourir); };
     parcourir(f.geometry.coordinates);
     const mobile = window.innerWidth < 760;
+    // centrer() laisse une marge persistante (padding de flyTo) que fitBounds ajouterait à la sienne.
+    carte.setPadding({ top: 0, right: 0, bottom: 0, left: 0 });
     if (b) carte.fitBounds([[b[0], b[1]], [b[2], b[3]]], { maxZoom: 16, duration: 600,
-      padding: mobile ? { top: 20, bottom: Math.round(window.innerHeight * 0.55), left: 20, right: 20 } : { top: 40, bottom: 40, left: 400, right: 440 } });
+      padding: mobile ? { top: 20, bottom: 90, left: 16, right: 16 } : { top: 40, bottom: 40, left: 380, right: 420 } });
   }
 
   function ajouterSecteursEcoles(index) {
