@@ -93,7 +93,7 @@ def sources() -> dict:
                 "titre": f"{v['titres'][jeu]} ({v['source']}, {v['licence']})",
                 "explore_base": f"{v['portail']}/api/explore/v2.1/catalog/datasets", "explore_id": jeu, "datagouv": None,
                 "page": f"{v['portail']}/explore/dataset/{jeu}/",
-                "colonnes": ",".join([v["nom"]] + ([v["type"]] if v.get("type") else []) + ["geo_shape"]), "obligatoire": False,
+                "colonnes": ",".join([v["nom"]] + [v[c] for c in ("type", "date") if v.get(c)] + ["geo_shape"]), "obligatoire": False,
             }
     return out
 
@@ -104,6 +104,9 @@ def cle_source(vid: str, jeu: str) -> str:
 
 # Autres villes. jeux : niveau -> jeu Explore ; "*" : un seul jeu pour les deux niveaux, la colonne type disant
 # à quels niveaux s'applique chaque zone (types : valeur -> niveaux, par exemple {"M": ["maternelle"], "P": [...]}).
+# Clermont-Ferrand : un seul jeu (type Maternelle-Elementaire ou Maternelle) ; la Ville indique que la cartographie
+# est « en cours de mise à jour » (zones du 01/02/2024) : publiée quand même, avec la date des zones (choix de Bruno,
+# 15/11/2026).
 # Nantes : un seul jeu, type P (les deux niveaux, 66 zones), M (maternelle, 5) ou E (élémentaire, 3) ; le nom de
 # la zone cite souvent deux écoles (« Molière Leon Blum » : maternelle Molière, élémentaire Léon Blum).
 VILLES = {
@@ -120,6 +123,13 @@ VILLES = {
         "jeux": {"elementaire": "administratifscol_sect_elem", "maternelle": "administratifscol_sect_mater"},
         "titres": {"administratifscol_sect_elem": "Carte scolaire des écoles élémentaires",
                    "administratifscol_sect_mater": "Carte scolaire des écoles maternelles"},
+    },
+    "63-clermont": {
+        "dep": "63", "communes": ["Clermont-Ferrand"], "source": "Ville de Clermont-Ferrand", "licence": "Licence Ouverte",
+        "portail": "https://opendata.clermontmetropole.eu", "nom": "nom", "type": "type", "date": "modification_date",
+        "jeux": {"*": "secteurs-scolaires-des-ecoles-vcf"},
+        "types": {"Maternelle-Elementaire": ["maternelle", "elementaire"], "Maternelle": ["maternelle"], "Elementaire": ["elementaire"]},
+        "titres": {"secteurs-scolaires-des-ecoles-vcf": "Secteurs scolaires des écoles"},
     },
     "44-nantes": {
         "dep": "44", "communes": ["Nantes"], "source": "Ville de Nantes", "licence": "Licence Ouverte",
@@ -334,6 +344,12 @@ def construire_ville(vid: str, v: dict, ecoles: pd.DataFrame, frames: dict, reso
         df = frames[k]
         c_nom, c_geo = b.pick(df, rf"^{v['nom']}$"), b.pick(df, r"geo_shape")
         c_type = b.pick(df, rf"^{v['type']}$") if v.get("type") else None
+        # Date des zones elles-mêmes, quand la ville la donne et qu'elle diffère de celle du jeu (Clermont-Ferrand :
+        # jeu republié en 2026, zones de février 2024) : c'est elle que montrent la fiche et la page de suivi.
+        if v.get("date"):
+            dates = pd.to_datetime(df[b.pick(df, rf"^{v['date']}$")], errors="coerce", utc=True).dropna()
+            if len(dates):
+                maj = dates.max().strftime("%Y-%m-%d")
         inconnus = set()
         for r in df.itertuples(index=False):
             r = r._asdict()
