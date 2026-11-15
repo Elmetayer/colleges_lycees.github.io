@@ -12,7 +12,7 @@ pipeline/colleges.py      indicateurs des collèges (brevet, IPS, évaluations 6
 pipeline/lycees.py        indicateurs des lycées (voies GT et pro, IPS) → lycees.geojson, fiches
 pipeline/ecoles.py        écoles (IPS et rangs, effectifs, taille des classes) → ecoles/<dep>.geojson, fiches
 pipeline/secteurs.py      secteurs des collèges publics, département par département
-pipeline/secteurs_ecoles.py secteurs des écoles publiés par les villes (Paris, Strasbourg, Nantes) → secteurs-ecoles/<ville>.geojson
+pipeline/secteurs_ecoles.py secteurs des écoles publiés par les villes (Paris, Strasbourg, Nantes, Orléans) → secteurs-ecoles/<ville>.geojson
 pipeline/suivi.py         rapport de chaque build (sources, contrôles) → data/suivi.json, historique dans la branche suivi-donnees
 pipeline/requirements.txt dépendances Python
 site/                     site statique publié sur GitHub Pages

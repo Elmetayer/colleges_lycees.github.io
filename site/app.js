@@ -1780,7 +1780,7 @@
 
   function ajouterSecteursEcoles(index) {
     indexSecteursEcoles = Object.fromEntries(Object.entries(index).map(([d, v]) => [String(d), v]));
-    const villes = Object.values(indexSecteursEcoles).map((v) => (v.communes ? v.communes.join(", ") : v.source.replace(/^Ville de /, "")));
+    const villes = Object.values(indexSecteursEcoles).map((v) => (v.communes ? v.communes.join(", ") : v.source.replace(/^Ville d(e |')/, "")));
     const liste = villes.length > 1 ? `${villes.slice(0, -1).join(", ")} et ${villes[villes.length - 1]}` : villes.join("");
     calque("ecoles").zones = { libelle: "Secteurs des écoles publiques",
       note: `Pour l'instant à ${liste}, d'après les secteurs publiés par chaque ville. Les secteurs suivent le réglage Niveau : ceux des élémentaires, ou ceux des maternelles quand seules les maternelles sont cochées. Ils apparaissent avec les écoles, en zoomant sur une ville.` };
