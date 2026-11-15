@@ -27,12 +27,22 @@ import json
 import os
 import sys
 import threading
+from datetime import datetime, timezone
 from pathlib import Path
 
 from playwright.async_api import async_playwright
 
 SITE = Path(sys.argv[1] if len(sys.argv) > 1 else "site")
 erreurs, avertissements = [], []
+# Contrôles chiffrés et résultat du test navigateur, écrits dans data/verification.json pour la page de suivi.
+controles, navigateur = [], {}
+
+
+def controle(libelle: str, valeur, seuil, unite: str = "") -> bool:
+    """Consigne un contrôle à seuil (page de suivi) ; renvoie True s'il passe."""
+    ok = valeur is not None and valeur >= seuil
+    controles.append({"libelle": libelle, "valeur": valeur, "seuil": seuil, "unite": unite, "ok": ok})
+    return ok
 
 
 COUVERTURE_MINIMALE = {
@@ -52,6 +62,13 @@ SECTEURS_ECOLES_MINIMUM = {"rattachement": 0.95, "couverture": 0.9, "coherence":
 # Valeurs au 13/11/2026 : Paris 0,937, Hauts-de-Seine 0,923 ; 0,85 laisse environ 8 points de marge.
 CONCORDANCE_MINIMALE = float(os.environ.get("SIMULER_CONCORDANCE") or 0.85)
 DEPARTEMENTS_CONTROLE = ("Paris", "Hauts-de-Seine")
+LIBELLES = {
+    ("colleges.geojson", "taux_reussite"): "Collèges avec résultats au brevet", ("colleges.geojson", "ips"): "Collèges avec IPS",
+    ("colleges.geojson", "eval_fr"): "Collèges avec évaluations de 6e", ("lycees.geojson", "gt_reussite"): "Lycées GT avec résultats",
+    ("lycees.geojson", "pro_reussite"): "Lycées professionnels avec résultats", ("lycees.geojson", "ips"): "Lycées avec IPS",
+    ("ecoles", "ips"): "Écoles avec IPS", ("ecoles", "eleves"): "Écoles avec effectifs", ("ecoles", "classe"): "Écoles avec taille des classes",
+}
+NIVEAUX_SECTEURS = {"elementaire": "élémentaires", "maternelle": "maternelles"}
 
 
 def refuser_constante(nom):
@@ -89,7 +106,7 @@ def verifier_fichiers():
         couverture = {k: sum(1 for f in feats if isinstance(f["properties"].get(k), (int, float))) for k in seuils}
         print(f"{nom} : couverture {couverture}")
         for k, mini in seuils.items():
-            if couverture[k] < mini:
+            if not controle(LIBELLES.get((nom, k), f"{nom} {k}"), couverture[k], mini):
                 erreurs.append(f"{nom} : indicateur {k} présent pour {couverture[k]} établissements seulement (au moins {mini} attendus)")
     meta = contenus.get("meta.json") or {}
     sb = (meta.get("colleges") or {}).get("sans_brevet") or {}
@@ -108,14 +125,14 @@ def verifier_fichiers():
         if vides:
             avertissements.append(f"départements sans aucune zone : {vides}")
         # Concordance avec les secteurs officiels : une dégradation du calcul bloque la publication.
-        controle = (meta.get("secteurs") or {}).get("controle") or {}
+        ctrl_off = (meta.get("secteurs") or {}).get("controle") or {}
         for dep in DEPARTEMENTS_CONTROLE:
-            c = controle.get(dep)
+            c = ctrl_off.get(dep)
             if not c or c.get("taux_surface") is None:
                 avertissements.append(f"contrôle des secteurs impossible pour {dep} (secteurs officiels non téléchargés)")
                 continue
             print(f"secteurs : {dep}, {c['taux_surface']:.1%} de la surface attribuée au même collège que les secteurs officiels")
-            if c["taux_surface"] < CONCORDANCE_MINIMALE:
+            if not controle(f"Concordance des secteurs des collèges, {dep}", round(c["taux_surface"] * 100, 1), round(CONCORDANCE_MINIMALE * 100, 1), "%"):
                 erreurs.append(f"secteurs : {dep}, {c['taux_surface']:.1%} seulement de la surface attribuée au même collège "
                                f"que les secteurs officiels (au moins {CONCORDANCE_MINIMALE:.0%} attendus)")
     return contenus
@@ -156,7 +173,8 @@ def verifier_ecoles(data, contenus):
                 print(f"secteurs des écoles {dep}, {niv} {c.get('annee') or c.get('maj')} : {c.get('secteurs')} zones, rattachement {c.get('rattachement')}, "
                       f"couverture {c.get('couverture')}, cohérence {c.get('coherence')}")
                 for k, mini in SECTEURS_ECOLES_MINIMUM.items():
-                    if (c.get(k) or 0) < mini:
+                    if not controle(f"Secteurs des écoles, {m.get('source', dep)}, {NIVEAUX_SECTEURS[niv]} : {k}",
+                                    round((c.get(k) or 0) * 100, 1), round(mini * 100, 1), "%"):
                         erreurs.append(f"secteurs des écoles {dep} ({niv}) : {k} {c.get(k)} (au moins {mini} attendu)")
         if not zones:
             erreurs.append("secteurs des écoles annoncés dans meta.json mais aucun fichier secteurs-ecoles/*.geojson")
@@ -166,12 +184,12 @@ def verifier_ecoles(data, contenus):
     sans_nom = sum(1 for f in points if not f["properties"].get("nom"))
     couverture = {k: sum(1 for f in points if isinstance(f["properties"].get(k), (int, float))) for k in COUVERTURE_ECOLES}
     print(f"écoles : {len(points)} dans {len(list(dossier.glob('*.geojson')))} départements, {sans_nom} sans nom ; couverture {couverture}")
-    if len(points) < ECOLES_MINIMUM:
+    if not controle("Écoles sur la carte", len(points), ECOLES_MINIMUM):
         erreurs.append(f"écoles : seulement {len(points)} (au moins {ECOLES_MINIMUM} attendues)")
     if sans_nom:
         erreurs.append(f"écoles : {sans_nom} sans nom")
     for k, mini in COUVERTURE_ECOLES.items():
-        if couverture[k] < mini:
+        if not controle(LIBELLES.get(("ecoles", k), f"écoles {k}"), couverture[k], mini):
             erreurs.append(f"écoles : indicateur {k} présent pour {couverture[k]} écoles seulement (au moins {mini} attendues)")
     hc = sum(1 for f in points if f["properties"].get("contrat") == "hors")
     if hc < 500:
@@ -380,22 +398,50 @@ async def verifier_navigateur(contenus):
                     el = await pg.query_selector(sel)
                     if el and (vide in await el.inner_text() or "pas pu" in await el.inner_text()):
                         problemes.append(f"{page.name} : {sel} n'est pas rempli")
+            # Page de suivi des données : rapport de ce build (data/suivi.json, provisoire) affiché.
+            if (SITE / "suivi.html").exists():
+                await pg.goto("http://localhost:8765/suivi.html")
+                try:
+                    await pg.wait_for_selector("#suivi[data-pret]", timeout=15000)
+                    lignes = await pg.evaluate("document.querySelectorAll('.suivi-ligne').length")
+                    etat = await pg.evaluate("document.getElementById('suivi-etat').textContent.trim()")
+                    if lignes < 10:
+                        problemes.append(f"suivi.html : {lignes} sources affichées seulement")
+                    else:
+                        print(f"{appareil} : page de suivi, {lignes} sources, état « {etat} »")
+                except Exception:  # noqa: BLE001
+                    problemes.append("suivi.html : la page de suivi ne se remplit pas")
             print(f"{appareil} : {'OK' if not problemes else str(len(problemes)) + ' problème(s)'}")
+            navigateur[appareil] = {"ok": not problemes, "problemes": problemes[:10]}
             erreurs.extend(f"{appareil} : {x}" for x in problemes)
             await c.close()
         await b.close()
 
 
-def main():
-    contenus = verifier_fichiers()
-    class Silencieux(http.server.SimpleHTTPRequestHandler):
-        def log_message(self, *args):
-            pass
+def ecrire_verification():
+    """data/verification.json : contrôles, test navigateur, erreurs ; lu par pipeline/suivi.py."""
+    (SITE / "data" / "verification.json").write_text(json.dumps({
+        "le": datetime.now(timezone.utc).isoformat(timespec="seconds"), "ok": not erreurs,
+        "controles": controles, "navigateur": navigateur, "erreurs": erreurs[:50], "avertissements": avertissements[:50],
+    }, ensure_ascii=False, indent=1), encoding="utf-8")
 
-    serveur = http.server.ThreadingHTTPServer(("localhost", 8765), functools.partial(Silencieux, directory=str(SITE)))
-    threading.Thread(target=serveur.serve_forever, daemon=True).start()
-    asyncio.run(verifier_navigateur(contenus))
-    serveur.shutdown()
+
+def main():
+    try:
+        contenus = verifier_fichiers()
+
+        class Silencieux(http.server.SimpleHTTPRequestHandler):
+            def log_message(self, *args):
+                pass
+
+        serveur = http.server.ThreadingHTTPServer(("localhost", 8765), functools.partial(Silencieux, directory=str(SITE)))
+        threading.Thread(target=serveur.serve_forever, daemon=True).start()
+        asyncio.run(verifier_navigateur(contenus))
+        serveur.shutdown()
+    except Exception as e:  # noqa: BLE001
+        erreurs.append(f"la vérification s'est arrêtée : {type(e).__name__}: {e}")
+    finally:
+        ecrire_verification()
     for a in avertissements:
         print(f"::warning::{a}")
     for e in erreurs:

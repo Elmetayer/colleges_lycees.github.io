@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Suivi des données – Carte scolaire</title>
+  <meta name="description" content="Ce que la dernière mise à jour de la carte a récupéré, source par source, et les contrôles passés avant publication.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Literata:opsz,wght@7..72,500;7..72,650&display=swap" rel="stylesheet">
+  <link href="style.css?v=__VERSION__" rel="stylesheet">
+</head>
+<body class="page-doc page-suivi">
+  <header class="barre">
+    <a class="titre" href="./">Carte scolaire</a>
+    <a class="lien-doc" href="./">Retour à la carte</a>
+  </header>
+
+  <main id="suivi">
+    <p class="fil"><a href="documentation.html">Documentation</a> › <a href="documentation-sources.html">Sources</a> › Suivi des données</p>
+    <div class="suivi-tete">
+      <div>
+        <h1>Suivi des données</h1>
+        <p class="chapeau">Ce que la dernière mise à jour du site a récupéré, source par source, et les contrôles passés avant publication.</p>
+      </div>
+      <div class="suivi-global">
+        <span id="suivi-etat" class="s-etat">Chargement…</span>
+        <span id="suivi-quand"></span>
+      </div>
+    </div>
+    <p id="suivi-alerte" class="suivi-alerte" hidden></p>
+
+    <section id="suivi-tuiles" class="suivi-tuiles" aria-label="Résumé"></section>
+
+    <div class="suivi-filtres">
+      <div id="suivi-filtres" role="group" aria-label="Filtrer par état"></div>
+      <p class="suivi-legende"><b>OK</b> : téléchargée et contrôlée · <b>Partiel</b> : version précédente réutilisée, adresse de secours ou baisse du nombre de lignes · <b>Pas OK</b> : absente de cette mise à jour</p>
+    </div>
+
+    <div id="suivi-groupes"></div>
+
+    <section class="suivi-bloc">
+      <div class="suivi-titre-bloc">
+        <h2 id="controles">Contrôles avant publication</h2>
+        <span>Un contrôle sous son seuil bloque la publication : le site garde alors sa version précédente.</span>
+      </div>
+      <div id="suivi-controles" class="suivi-controles"></div>
+      <p id="suivi-navigateur" class="suivi-note"></p>
+    </section>
+
+    <section class="suivi-bloc">
+      <div class="suivi-titre-bloc">
+        <h2 id="historique">Historique des mises à jour</h2>
+        <span>Les dix dernières mises à jour automatiques, publiées ou non.</span>
+      </div>
+      <div id="suivi-historique" class="suivi-historique"></div>
+    </section>
+
+    <p class="suivi-pied">
+      <a id="suivi-journal" href="https://github.com/Elmetayer/colleges_lycees.github.io/actions">Journal complet de la mise à jour (GitHub)</a>
+      <a href="documentation-sources.html">Liste des sources et licences</a>
+      <span>Mises à jour automatiques : à chaque modification du site et le 3 de chaque mois.</span>
+    </p>
+  </main>
+
+  <script src="suivi.js?v=__VERSION__"></script>
+</body>
+</html>

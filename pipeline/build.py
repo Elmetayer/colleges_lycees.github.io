@@ -347,6 +347,10 @@ def obtenir(key: str, src: dict, cache_dir: Path | None) -> tuple[pd.DataFrame, 
     precedent = lire_cache(cache_dir, key)
     urls = [u for u in dict.fromkeys([adresse(src), src.get("url_secours")]) if u]
     erreur: Exception = RuntimeError(f"aucune adresse de téléchargement pour {key}")
+    # Compte rendu pour la page de suivi (pipeline/suivi.py) : adresses essayées, erreurs, lignes.
+    suivi = src.setdefault("suivi", {"erreurs": []})
+    if precedent:
+        suivi["lignes_precedentes"] = precedent[1].get("lignes")
     for url in urls:
         try:
             raw = telecharger(key, url)
@@ -355,12 +359,15 @@ def obtenir(key: str, src: dict, cache_dir: Path | None) -> tuple[pd.DataFrame, 
                 raise RuntimeError("fichier vide")
             if precedent and len(df) < PART_MINIMALE * precedent[1].get("lignes", 0):
                 raise RuntimeError(f"{len(df)} lignes seulement, contre {precedent[1]['lignes']} dans la dernière version valide")
+            le = datetime.now(timezone.utc).isoformat(timespec="seconds")
             ecrire_cache(cache_dir, key, raw, {
-                "url": url, "telecharge_le": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                "url": url, "telecharge_le": le,
                 "lignes": len(df), "titre": src.get("titre"), "page": src.get("page"), "maj": src.get("maj")})
+            suivi.update({"url": url, "lignes": len(df), "telecharge_le": le, "secours": url != urls[0]})
             return df, None
         except Exception as exc:  # noqa: BLE001
             log(f"  ! échec du téléchargement : {exc}")
+            suivi["erreurs"].append({"url": url, "message": str(exc)[:400]})
             erreur = exc
     if not precedent:
         raise erreur
@@ -371,6 +378,7 @@ def obtenir(key: str, src: dict, cache_dir: Path | None) -> tuple[pd.DataFrame, 
     src["page"] = src.get("page") or info.get("page")
     src["maj"] = src.get("maj") or info.get("maj")
     src["reprise"] = date
+    suivi.update({"url": info.get("url"), "lignes": len(df), "telecharge_le": info.get("telecharge_le")})
     return df, f"{key} : source injoignable ({erreur}) ; version téléchargée le {date} réutilisée"
 
 
@@ -427,6 +435,14 @@ def load_etablissements(df: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
+def ecrire_telechargements(out: Path, resolved: dict) -> None:
+    """telechargements.json : ce que chaque source a donné, lu par pipeline/suivi.py. Réécrit après chaque
+    source, pour qu'un build arrêté en route laisse quand même un compte rendu."""
+    lignes = [{"cle": k, "titre": s.get("titre"), "page": s.get("page"), "mise_a_jour": s.get("maj"),
+               "version_reprise": s.get("reprise"), **s.get("suivi", {})} for k, s in resolved.items()]
+    (out / "telechargements.json").write_text(json.dumps(lignes, ensure_ascii=False, indent=1), encoding="utf-8")
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", default="site/data")
@@ -446,6 +462,8 @@ def main() -> int:
                 path = args.local_dir / f"{key}.csv"
                 log(f"  lecture locale {path}")
                 frames[key] = lire_csv(path.read_bytes())
+                src["suivi"] = {"erreurs": [], "url": str(path), "lignes": len(frames[key]),
+                                "telecharge_le": datetime.now(timezone.utc).isoformat(timespec="seconds")}
             else:
                 src = resolve(key)
                 frames[key], probleme = obtenir(key, src, args.cache_dir)
@@ -456,8 +474,10 @@ def main() -> int:
                 raise
             log(f"  ! {key} ignoré : {exc}")
             problemes.append(f"{key} : téléchargement impossible ({exc})")
+            src.setdefault("suivi", {"erreurs": []})["echec"] = str(exc)[:400]
         finally:
             resolved[key] = src
+            ecrire_telechargements(out, resolved)
 
     log("\n== traitement")
     tous = load_etablissements(frames["etablissements"])
