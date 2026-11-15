@@ -111,6 +111,10 @@ jobs:
         continue-on-error: true
         run: python pipeline/secteurs.py assembler --entree secteurs-out --out site/data
 
+      - name: Entrée en 6e des écoles (évaluations du collège de secteur)
+        continue-on-error: true
+        run: python pipeline/ecoles_6e.py --out site/data
+
       - name: Rapport de suivi provisoire (testé par la vérification)
         continue-on-error: true
         run: python pipeline/suivi.py rapport --site site --statut en_cours

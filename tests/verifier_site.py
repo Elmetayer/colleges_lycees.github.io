@@ -53,7 +53,10 @@ COUVERTURE_MINIMALE = {
 # Écoles (jalon 7) : environ 80 % des effectifs attendus d'après le diagnostic du 14/11/2026
 # (IPS : 29 070 écoles en 2024-2025 ; effectifs : 47 418 écoles à la rentrée 2025 ; taille des classes : 47 148).
 ECOLES_MINIMUM = 40000
-COUVERTURE_ECOLES = {"ips": 23000, "eleves": 36000, "classe": 36000}
+COUVERTURE_ECOLES = {"ips": 23000, "eleves": 36000, "classe": 36000,
+                     # Entrée en 6e : évaluations du collège de secteur (pipeline/ecoles_6e.py), écoles publiques
+                     # des départements qui ont une carte scolaire des collèges.
+                     "e6_fr": 20000, "e6_ma": 20000}
 # Secteurs des écoles de Paris (jalon 7b), valeurs du 15/11/2026 : rattachement des noms de la Ville aux UAI
 # 0,998 / 0,994 ; écoles publiques citées dans un secteur 0,963 / 0,989 ; écoles dans leur propre secteur 0,979 / 1.
 SECTEURS_ECOLES_MINIMUM = {"rattachement": 0.95, "couverture": 0.9, "coherence": 0.9}
@@ -67,6 +70,7 @@ LIBELLES = {
     ("colleges.geojson", "eval_fr"): "Collèges avec évaluations de 6e", ("lycees.geojson", "gt_reussite"): "Lycées GT avec résultats",
     ("lycees.geojson", "pro_reussite"): "Lycées professionnels avec résultats", ("lycees.geojson", "ips"): "Lycées avec IPS",
     ("ecoles", "ips"): "Écoles avec IPS", ("ecoles", "eleves"): "Écoles avec effectifs", ("ecoles", "classe"): "Écoles avec taille des classes",
+    ("ecoles", "e6_fr"): "Écoles avec l'entrée en 6e (français)", ("ecoles", "e6_ma"): "Écoles avec l'entrée en 6e (maths)",
 }
 NIVEAUX_SECTEURS = {"elementaire": "élémentaires", "maternelle": "maternelles"}
 

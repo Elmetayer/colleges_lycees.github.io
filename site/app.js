@@ -61,8 +61,13 @@
   const INDICATEURS_ECOLES = [
     { cle: "ips", nom: "Indice de position sociale (IPS)", court: "IPS", type: "seq", fmt: (v) => fr(v, 1),
       note: "Plus l'IPS est élevé, plus le milieu social des élèves est favorisé. Ce n'est pas un indicateur de niveau : aucun résultat d'évaluation n'est publié école par école." },
-    { cle: "classe", nom: "Élèves par classe", court: "Élèves par classe", type: "seq", fmt: (v) => fr(v, 1),
-      note: "Taille moyenne des classes élémentaires (maternelles : classes de maternelle)." },
+    { cle: "classe", nom: "Taille des classes", court: "Élèves par classe", type: "seq", fmt: (v) => fr(v, 1),
+      note: "Nombre moyen d'élèves par classe élémentaire (maternelles : classes de maternelle)." },
+    // Évaluations de 6e du collège de secteur (pipeline/ecoles_6e.py), sur l'échelle du calque Collèges.
+    { cle: "e6_fr", nom: "Entrée en 6e (français)", court: "6e, français", type: "seq", fmt: (v) => fr(v, 0),
+      note: "Évaluations de 6e en français du collège de secteur : ce ne sont pas les résultats de l'école. Écoles privées et écoles sans collège de secteur connu : en gris." },
+    { cle: "e6_ma", nom: "Entrée en 6e (maths)", court: "6e, maths", type: "seq", fmt: (v) => fr(v, 0),
+      note: "Évaluations de 6e en mathématiques du collège de secteur : ce ne sont pas les résultats de l'école. Écoles privées et écoles sans collège de secteur connu : en gris." },
   ];
 
   // Les trois calques. Chaque type d'établissement a sa forme : cercle (écoles),
