@@ -1,12 +1,12 @@
 {
  "version": 1,
- "genere_le": "2026-11-15T11:43:22+00:00",
+ "genere_le": "2026-11-15T11:56:55+00:00",
  "statut": "publie",
  "etat": "ok",
  "build": {
-  "passage": "43709743648",
-  "lien": "https://github.com/Elmetayer/colleges_lycees.github.io/actions/runs/43709743648",
-  "commit": "1a3634d",
+  "passage": "43710749962",
+  "lien": "https://github.com/Elmetayer/colleges_lycees.github.io/actions/runs/43710749962",
+  "commit": "82b889b",
   "evenement": "push",
   "branche": "main"
  },
@@ -40,7 +40,7 @@
      "lignes_precedentes": 63556,
      "carte": "7 268 collèges, 4 468 lycées, 46 295 écoles",
      "mise_a_jour": "2026-11-15T06:00:51.278000+00:00",
-     "telecharge_le": "2026-11-15T11:38:26+00:00",
+     "telecharge_le": "2026-11-15T11:51:22+00:00",
      "etat": "ok",
      "details": [
       [
@@ -62,7 +62,7 @@
      "lignes_precedentes": 68555,
      "carte": "type de contrat, date d'ouverture, niveaux des écoles",
      "mise_a_jour": "2026-11-15T06:01:19.429000+00:00",
-     "telecharge_le": "2026-11-15T11:38:31+00:00",
+     "telecharge_le": "2026-11-15T11:51:26+00:00",
      "etat": "ok",
      "details": [
       [
@@ -84,7 +84,7 @@
      "lignes_precedentes": 26869,
      "carte": "6 613 collèges avec résultats au brevet",
      "mise_a_jour": "2026-08-03T09:55:18.316000+00:00",
-     "telecharge_le": "2026-11-15T11:38:34+00:00",
+     "telecharge_le": "2026-11-15T11:51:29+00:00",
      "etat": "ok",
      "details": [
       [
@@ -106,7 +106,7 @@
      "lignes_precedentes": 21061,
      "carte": "6 739 collèges avec IPS",
      "mise_a_jour": "2026-09-01T09:31:02.578000+00:00",
-     "telecharge_le": "2026-11-15T11:38:37+00:00",
+     "telecharge_le": "2026-11-15T11:51:30+00:00",
      "etat": "ok",
      "details": [
       [
@@ -128,7 +128,7 @@
      "lignes_precedentes": 369797,
      "carte": "6 728 collèges avec évaluations",
      "mise_a_jour": "2026-06-16T08:38:58.396000+00:00",
-     "telecharge_le": "2026-11-15T11:38:43+00:00",
+     "telecharge_le": "2026-11-15T11:51:32+00:00",
      "etat": "ok",
      "details": [
       [
@@ -150,7 +150,7 @@
      "lignes_precedentes": 32485,
      "carte": "2 359 lycées avec résultats",
      "mise_a_jour": "2026-06-10T10:17:27.564000+00:00",
-     "telecharge_le": "2026-11-15T11:38:59+00:00",
+     "telecharge_le": "2026-11-15T11:51:48+00:00",
      "etat": "ok",
      "details": [
       [
@@ -172,7 +172,7 @@
      "lignes_precedentes": 28258,
      "carte": "1 951 lycées avec résultats",
      "mise_a_jour": "2026-06-10T10:16:56.029000+00:00",
-     "telecharge_le": "2026-11-15T11:39:02+00:00",
+     "telecharge_le": "2026-11-15T11:51:51+00:00",
      "etat": "ok",
      "details": [
       [
@@ -194,7 +194,7 @@
      "lignes_precedentes": 10905,
      "carte": "3 446 lycées avec IPS",
      "mise_a_jour": "2026-06-10T08:20:49.021000+00:00",
-     "telecharge_le": "2026-11-15T11:39:05+00:00",
+     "telecharge_le": "2026-11-15T11:51:53+00:00",
      "etat": "ok",
      "details": [
       [
@@ -216,7 +216,7 @@
      "lignes_precedentes": 97080,
      "carte": "29 226 écoles avec IPS",
      "mise_a_jour": "2026-08-07T07:34:04.835000+00:00",
-     "telecharge_le": "2026-11-15T11:39:07+00:00",
+     "telecharge_le": "2026-11-15T11:51:53+00:00",
      "etat": "ok",
      "details": [
       [
@@ -238,7 +238,7 @@
      "lignes_precedentes": 143509,
      "carte": "45 194 écoles avec effectifs",
      "mise_a_jour": "2026-08-27T09:25:30.169000+00:00",
-     "telecharge_le": "2026-11-15T11:39:11+00:00",
+     "telecharge_le": "2026-11-15T11:51:56+00:00",
      "etat": "ok",
      "details": [
       [
@@ -260,7 +260,7 @@
      "lignes_precedentes": 47148,
      "carte": "45 136 écoles avec taille des classes",
      "mise_a_jour": "2026-06-16T07:12:44+00:00",
-     "telecharge_le": "2026-11-15T11:39:18+00:00",
+     "telecharge_le": "2026-11-15T11:52:01+00:00",
      "etat": "ok",
      "details": [
       [
@@ -292,11 +292,11 @@
      "details": [
       [
        "Recalculés",
-       "11, 13, 35, 49, 54, 62, 76, 77, 92"
+       "11, 30, 35, 44, 49, 54, 59, 76, 77, 92"
       ],
       [
        "Inchangés",
-       "75 départements, secteurs repris du calcul précédent"
+       "74 départements, secteurs repris du calcul précédent"
       ],
       [
        "Adresses",
@@ -344,7 +344,7 @@
      "lignes_precedentes": 735,
      "carte": "369 secteurs, 2026-2027",
      "mise_a_jour": "2026-03-03T15:53:30+00:00",
-     "telecharge_le": "2026-11-15T11:39:22+00:00",
+     "telecharge_le": "2026-11-15T11:52:02+00:00",
      "etat": "ok",
      "details": [
       [
@@ -366,7 +366,7 @@
      "lignes_precedentes": 724,
      "carte": "rattachement des écoles : 100,0 %",
      "mise_a_jour": "2026-03-03T15:58:03+00:00",
-     "telecharge_le": "2026-11-15T11:39:24+00:00",
+     "telecharge_le": "2026-11-15T11:52:06+00:00",
      "etat": "ok",
      "details": [
       [
@@ -388,7 +388,7 @@
      "lignes_precedentes": 783,
      "carte": "390 secteurs, 2026-2027",
      "mise_a_jour": "2026-03-03T15:53:09+00:00",
-     "telecharge_le": "2026-11-15T11:39:27+00:00",
+     "telecharge_le": "2026-11-15T11:52:07+00:00",
      "etat": "ok",
      "details": [
       [
@@ -410,7 +410,7 @@
      "lignes_precedentes": 719,
      "carte": "rattachement des écoles : 99,6 %",
      "mise_a_jour": "2026-03-03T15:56:28+00:00",
-     "telecharge_le": "2026-11-15T11:39:29+00:00",
+     "telecharge_le": "2026-11-15T11:52:09+00:00",
      "etat": "ok",
      "details": [
       [
@@ -432,7 +432,7 @@
      "lignes_precedentes": 50,
      "carte": "50 secteurs, mis à jour le 01/10/2026",
      "mise_a_jour": "2026-10-01T17:02:12+00:00",
-     "telecharge_le": "2026-11-15T11:39:31+00:00",
+     "telecharge_le": "2026-11-15T11:52:10+00:00",
      "etat": "ok",
      "details": [
       [
@@ -454,7 +454,7 @@
      "lignes_precedentes": 59,
      "carte": "59 secteurs, mis à jour le 01/10/2026",
      "mise_a_jour": "2026-10-01T17:02:09+00:00",
-     "telecharge_le": "2026-11-15T11:39:31+00:00",
+     "telecharge_le": "2026-11-15T11:52:11+00:00",
      "etat": "ok",
      "details": [
       [
