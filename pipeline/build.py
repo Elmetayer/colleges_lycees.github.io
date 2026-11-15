@@ -11,6 +11,7 @@ puis confie les calculs aux modules colleges.py, lycees.py et ecoles.py. Fichier
   - <out>/ecoles/<dep>.geojson     : écoles d'un département (trop nombreuses pour un seul fichier),
                                      avec ecoles/index.json et ecoles/recherche.json (voir ecoles.py)
   - <out>/fiches/ecoles-<dep>.json : IPS avec rangs, taille des classes des écoles d'un département
+  - <out>/secteurs-ecoles/         : secteurs des écoles publiques (Paris ; voir secteurs_ecoles.py)
   - <out>/meta.json                : date de génération, sessions, médianes, sources
 
 Usage : python pipeline/build.py --out site/data --cache-dir sources-cache
@@ -46,6 +47,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 import colleges  # noqa: E402
 import ecoles  # noqa: E402
 import lycees  # noqa: E402
+import secteurs_ecoles  # noqa: E402
 
 # Collèges et lycées : France métropolitaine (Corse comprise). L'outre-mer viendra plus tard.
 METROPOLE = re.compile(r"\d{1,2}|2[AB]")
@@ -145,6 +147,8 @@ SOURCES = {
                     "esurc_circo_preel,esurc_circo_elem,esurc_acad_preel,esurc_acad_elem,esurc_fr_preel,esurc_fr_elem",
         "obligatoire": False,
     },
+    # Secteurs des écoles de Paris (Ville de Paris) : voir secteurs_ecoles.py.
+    **secteurs_ecoles.sources(),
 }
 
 HTTP = requests.Session()
@@ -246,7 +250,7 @@ def explore_id_de(url: str) -> str | None:
 def resolve(key: str) -> dict:
     """Complète la source avec son adresse de téléchargement et sa date de mise à jour."""
     src = dict(SOURCES[key])
-    src["page"] = None
+    src["page"] = SOURCES[key].get("page")  # page fixée dans SOURCES (jeux hors data.education.gouv.fr)
     src["maj"] = None
     if src["datagouv"]:
         try:
@@ -278,7 +282,7 @@ def resolve(key: str) -> dict:
         src["page"] = src["page"] or f"https://data.education.gouv.fr/explore/dataset/{eid}/"
         if not src["maj"]:
             try:
-                r = HTTP.get(f"{EXPLORE}/{eid}", timeout=60)
+                r = HTTP.get(f"{src.get('explore_base', EXPLORE)}/{eid}", timeout=60)
                 r.raise_for_status()
                 info = r.json()
                 src["maj"] = info.get("metas", {}).get("default", {}).get("modified") or info.get("data_processed")
@@ -291,7 +295,7 @@ def adresse(src: dict) -> str | None:
     if src.get("explore_id"):
         select = f"&select={src['colonnes']}" if src.get("colonnes") else ""
         filtre = f"&where={quote(src['filtre'])}" if src.get("filtre") else ""
-        return f"{EXPLORE}/{src['explore_id']}/exports/csv?delimiter=%3B{select}{filtre}"
+        return f"{src.get('explore_base', EXPLORE)}/{src['explore_id']}/exports/csv?delimiter=%3B{select}{filtre}"
     return src.get("url_csv")
 
 
@@ -465,7 +469,17 @@ def main() -> int:
     lyc_meta = lycees.construire(tous, frames, out, problemes)
 
     log("\n== écoles")
-    eco_meta = ecoles.construire(tous, frames, out, problemes)
+    eco_meta, eco_df = ecoles.construire(tous, frames, out, problemes)
+
+    log("\n== secteurs des écoles")
+    try:
+        secteurs = secteurs_ecoles.construire(eco_df, frames, out, problemes)
+    except ColonneIntrouvable as exc:
+        log(f"  ! secteurs des écoles ignorés : {exc}")
+        problemes.append(f"secteurs des écoles : {exc}")
+        secteurs = None
+    if secteurs:
+        eco_meta["secteurs"] = secteurs
 
     meta = {
         "genere_le": datetime.now(timezone.utc).isoformat(timespec="seconds"),
