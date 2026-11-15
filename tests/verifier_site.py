@@ -125,9 +125,9 @@ def verifier_fichiers():
         if vides:
             avertissements.append(f"départements sans aucune zone : {vides}")
         # Concordance avec les secteurs officiels : une dégradation du calcul bloque la publication.
-        controle = (meta.get("secteurs") or {}).get("controle") or {}
+        ctrl_off = (meta.get("secteurs") or {}).get("controle") or {}
         for dep in DEPARTEMENTS_CONTROLE:
-            c = controle.get(dep)
+            c = ctrl_off.get(dep)
             if not c or c.get("taux_surface") is None:
                 avertissements.append(f"contrôle des secteurs impossible pour {dep} (secteurs officiels non téléchargés)")
                 continue
