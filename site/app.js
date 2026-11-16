@@ -1318,7 +1318,7 @@
   }
 
   function initRecherche() {
-    const champ = $("recherche"), liste = $("suggestions");
+    const champ = $("recherche"), liste = $("suggestions"), effacer = $("effacer-recherche");
     let options = [], actif = -1, minuteur = null, controleur = null, local = { colleges: [], lycees: [], ecoles: [], communes: [] }, adresses = [], etatAdresses = "";
 
     function fermerListe() {
@@ -1361,6 +1361,7 @@
     function choisir(it) {
       fermerListe();
       champ.value = it.libelle;
+      majEffacer();
       champ.blur();
       if (it.type === "college") {
         centrer(it.f.geometry.coordinates, Math.max(carte.getZoom(), 14));
@@ -1379,7 +1380,23 @@
         montrerAdresse(it.a);
       }
     }
+    // Bouton « Effacer la recherche » : visible dès qu'il y a du texte ; vide le champ, ferme les suggestions et
+    // remet le curseur dans le champ (la fiche ou l'adresse affichée restent ouvertes).
+    const majEffacer = () => { if (effacer) effacer.hidden = !champ.value; };
+    if (effacer) {
+      effacer.addEventListener("mousedown", (e) => e.preventDefault());  // garde le focus dans le champ
+      effacer.addEventListener("click", () => {
+        clearTimeout(minuteur);
+        if (controleur) controleur.abort();
+        champ.value = "";
+        options = []; adresses = []; etatAdresses = "";
+        fermerListe();
+        majEffacer();
+        champ.focus();
+      });
+    }
     champ.addEventListener("input", () => {
+      majEffacer();
       const q = champ.value.trim();
       clearTimeout(minuteur);
       if (controleur) controleur.abort();
