@@ -8,7 +8,9 @@
    des lycées et des écoles, et les fiches d'un collège, d'un lycée et d'une école s'ouvrent avec
    leurs indicateurs (une fiche impossible à tester, faute d'établissement avec l'indicateur, est un
    échec) ; la fiche d'une école publique donne son collège de secteur, celle d'une école hors
-   contrat l'explication de l'absence de données ; les écoles ne s'affichent qu'en zoomant.
+   contrat l'explication de l'absence de données ; les écoles ne s'affichent qu'en zoomant : petits points sous les
+   collèges à l'échelle d'une région (zoom 7, couche « ecoles-loin »), formes au-dessus à partir du zoom 10, zones des
+   écoles à partir du zoom 11.
    Secteurs des écoles (Paris, autres villes) : contrôles du rattachement aux écoles (SECTEURS_ECOLES_MINIMUM) ;
    la fiche d'une école de Paris donne son secteur, dont la zone est dessinée, et l'onglet « Entrée en 6e »
    (évaluations de 6e du collège de secteur).
@@ -377,11 +379,29 @@ async def verifier_navigateur(contenus):
                 indice = await pg.evaluate("!document.getElementById('indice-secteurs').hidden")
                 if rendues or not indice:
                     problemes.append(f"vue nationale : {rendues} zones affichées, indication « Zoomez » {'visible' if indice else 'absente'}")
-                ecoles_rendues = await pg.evaluate("window.carteScolaire.getLayer('ecoles') ? window.carteScolaire.queryRenderedFeatures({layers: ['ecoles']}).length : -1")
+                ecoles_rendues = await pg.evaluate("window.carteScolaire.getLayer('ecoles') ? window.carteScolaire.queryRenderedFeatures({layers: ['ecoles', 'ecoles-loin'].filter((l) => window.carteScolaire.getLayer(l))}).length : -1")
                 texte_indice = await pg.inner_text("#indice-secteurs")
                 if ecoles_rendues != 0 or "écoles" not in texte_indice:
                     problemes.append(f"vue nationale : calque des écoles {'absent' if ecoles_rendues < 0 else f'avec {ecoles_rendues} écoles affichées'}, "
                                      f"indication « {texte_indice} »")
+                # Vue région (zoom 7,5 sur Lyon) : écoles en petits points, pas encore de zones d'écoles, indication.
+                await pg.evaluate("window.carteScolaire.jumpTo({center: [4.85, 45.75], zoom: 7.5})")
+                await pg.wait_for_timeout(4000)
+                loin = await pg.evaluate("window.carteScolaire.getLayer('ecoles-loin') ? window.carteScolaire.queryRenderedFeatures({layers: ['ecoles-loin']}).length : -1")
+                zones_region = await pg.evaluate("window.carteScolaire.getLayer('secteurs-ecoles-fond') ? window.carteScolaire.queryRenderedFeatures({layers: ['secteurs-ecoles-fond']}).length : 0")
+                texte_indice = await pg.inner_text("#indice-secteurs") if await pg.is_visible("#indice-secteurs") else ""
+                if loin <= 0 or zones_region or "secteurs des écoles" not in texte_indice:
+                    problemes.append(f"vue région (zoom 7,5) : {'couche ecoles-loin absente' if loin < 0 else f'{loin} écoles affichées'}, "
+                                     f"{zones_region} zones d'écoles, indication « {texte_indice} »")
+                else:
+                    print(f"{appareil} : vue région (zoom 7,5), {loin} écoles en petits points, indication « {texte_indice} »")
+                await pg.evaluate("window.carteScolaire.jumpTo({center: [4.85, 45.75], zoom: 10.5})")
+                await pg.wait_for_timeout(2500)
+                dessus = await pg.evaluate("window.carteScolaire.queryRenderedFeatures({layers: ['ecoles']}).length")
+                if dessus <= 0:
+                    problemes.append("zoom 10,5 : aucune école dans la couche au-dessus des collèges")
+                else:
+                    print(f"{appareil} : zoom 10,5, {dessus} écoles au-dessus des collèges")
             panneau = await pg.inner_text("#panneau")
             if "Données indisponibles" in panneau:
                 problemes.append("un calque affiche « Données indisponibles »")

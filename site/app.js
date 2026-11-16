@@ -85,7 +85,7 @@
     // sur toute la France métropolitaine (meta.json, ecoles.couleurs) pour ne pas dépendre des départements chargés.
     { cle: "ecoles", nom: "Écoles", pluriel: "écoles", forme: "cercle", indicateurs: INDICATEURS_ECOLES, defaut: "ips",
       niveaux: true, parDepartement: true, libellePrive: "Privées",
-      perimetre: "Écoles de France métropolitaine ; couleurs réparties sur l'ensemble de ces écoles. Elles apparaissent en zoomant sur une ville.",
+      perimetre: "Écoles de France métropolitaine ; couleurs réparties sur l'ensemble de ces écoles. Elles apparaissent en zoomant sur une région, comme les secteurs des collèges.",
       // Remplacé au démarrage quand des secteurs d'écoles sont publiés (ajouterSecteursEcoles).
       zones: { libelle: "Secteurs des écoles publiques", indisponible: true,
         note: "Pas encore disponibles." } },
@@ -263,20 +263,26 @@
   function ajouterCalqueCarte(c, avant) {
     carte.addSource(c.cle, { type: "geojson", data: sources[c.cle] });
     const prive = ["==", ["get", "secteur"], "privé"];
-    carte.addLayer({
-      id: c.cle, type: "symbol", source: c.cle, minzoom: c.parDepartement ? ZOOM_ECOLES : 0,
-      layout: {
-        "icon-image": "forme-" + c.forme,
-        "icon-size": ["interpolate", ["linear"], ["zoom"], 8, 0.55, 11, 0.85, 13, 1, 16, 1.4],
-        "icon-allow-overlap": true, "icon-ignore-placement": true,
-      },
-      paint: {
-        "icon-color": ABSENT,
-        "icon-halo-color": ["case", prive, "#1e2f6b", "#ffffff"],
-        "icon-halo-width": ["interpolate", ["linear"], ["zoom"], 8, ["case", prive, 1.3, 0.6], 13, ["case", prive, 2.4, 1]],
-      },
-    }, avant);
+    const couche = (id, zooms, taille, halo, dessous) => carte.addLayer(Object.assign({
+      id, type: "symbol", source: c.cle,
+      layout: { "icon-image": "forme-" + c.forme, "icon-size": taille, "icon-allow-overlap": true, "icon-ignore-placement": true },
+      paint: { "icon-color": ABSENT, "icon-halo-color": ["case", prive, "#1e2f6b", "#ffffff"], "icon-halo-width": halo },
+    }, zooms), dessous);
+    if (!c.parDepartement) {
+      couche(c.cle, {}, ["interpolate", ["linear"], ["zoom"], 8, 0.55, 11, 0.85, 13, 1, 16, 1.4],
+        ["interpolate", ["linear"], ["zoom"], 8, ["case", prive, 1.3, 0.6], 13, ["case", prive, 2.4, 1]], avant);
+      return;
+    }
+    // Écoles : de ZOOM_ECOLES (une région) à ZOOM_ECOLES_DESSUS, petits points sous les collèges et les lycées
+    // (couche « -loin ») pour voir la densité et les couleurs sans masquer les collèges ; au-delà, formes au-dessus.
+    couche(c.cle + "-loin", { minzoom: ZOOM_ECOLES, maxzoom: ZOOM_ECOLES_DESSUS },
+      ["interpolate", ["linear"], ["zoom"], ZOOM_ECOLES, 0.3, ZOOM_ECOLES_DESSUS, 0.65],
+      ["case", prive, 0.9, 0.4], carte.getLayer("colleges") ? "colleges" : avant);
+    couche(c.cle, { minzoom: ZOOM_ECOLES_DESSUS }, ["interpolate", ["linear"], ["zoom"], 8, 0.55, 11, 0.85, 13, 1, 16, 1.4],
+      ["interpolate", ["linear"], ["zoom"], 8, ["case", prive, 1.3, 0.6], 13, ["case", prive, 2.4, 1]], avant);
   }
+  // Couches d'un calque de points (les écoles en ont deux, selon le zoom).
+  const couchesCalque = (c) => [c.cle, c.cle + "-loin"].filter((id) => carte.getLayer(id));
 
   const perimetre = (c) => (c.perimetre ? `<p class="note">${echapper(c.perimetre)}</p>` : "");
 
@@ -307,9 +313,11 @@
     if (!sources[c.cle] || !carte.getLayer(c.cle)) return;
     const r = reglages[c.cle], ind = indicateurDe(c);
     const { expr, d, pal } = couleur(ind, sources[c.cle].features, c.parDepartement ? metaEcoles.couleurs : null);
-    carte.setPaintProperty(c.cle, "icon-color", expr);
-    carte.setFilter(c.cle, filtreCalque(c, r));
-    carte.setLayoutProperty(c.cle, "visibility", r.actif ? "visible" : "none");
+    couchesCalque(c).forEach((id) => {
+      carte.setPaintProperty(id, "icon-color", expr);
+      carte.setFilter(id, filtreCalque(c, r));
+      carte.setLayoutProperty(id, "visibility", r.actif ? "visible" : "none");
+    });
     if (c.cle === "colleges" && carte.getLayer("secteurs-fond")) {
       carte.setPaintProperty("secteurs-fond", "fill-color", expr);
       const vis = r.actif && r.zones ? "visible" : "none";
@@ -1692,9 +1700,13 @@
 
   // ---------------------------------------------------------------- écoles
   // Environ 46 000 écoles : un fichier par département (data/ecoles/<dep>.geojson), chargé quand le
-  // département est visible à partir du zoom ZOOM_ECOLES (une ville à l'écran), ou quand une école
-  // est cherchée. index.json donne l'emprise de chaque département.
-  const ZOOM_ECOLES = 12;
+  // département est visible à partir du zoom ZOOM_ECOLES (une région à l'écran, comme les secteurs des collèges ;
+  // choix de Bruno du 16/11/2026, auparavant zoom 12), ou quand une école est cherchée. index.json donne l'emprise
+  // de chaque département. Les zones des écoles (secteurs des villes, communes), plus lourdes et illisibles à
+  // l'échelle d'une région, viennent à partir de ZOOM_ZONES_ECOLES.
+  const ZOOM_ECOLES = 7;
+  const ZOOM_ECOLES_DESSUS = 10;
+  const ZOOM_ZONES_ECOLES = 11;
   let indexEcoles = {};
   let metaEcoles = { total: 0, couleurs: {}, periodes: {} };
   const ecolesDep = new Map();
@@ -1738,6 +1750,7 @@
       const b = indexEcoles[d].bbox;
       if (b && b[0] <= v.getEast() && b[2] >= v.getWest() && b[1] <= v.getNorth() && b[3] >= v.getSouth()) chargerEcolesDep(d);
     });
+    if (carte.getZoom() < ZOOM_ZONES_ECOLES) return;
     if (reglages.ecoles.zones) Object.keys(indexSecteursEcoles).forEach((d) => {
       const b = indexSecteursEcoles[d].bbox;
       if (b && b[0] <= v.getEast() && b[2] >= v.getWest() && b[1] <= v.getNorth() && b[3] >= v.getSouth()) chargerSecteursEcoles(d);
@@ -1748,12 +1761,15 @@
     });
   }
 
-  // Indication « Zoomez » : écoles (zoom ZOOM_ECOLES) et secteurs des collèges (zoom ZOOM_SECTEURS).
+  // Indication « Zoomez » : écoles (zoom ZOOM_ECOLES), secteurs des collèges (zoom ZOOM_SECTEURS) et, une fois les
+  // écoles affichées, zones des écoles (zoom ZOOM_ZONES_ECOLES).
   function majIndice() {
     const z = carte.getZoom();
     const secteursActifs = carte.getLayer("secteurs-fond") && carte.getLayoutProperty("secteurs-fond", "visibility") !== "none";
     const ecolesActives = Boolean(sources.ecoles && reglages.ecoles && reglages.ecoles.actif);
-    const quoi = [ecolesActives && z < ZOOM_ECOLES && "les écoles", secteursActifs && z < ZOOM_SECTEURS && "les secteurs des collèges"].filter(Boolean);
+    const zonesActives = ecolesActives && reglages.ecoles.zones && (reglages.ecoles.mat || reglages.ecoles.elem) && carte.getLayer("secteurs-ecoles-fond");
+    const quoi = [ecolesActives && z < ZOOM_ECOLES && "les écoles", secteursActifs && z < ZOOM_SECTEURS && "les secteurs des collèges",
+      zonesActives && z >= ZOOM_ECOLES && z < ZOOM_ZONES_ECOLES && "les secteurs des écoles"].filter(Boolean);
     $("indice-secteurs").hidden = !quoi.length;
     if (quoi.length) $("indice-secteurs").textContent = `Zoomez pour voir ${quoi.join(" et ")}`;
   }
@@ -1914,8 +1930,14 @@
     const mobile = window.innerWidth < 760;
     // centrer() laisse une marge persistante (padding de flyTo) que fitBounds ajouterait à la sienne.
     carte.setPadding({ top: 0, right: 0, bottom: 0, left: 0 });
-    if (b) carte.fitBounds([[b[0], b[1]], [b[2], b[3]]], { maxZoom: 16, duration: 600,
-      padding: mobile ? { top: 20, bottom: 90, left: 16, right: 16 } : { top: 40, bottom: 40, left: 380, right: 420 } });
+    if (!b) return;
+    const padding = mobile ? { top: 20, bottom: 90, left: 16, right: 16 } : { top: 40, bottom: 40, left: 380, right: 420 };
+    const cam = carte.cameraForBounds([[b[0], b[1]], [b[2], b[3]]], { maxZoom: 16, padding });
+    // Une zone d'école n'est dessinée qu'à partir de ZOOM_ZONES_ECOLES (un grand regroupement de communes peut
+    // demander moins) : ne pas cadrer plus large.
+    if (cam && f.properties.uais !== undefined && cam.zoom < ZOOM_ZONES_ECOLES) cam.zoom = ZOOM_ZONES_ECOLES;
+    if (cam) carte.easeTo(Object.assign({ duration: 600 }, cam));
+    else carte.fitBounds([[b[0], b[1]], [b[2], b[3]]], { maxZoom: 16, duration: 600, padding });
   }
 
   function ajouterSecteursEcoles(index) {
@@ -1926,15 +1948,15 @@
       ? " Ailleurs, dans les communes qui n'ont qu'une école publique, ou qui ont regroupé leurs écoles avec d'autres communes, la zone est la commune ou le regroupement (contour plein) ; les communes à plusieurs écoles qui ne publient pas leurs secteurs n'en ont pas."
       : "";
     calque("ecoles").zones = { libelle: "Secteurs des écoles publiques",
-      note: `${liste ? `À ${liste}, secteurs publiés par chaque ville (contour en pointillés).` : ""}${communes} Les zones suivent le réglage Niveau : celles des élémentaires, ou celles des maternelles quand seules les maternelles sont cochées. Elles apparaissent avec les écoles, en zoomant sur une ville.`.trim() };
+      note: `${liste ? `À ${liste}, secteurs publiés par chaque ville (contour en pointillés).` : ""}${communes} Les zones suivent le réglage Niveau : celles des élémentaires, ou celles des maternelles quand seules les maternelles sont cochées. Elles apparaissent en zoomant sur une ville.`.trim() };
     carte.addSource("secteurs-ecoles", { type: "geojson", data: secteursEcoles });
     const avant = carte.getLayer("colleges") ? "colleges" : undefined;
-    carte.addLayer({ id: "secteurs-ecoles-fond", type: "fill", source: "secteurs-ecoles", minzoom: ZOOM_ECOLES,
+    carte.addLayer({ id: "secteurs-ecoles-fond", type: "fill", source: "secteurs-ecoles", minzoom: ZOOM_ZONES_ECOLES,
       paint: { "fill-color": ABSENT, "fill-opacity": ["case", ["has", "regle"], 0.22, 0.3] } }, avant);
-    carte.addLayer({ id: "secteurs-ecoles-contour", type: "line", source: "secteurs-ecoles", minzoom: ZOOM_ECOLES, filter: ["!", ["has", "regle"]], paint: { "line-color": "#1e2f6b", "line-width": 1, "line-opacity": 0.6, "line-dasharray": [3, 2] } }, avant);
+    carte.addLayer({ id: "secteurs-ecoles-contour", type: "line", source: "secteurs-ecoles", minzoom: ZOOM_ZONES_ECOLES, filter: ["!", ["has", "regle"]], paint: { "line-color": "#1e2f6b", "line-width": 1, "line-opacity": 0.6, "line-dasharray": [3, 2] } }, avant);
     // Zones des communes (une seule école, regroupement) : contour plein, plus discret que les secteurs publiés.
-    carte.addLayer({ id: "secteurs-ecoles-commune", type: "line", source: "secteurs-ecoles", minzoom: ZOOM_ECOLES, filter: ["has", "regle"], paint: { "line-color": "#4a5470", "line-width": 1.2, "line-opacity": 0.55 } }, avant);
-    carte.addLayer({ id: "secteurs-ecoles-surligne", type: "line", source: "secteurs-ecoles", minzoom: ZOOM_ECOLES, filter: ["==", ["get", "uais"], "-"], paint: { "line-color": "#1e2f6b", "line-width": 3 } }, avant);
+    carte.addLayer({ id: "secteurs-ecoles-commune", type: "line", source: "secteurs-ecoles", minzoom: ZOOM_ZONES_ECOLES, filter: ["has", "regle"], paint: { "line-color": "#4a5470", "line-width": 1.2, "line-opacity": 0.55 } }, avant);
+    carte.addLayer({ id: "secteurs-ecoles-surligne", type: "line", source: "secteurs-ecoles", minzoom: ZOOM_ZONES_ECOLES, filter: ["==", ["get", "uais"], "-"], paint: { "line-color": "#1e2f6b", "line-width": 3 } }, avant);
   }
 
   // ---------------------------------------------------------------- démarrage
@@ -1981,13 +2003,13 @@
     chargerSecteurs();
     if (sources.ecoles) { carte.on("moveend", chargerEcolesVisibles); chargerEcolesVisibles(); }
     etat.textContent = "";
-    const couches = () => ["ecoles", "lycees", "colleges"].filter((id) => carte.getLayer(id));
+    const couches = () => ["ecoles", "lycees", "colleges", "ecoles-loin"].filter((id) => carte.getLayer(id));
     carte.on("click", (e) => {
       // Petite marge autour du doigt : les formes sont petites sur mobile.
       const zone = [[e.point.x - 6, e.point.y - 6], [e.point.x + 6, e.point.y + 6]];
       const pt = carte.queryRenderedFeatures(zone, { layers: couches() })[0];
       if (pt) {
-        if (pt.layer.id === "ecoles") ouvrirFicheEcole(pt.properties, pt.geometry.coordinates);
+        if (pt.layer.id === "ecoles" || pt.layer.id === "ecoles-loin") ouvrirFicheEcole(pt.properties, pt.geometry.coordinates);
         else if (pt.layer.id === "lycees") ouvrirFicheLycee(pt.properties);
         else ouvrirFiche(pt.properties);
         return;
