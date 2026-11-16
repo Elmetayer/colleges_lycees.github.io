@@ -464,6 +464,23 @@ async def verifier_navigateur(contenus):
                 else:
                     problemes.append(f"les secteurs du département {fichier_secteur} ne se chargent pas en zoomant sur « {college_secteur} » "
                                      f"(chargés : {[u.split('/')[-1].split('?')[0] for u in secteurs_charges]})")
+            # Bouton « Effacer la recherche » : caché champ vide, visible avec du texte, vide le champ au clic.
+            await pg.goto("http://localhost:8765/")
+            await pg.wait_for_selector("#recherche")
+            if await pg.is_visible("#effacer-recherche"):
+                problemes.append("recherche : le bouton Effacer est visible alors que le champ est vide")
+            await pg.fill("#recherche", "Lyon")
+            await pg.wait_for_timeout(300)
+            if not await pg.is_visible("#effacer-recherche"):
+                problemes.append("recherche : le bouton Effacer n'apparaît pas après la saisie")
+            else:
+                await pg.click("#effacer-recherche")
+                await pg.wait_for_timeout(300)
+                valeur = await pg.input_value("#recherche")
+                if valeur or await pg.is_visible("#effacer-recherche") or await pg.is_visible("#suggestions"):
+                    problemes.append(f"recherche : après Effacer, champ « {valeur} », bouton ou suggestions encore visibles")
+                else:
+                    print(f"{appareil} : bouton Effacer de la recherche OK")
             # Pages de documentation : chargement sans erreur, données de meta.json affichées.
             for page in sorted(SITE.glob("documentation*.html")):
                 await pg.goto(f"http://localhost:8765/{page.name}")
