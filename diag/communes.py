@@ -36,7 +36,14 @@ print("TOUTES :", cols)
 voulues = ["identifiant_de_l_etablissement", "nom_etablissement", "statut_public_prive", "ecole_maternelle", "ecole_elementaire",
            "code_commune", "nom_commune", "code_departement", "etat", "libelle_nature", "code_nature", "rpi_concentre", "rpi_disperse",
            "multi_uai", "type_rattachement_etablissement_mere", "code_type_contrat_prive", "type_etablissement"]
-sel = [c for c in voulues if c in cols]
+sel = []
+for c in voulues:
+    if c not in cols: continue
+    r = requests.get(ED + "/fr-en-annuaire-education/records", params={"select": c, "limit": 1}, headers=H, timeout=60)
+    print("  colonne", c, r.status_code)
+    if r.status_code == 200: sel.append(c)
+r = requests.get(ED + "/fr-en-annuaire-education/exports/csv?delimiter=%3B&select=identifiant_de_l_etablissement&limit=3", headers=H, timeout=60)
+print("  export minimal", r.status_code, r.text[:200])
 ann = get(ED + "/fr-en-annuaire-education/exports/csv", where="type_etablissement='Ecole'", select=",".join(sel), delimiter=";")
 ann = [a for a in ann if a.get("type_etablissement") == "Ecole" and (a.get("etat") or "OUVERT") == "OUVERT" and not str(a.get("code_commune") or "").startswith("97")]
 print("écoles ouvertes métropole :", len(ann))
