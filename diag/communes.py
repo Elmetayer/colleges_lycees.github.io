@@ -63,15 +63,20 @@ for r in tout:
 print("écoles avec effectifs :", len(eff))
 
 
+import math
+def f(v):
+    try:
+        x = float(v); return 0.0 if math.isnan(x) else x
+    except (TypeError, ValueError):
+        return 0.0
 def n(r, *cles):
-    return sum(float(r.get(c) or 0) for c in cles)
+    return sum(f(r.get(c)) for c in cles)
 
 
 def eleves(uai):
     r = eff.get(uai) or {}
     tot = n(r, "nombre_total_eleves")
-    mat = n(r, "nombre_eleves_en_pre_elementaire_hors_ulis") or n(r, "nombre_eleves_preelementaire_hors_ulis")
-    return tot, mat, tot - mat
+    return tot, n(r, "nombre_eleves_preelementaire_hors_ulis"), n(r, "nombre_eleves_elementaire_hors_ulis") + n(r, "nombre_eleves_ulis")
 
 
 # 3. Communes par nombre d'écoles publiques de chaque niveau
@@ -113,7 +118,7 @@ if eff:
             if len(d["elem"]) != 1: continue
             r = eff.get(d["elem"][0]); total1 += 1
             if not r: continue
-            vides = [x for x in niv_cols if "ulis" not in x and float(r.get(x) or 0) == 0]
+            vides = [x for x in niv_cols if "ulis" not in x and f(r.get(x)) == 0]
             if vides:
                 partiel += 1
                 if len(exemples) < 8: exemples.append((d["nom"], [v.replace("nombre_eleves_", "") for v in vides]))
@@ -129,7 +134,7 @@ except Exception as ex:
     print("geo.api", str(ex)[:150])
 
 # 3b. RPI d'après l'annuaire
-def oui(v): return str(v) in ("1", "True", "true", "OUI", "Oui")
+def oui(v): return f(v) != 0 and str(v) not in ("0", "nan", "None")
 for niv, idx in (("elem", 2), ("mat", 1)):
     une = [c for c, d in par_commune.items() if len(d[niv]) == 1]
     byu = {a["identifiant_de_l_etablissement"]: a for a in pub}
@@ -141,15 +146,33 @@ for niv, idx in (("elem", 2), ("mat", 1)):
     print(f"   hors RPI : {len(propre)} communes, {el(propre):,.0f} élèves")
 print("écoles publiques en RPI dispersé :", sum(oui(a.get("rpi_disperse")) for a in pub), "concentré :", sum(oui(a.get("rpi_concentre")) for a in pub))
 
-# 4. Sources sur les RPI
-for q in ["regroupement pédagogique", "RPI", "regroupement intercommunal école"]:
-    try:
-        c = get(ED, where=f'search("{q}")', limit=20, select="dataset_id,metas.default.title")
-        print("ÉDUCATION", q, [x.get("dataset_id") for x in c.get("results", [])])
-    except Exception as ex:
-        print("ÉDUCATION", q, str(ex)[:150])
-    try:
-        c = requests.get("https://www.data.gouv.fr/api/1/datasets/", params={"q": q, "page_size": 15}, headers=H, timeout=60).json()
-        print("DATAGOUV", q, [(x["title"][:70], x.get("organization", {}) and x["organization"].get("name", "")[:30]) for x in c.get("data", [])])
-    except Exception as ex:
-        print("DATAGOUV", q, str(ex)[:150])
+# 4. RPI dispersés : rpi_disperse = code du regroupement
+byu = {a["identifiant_de_l_etablissement"]: a for a in pub}
+code = lambda a: (str(a.get("rpi_disperse")) if str(a.get("rpi_disperse")) not in ("nan", "None", "") else None)
+rpi = collections.defaultdict(list)
+for a in pub:
+    if code(a): rpi[code(a)].append(a)
+print(f"RPI dispersés : {len(rpi)} codes, {sum(len(v) for v in rpi.values())} écoles publiques")
+ncom = collections.Counter(len({a['code_commune'] for a in v}) for v in rpi.values())
+print("  communes par RPI :", sorted(ncom.items())[:10])
+necol = collections.Counter(len(v) for v in rpi.values()); print("  écoles par RPI :", sorted(necol.items())[:10])
+ex = list(rpi.items())[:4]
+for c, v in ex:
+    print("  ex", c, [(a["nom_commune"], a["nom_etablissement"], a["ecole_maternelle"], a["ecole_elementaire"],
+                     {k.replace("nombre_eleves_", "").replace("_hors_ulis", ""): f(eff.get(a["identifiant_de_l_etablissement"], {}).get(k)) for k in niv_cols}) for a in v])
+# Écoles de RPI dispersé sans tous les niveaux CP-CM2
+part = sum(1 for v in rpi.values() for a in v if a["ecole_elementaire"] == "1" and eff.get(a["identifiant_de_l_etablissement"])
+           and any(f(eff[a["identifiant_de_l_etablissement"]].get(k)) == 0 for k in niv_cols))
+print("  élémentaires de RPI dispersé sans tous les niveaux :", part)
+for niv, idx in (("elem", 2), ("mat", 1)):
+    une = [c for c, d in par_commune.items() if len(d[niv]) == 1]
+    el = lambda L: sum(eleves(par_commune[c][niv][0])[idx] for c in L)
+    rd = [c for c in une if code(byu[par_commune[c][niv][0]])]
+    propre = [c for c in une if c not in set(rd)]
+    tot = tot_elem if niv == "elem" else tot_mat
+    print(f"{niv} : 1 école = {len(une)} communes, {el(une):,.0f} élèves ({el(une) / tot:.1%}) ; en RPI dispersé {len(rd)} ({el(rd):,.0f}) ; "
+          f"hors RPI dispersé {len(propre)} communes, {el(propre):,.0f} élèves ({el(propre) / tot:.1%})")
+# Communes à plusieurs écoles : élèves
+for niv, idx in (("elem", 2), ("mat", 1)):
+    plus = [c for c, d in par_commune.items() if len(d[niv]) >= 2]
+    print(f"{niv} : communes à 2 écoles ou plus = {len(plus)}, élèves {sum(eleves(u)[idx] for c in plus for u in par_commune[c][niv]):,.0f}")
