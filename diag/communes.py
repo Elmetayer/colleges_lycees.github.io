@@ -2,12 +2,21 @@
 élèves concernés, sources possibles sur les RPI."""
 import collections, json, requests
 
-H = {"User-Agent": "carte-scolaire-diag"}
+H = {"User-Agent": "carte-scolaire-colleges-lycees (github.com/Elmetayer/colleges_lycees.github.io)"}
 ED = "https://data.education.gouv.fr/api/explore/v2.1/catalog/datasets"
 
 
 def get(url, **p):
-    r = requests.get(url, params=p, headers=H, timeout=300)
+    if "/exports/" in url:  # même forme d'URL que build.py (delimiter d'abord, select sans encodage des virgules)
+        q = "?delimiter=%3B" + "".join(f"&{k}={v}" for k, v in p.items() if k not in ("delimiter",))
+        r = requests.get(url + q, headers=H, timeout=300)
+        if r.status_code == 401 and "where" in p:
+            print("401 avec where, nouvel essai sans filtre")
+            q = "?delimiter=%3B" + "".join(f"&{k}={v}" for k, v in p.items() if k not in ("delimiter", "where"))
+            r = requests.get(url + q, headers=H, timeout=300)
+        print("export", r.status_code, url.split("/datasets/")[1][:40], len(r.text))
+    else:
+        r = requests.get(url, params=p, headers=H, timeout=300)
     if r.status_code >= 400:
         print("ERREUR", r.status_code, url, r.text[:300])
     r.raise_for_status()
@@ -26,10 +35,10 @@ print("  liées RPI/regroupement/réseau :", [c for c in cols if any(k in c.lowe
 print("TOUTES :", cols)
 voulues = ["identifiant_de_l_etablissement", "nom_etablissement", "statut_public_prive", "ecole_maternelle", "ecole_elementaire",
            "code_commune", "nom_commune", "code_departement", "etat", "libelle_nature", "code_nature", "rpi_concentre", "rpi_disperse",
-           "multi_uai", "type_rattachement_etablissement_mere", "code_type_contrat_prive"]
+           "multi_uai", "type_rattachement_etablissement_mere", "code_type_contrat_prive", "type_etablissement"]
 sel = [c for c in voulues if c in cols]
 ann = get(ED + "/fr-en-annuaire-education/exports/csv", where="type_etablissement='Ecole'", select=",".join(sel), delimiter=";")
-ann = [a for a in ann if (a.get("etat") or "OUVERT") == "OUVERT" and not str(a.get("code_commune") or "").startswith("97")]
+ann = [a for a in ann if a.get("type_etablissement") == "Ecole" and (a.get("etat") or "OUVERT") == "OUVERT" and not str(a.get("code_commune") or "").startswith("97")]
 print("écoles ouvertes métropole :", len(ann))
 print("exemple :", ann[0])
 for k in ("rpi_concentre", "rpi_disperse", "multi_uai"):
@@ -46,6 +55,8 @@ for rentree in ("2025", "2024"):
     except Exception as ex:
         print("effectifs", rentree, str(ex)[:150]); continue
     if e:
+        e = [r for r in e if str(r.get("rentree_scolaire")) == rentree]
+        if not e: continue
         print("effectifs rentrée", rentree, len(e), "colonnes :", list(e[0].keys())[:40])
         for r in e:
             eff[r.get("numero_ecole") or r.get("uai")] = r
