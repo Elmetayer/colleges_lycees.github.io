@@ -465,8 +465,9 @@ async def verifier_navigateur(contenus):
                     problemes.append(f"les secteurs du département {fichier_secteur} ne se chargent pas en zoomant sur « {college_secteur} » "
                                      f"(chargés : {[u.split('/')[-1].split('?')[0] for u in secteurs_charges]})")
             # Bouton « Effacer la recherche » : caché champ vide, visible avec du texte, vide le champ au clic.
-            await pg.goto("http://localhost:8765/")
-            await pg.wait_for_selector("#recherche")
+            # (la recherche est branchée une fois les établissements chargés : attendre comme au démarrage)
+            await pg.goto("http://localhost:8765/index.html")
+            await pg.wait_for_function("document.getElementById('etat').textContent === ''", timeout=45000)
             if await pg.is_visible("#effacer-recherche"):
                 problemes.append("recherche : le bouton Effacer est visible alors que le champ est vide")
             await pg.fill("#recherche", "Lyon")
