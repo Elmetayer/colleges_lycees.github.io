@@ -32,20 +32,28 @@ cols = [f["name"] for f in m.get("fields", [])]
 print("COLONNES annuaire :", len(cols))
 print("  liées RPI/regroupement/réseau :", [c for c in cols if any(k in c.lower() for k in ("rpi", "regroup", "reseau", "pial", "multi", "rattach", "sige", "siege"))])
 
-print("TOUTES :", cols)
-voulues = ["identifiant_de_l_etablissement", "nom_etablissement", "statut_public_prive", "ecole_maternelle", "ecole_elementaire",
-           "code_commune", "nom_commune", "code_departement", "etat", "libelle_nature", "code_nature", "rpi_concentre", "rpi_disperse",
-           "multi_uai", "type_rattachement_etablissement_mere", "code_type_contrat_prive", "type_etablissement"]
-sel = []
-for c in voulues:
-    if c not in cols: continue
-    r = requests.get(ED + "/fr-en-annuaire-education/records", params={"select": c, "limit": 1}, headers=H, timeout=60)
-    print("  colonne", c, r.status_code)
-    if r.status_code == 200: sel.append(c)
-r = requests.get(ED + "/fr-en-annuaire-education/exports/csv?delimiter=%3B&select=identifiant_de_l_etablissement&limit=3", headers=H, timeout=60)
-print("  export minimal", r.status_code, r.text[:200])
-ann = get(ED + "/fr-en-annuaire-education/exports/csv", where="type_etablissement='Ecole'", select=",".join(sel), delimiter=";")
-ann = [a for a in ann if a.get("type_etablissement") == "Ecole" and (a.get("etat") or "OUVERT") == "OUVERT" and not str(a.get("code_commune") or "").startswith("97")]
+for jeu in ("fr-en-annuaire-education", "fr-en-ecoles-effectifs-nb_classes", "fr-en-ips-ecoles-ap2022", "fr-en-adresse-et-geolocalisation-etablissements-premier-et-second-degre"):
+    r = requests.get(f"{ED}/{jeu}/exports/csv?delimiter=%3B&limit=2", headers=H, timeout=60)
+    print("SONDE export", jeu, r.status_code, r.headers.get("www-authenticate"), r.text[:120].replace("\n", " | "))
+import io, pandas as pd
+d = requests.get("https://www.data.gouv.fr/api/1/datasets/", params={"q": "annuaire de l'éducation", "page_size": 5}, headers=H, timeout=60).json()
+res = None
+for ds in d.get("data", []):
+    print("DATAGOUV jeu", ds["slug"], ds.get("organization", {}).get("name"), [(x["format"], x["title"][:50], x["url"][:120]) for x in ds["resources"][:6]])
+    for x in ds["resources"]:
+        if res is None and x["format"].lower() == "csv" and "annuaire" in (x["title"] + ds["slug"]).lower():
+            res = x["url"]
+print("ressource retenue :", res)
+r = requests.get(res, headers=H, timeout=600); print("téléchargement", r.status_code, len(r.content))
+txt = r.content.decode("utf-8-sig", errors="replace")
+sep = ";" if txt[:2000].count(";") > txt[:2000].count(",") else ","
+df = pd.read_csv(io.StringIO(txt), sep=sep, dtype=str)
+print("colonnes data.gouv :", list(df.columns))
+norm = {c: c.lower().replace(" ", "_").replace("'", "_").replace("é", "e").replace("è", "e") for c in df.columns}
+df = df.rename(columns=norm)
+print("colonnes normalisées :", list(df.columns))
+ann = df.where(df.notna(), None).to_dict("records")
+ann = [a for a in ann if str(a.get("type_etablissement")) in ("Ecole", "École") and (a.get("etat") or "OUVERT") == "OUVERT" and not str(a.get("code_commune") or "").startswith("97")]
 print("écoles ouvertes métropole :", len(ann))
 print("exemple :", ann[0])
 for k in ("rpi_concentre", "rpi_disperse", "multi_uai"):
@@ -58,7 +66,7 @@ print("publiques ordinaires :", len(pub))
 eff = {}
 for rentree in ("2025", "2024"):
     try:
-        e = get(ED + "/fr-en-ecoles-effectifs-nb_classes/exports/csv", where=f"rentree_scolaire='{rentree}'", delimiter=";")
+        e = get(ED + "/fr-en-ecoles-effectifs-nb_classes/exports/csv", select="*")
     except Exception as ex:
         print("effectifs", rentree, str(ex)[:150]); continue
     if e:
