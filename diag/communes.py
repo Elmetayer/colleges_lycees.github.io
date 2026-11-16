@@ -35,31 +35,13 @@ print("  liées RPI/regroupement/réseau :", [c for c in cols if any(k in c.lowe
 for jeu in ("fr-en-annuaire-education", "fr-en-ecoles-effectifs-nb_classes", "fr-en-ips-ecoles-ap2022", "fr-en-adresse-et-geolocalisation-etablissements-premier-et-second-degre"):
     r = requests.get(f"{ED}/{jeu}/exports/csv?delimiter=%3B&limit=2", headers=H, timeout=60)
     print("SONDE export", jeu, r.status_code, r.headers.get("www-authenticate"), r.text[:120].replace("\n", " | "))
-import io, pandas as pd
-def miroir(q, mot):
-    """Copies fédérées (Opendatasoft) d'un jeu national trouvées sur data.gouv.fr : première qui répond."""
-    d = requests.get("https://www.data.gouv.fr/api/1/datasets/", params={"q": q, "page_size": 20}, headers=H, timeout=60).json()
-    for ds in d.get("data", []):
-        for x in ds["resources"]:
-            u = x["url"]
-            if x["format"].lower() != "csv" or "data.education.gouv.fr" in u or mot not in (u + x["title"]).lower(): continue
-            if "/exports/csv" in u: u = u.split("?")[0] + "?delimiter=%3B"
-            r = requests.get(u, headers=H, timeout=900)
-            print("  miroir", ds.get("organization", {}).get("name"), u[:110], r.status_code, len(r.content))
-            if r.status_code == 200 and len(r.content) > 1_000_000:
-                return u, r
-    return None, None
-res, r = miroir("annuaire de l'éducation", "annuaire")
-print("ressource retenue :", res)
-txt = r.content.decode("utf-8-sig", errors="replace")
-sep = ";" if txt[:2000].count(";") > txt[:2000].count(",") else ","
-df = pd.read_csv(io.StringIO(txt), sep=sep, dtype=str)
-print("colonnes data.gouv :", list(df.columns))
-norm = {c: c.lower().replace(" ", "_").replace("'", "_").replace("é", "e").replace("è", "e") for c in df.columns}
-df = df.rename(columns=norm)
-print("colonnes normalisées :", list(df.columns))
-ann = df.where(df.notna(), None).to_dict("records")
-ann = [a for a in ann if str(a.get("type_etablissement")) in ("Ecole", "École") and (a.get("etat") or "OUVERT") == "OUVERT" and not str(a.get("code_commune") or "").startswith("97")]
+import io, sys, pandas as pd
+if requests.get(f"{ED}/fr-en-annuaire-education/exports/csv?delimiter=%3B&limit=2", headers=H, timeout=60).status_code != 200:
+    sys.exit("data.education.gouv.fr refuse toujours les exports : arrêt (pas de copie tierce)")
+sel = ["identifiant_de_l_etablissement", "nom_etablissement", "type_etablissement", "statut_public_prive", "ecole_maternelle",
+       "ecole_elementaire", "code_commune", "nom_commune", "etat", "libelle_nature", "rpi_concentre", "rpi_disperse", "multi_uai"]
+ann = get(ED + "/fr-en-annuaire-education/exports/csv", select=",".join(sel))
+ann = [a for a in ann if a.get("type_etablissement") == "Ecole" and (a.get("etat") or "OUVERT") == "OUVERT" and not str(a.get("code_commune") or "").startswith("97")]
 print("écoles ouvertes métropole :", len(ann))
 print("exemple :", ann[0])
 for k in ("rpi_concentre", "rpi_disperse", "multi_uai"):
@@ -70,24 +52,15 @@ print("publiques ordinaires :", len(pub))
 
 # 2. Effectifs de la dernière rentrée
 eff = {}
-for rentree in ("2025", "2024", "2025-2026", "2024-2025"):
-    try:
-        u, rr = miroir("effectifs nombre de classes écoles premier degré", "effectif")
-        if rr is None: raise RuntimeError("aucun miroir des effectifs")
-        t = rr.content.decode("utf-8-sig", errors="replace")
-        ee = pd.read_csv(io.StringIO(t), sep=";" if t[:2000].count(";") > t[:2000].count(",") else ",", dtype=str)
-        ee = ee.rename(columns={c: c.lower().replace(" ", "_").replace("'", "_").replace("é", "e").replace("è", "e") for c in ee.columns})
-        print("colonnes effectifs :", list(ee.columns)[:45])
-        e = ee.where(ee.notna(), None).to_dict("records")
-    except Exception as ex:
-        print("effectifs", rentree, str(ex)[:150]); continue
-    if e:
-        e = [r for r in e if str(r.get("rentree_scolaire")) == rentree]
-        if not e: continue
-        print("effectifs rentrée", rentree, len(e), "colonnes :", list(e[0].keys())[:40])
-        for r in e:
-            eff[r.get("numero_ecole") or r.get("uai")] = r
-        break
+tout = get(ED + "/fr-en-ecoles-effectifs-nb_classes/exports/csv")
+print("effectifs : colonnes", list(tout[0].keys()) if tout else None)
+cr = next((c for c in (tout[0] if tout else {}) if "rentree" in c), None)
+der = max(str(r.get(cr)) for r in tout) if cr else None
+print("dernière rentrée :", der)
+for r in tout:
+    if cr is None or str(r.get(cr)) == der:
+        eff[r.get("numero_ecole") or r.get("uai")] = r
+print("écoles avec effectifs :", len(eff))
 
 
 def n(r, *cles):
