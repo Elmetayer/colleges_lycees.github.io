@@ -16,10 +16,17 @@ cols = [f["name"] for f in m.get("fields", [])]
 print("COLONNES annuaire :", len(cols))
 print("  liées RPI/regroupement/réseau :", [c for c in cols if any(k in c.lower() for k in ("rpi", "regroup", "reseau", "pial", "multi", "rattach", "sige", "siege"))])
 
-ann = get(ED + "/fr-en-annuaire-education/exports/json", where="type_etablissement='Ecole'",
-          select="identifiant_de_l_etablissement,nom_etablissement,statut_public_prive,ecole_maternelle,ecole_elementaire,code_commune,nom_commune,code_departement,etat,libelle_nature,code_nature")
+print("TOUTES :", cols)
+voulues = ["identifiant_de_l_etablissement", "nom_etablissement", "statut_public_prive", "ecole_maternelle", "ecole_elementaire",
+           "code_commune", "nom_commune", "code_departement", "etat", "libelle_nature", "code_nature", "rpi_concentre", "rpi_disperse",
+           "multi_uai", "type_rattachement_etablissement_mere", "code_type_contrat_prive"]
+sel = [c for c in voulues if c in cols]
+ann = get(ED + "/fr-en-annuaire-education/exports/json", where="type_etablissement='Ecole'", select=",".join(sel))
 ann = [a for a in ann if (a.get("etat") or "OUVERT") == "OUVERT" and not str(a.get("code_commune") or "").startswith("97")]
 print("écoles ouvertes métropole :", len(ann))
+print("exemple :", ann[0])
+for k in ("rpi_concentre", "rpi_disperse", "multi_uai"):
+    print(k, collections.Counter(str(a.get(k)) for a in ann).most_common(5))
 print("natures :", collections.Counter(a.get("libelle_nature") for a in ann).most_common(12))
 pub = [a for a in ann if a.get("statut_public_prive") == "Public" and "SPECIALIS" not in str(a.get("libelle_nature") or "").upper()]
 print("publiques ordinaires :", len(pub))
@@ -102,6 +109,19 @@ try:
     print(f"communes métropole : {len(com)} ; sans école publique : {len(sans)} ({sum(c.get('population') or 0 for c in sans):,} habitants)")
 except Exception as ex:
     print("geo.api", str(ex)[:150])
+
+# 3b. RPI d'après l'annuaire
+def oui(v): return str(v) in ("1", "True", "true", "OUI", "Oui")
+for niv, idx in (("elem", 2), ("mat", 1)):
+    une = [c for c, d in par_commune.items() if len(d[niv]) == 1]
+    byu = {a["identifiant_de_l_etablissement"]: a for a in pub}
+    rd = [c for c in une if oui(byu[par_commune[c][niv][0]].get("rpi_disperse"))]
+    rc = [c for c in une if oui(byu[par_commune[c][niv][0]].get("rpi_concentre"))]
+    el = lambda L: sum(eleves(par_commune[c][niv][0])[idx] for c in L)
+    print(f"{niv} : communes à 1 école = {len(une)} ({el(une):,.0f} élèves) ; dont école en RPI dispersé {len(rd)} ({el(rd):,.0f}), RPI concentré {len(rc)} ({el(rc):,.0f})")
+    propre = [c for c in une if c not in set(rd) | set(rc)]
+    print(f"   hors RPI : {len(propre)} communes, {el(propre):,.0f} élèves")
+print("écoles publiques en RPI dispersé :", sum(oui(a.get("rpi_disperse")) for a in pub), "concentré :", sum(oui(a.get("rpi_concentre")) for a in pub))
 
 # 4. Sources sur les RPI
 for q in ["regroupement pédagogique", "RPI", "regroupement intercommunal école"]:
