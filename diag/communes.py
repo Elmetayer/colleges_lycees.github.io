@@ -36,15 +36,21 @@ for jeu in ("fr-en-annuaire-education", "fr-en-ecoles-effectifs-nb_classes", "fr
     r = requests.get(f"{ED}/{jeu}/exports/csv?delimiter=%3B&limit=2", headers=H, timeout=60)
     print("SONDE export", jeu, r.status_code, r.headers.get("www-authenticate"), r.text[:120].replace("\n", " | "))
 import io, pandas as pd
-d = requests.get("https://www.data.gouv.fr/api/1/datasets/", params={"q": "annuaire de l'éducation", "page_size": 5}, headers=H, timeout=60).json()
-res = None
-for ds in d.get("data", []):
-    print("DATAGOUV jeu", ds["slug"], ds.get("organization", {}).get("name"), [(x["format"], x["title"][:50], x["url"][:120]) for x in ds["resources"][:6]])
-    for x in ds["resources"]:
-        if res is None and x["format"].lower() == "csv" and "annuaire" in (x["title"] + ds["slug"]).lower():
-            res = x["url"]
+def miroir(q, mot):
+    """Copies fédérées (Opendatasoft) d'un jeu national trouvées sur data.gouv.fr : première qui répond."""
+    d = requests.get("https://www.data.gouv.fr/api/1/datasets/", params={"q": q, "page_size": 20}, headers=H, timeout=60).json()
+    for ds in d.get("data", []):
+        for x in ds["resources"]:
+            u = x["url"]
+            if x["format"].lower() != "csv" or "data.education.gouv.fr" in u or mot not in (u + x["title"]).lower(): continue
+            if "/exports/csv" in u: u = u.split("?")[0] + "?delimiter=%3B"
+            r = requests.get(u, headers=H, timeout=900)
+            print("  miroir", ds.get("organization", {}).get("name"), u[:110], r.status_code, len(r.content))
+            if r.status_code == 200 and len(r.content) > 1_000_000:
+                return u, r
+    return None, None
+res, r = miroir("annuaire de l'éducation", "annuaire")
 print("ressource retenue :", res)
-r = requests.get(res, headers=H, timeout=600); print("téléchargement", r.status_code, len(r.content))
 txt = r.content.decode("utf-8-sig", errors="replace")
 sep = ";" if txt[:2000].count(";") > txt[:2000].count(",") else ","
 df = pd.read_csv(io.StringIO(txt), sep=sep, dtype=str)
@@ -64,9 +70,15 @@ print("publiques ordinaires :", len(pub))
 
 # 2. Effectifs de la dernière rentrée
 eff = {}
-for rentree in ("2025", "2024"):
+for rentree in ("2025", "2024", "2025-2026", "2024-2025"):
     try:
-        e = get(ED + "/fr-en-ecoles-effectifs-nb_classes/exports/csv", select="*")
+        u, rr = miroir("effectifs nombre de classes écoles premier degré", "effectif")
+        if rr is None: raise RuntimeError("aucun miroir des effectifs")
+        t = rr.content.decode("utf-8-sig", errors="replace")
+        ee = pd.read_csv(io.StringIO(t), sep=";" if t[:2000].count(";") > t[:2000].count(",") else ",", dtype=str)
+        ee = ee.rename(columns={c: c.lower().replace(" ", "_").replace("'", "_").replace("é", "e").replace("è", "e") for c in ee.columns})
+        print("colonnes effectifs :", list(ee.columns)[:45])
+        e = ee.where(ee.notna(), None).to_dict("records")
     except Exception as ex:
         print("effectifs", rentree, str(ex)[:150]); continue
     if e:
