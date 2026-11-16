@@ -25,7 +25,8 @@ Règles, niveau par niveau (élémentaire : écoles élémentaires et primaires 
   3. Paris, Lyon, Marseille et les communes dont la ville publie ses secteurs (secteurs_ecoles.py) sont écartées.
 
 Sortie : <out>/zones-communes/<dep>.geojson (un fichier par département, chargé par la carte avec les écoles) et
-index.json (emprise, zones). Propriétés : niveau, uais, regle (commune | rpi), noms (commune ou communes du RPI),
+index.json (emprise, zones). Propriétés : niveau (« elementaire », « maternelle », ou « elementaire maternelle » quand la
+zone vaut pour les deux niveaux), uais, regle (commune | rpi), noms (commune ou communes du RPI),
 rpi (code), concentre (école en RPI concentré), classes (« UAI:CP,CE1;UAI:CE2,CM1,CM2 », RPI seulement), rentree.
 Renvoie le bloc "zones_communes" de meta.json (chiffres par niveau, exemples), lu par la vérification, la page de
 suivi et la documentation.
@@ -44,7 +45,8 @@ from shapely.ops import unary_union
 GEO = "https://geo.api.gouv.fr"
 PAGE_CONTOURS = "https://geo.api.gouv.fr/decoupage-administratif/communes"
 # Contours simplifiés à environ 20 m (zones affichées à partir du zoom 12, à l'échelle d'une commune) et coordonnées
-# à 5 décimales : un département pèse quelques centaines de kilo-octets.
+# à 4 décimales (environ 10 m) : 71,5 Mo à 5 décimales et sans fusion des niveaux au premier build (PR #44), pour des
+# fichiers chargés sur téléphone.
 TOLERANCE = 0.0002
 NIVEAUX = ("elementaire", "maternelle")
 COMPATIBLES = {"elementaire": {"elementaire", "primaire"}, "maternelle": {"maternelle", "primaire"}}
@@ -151,7 +153,7 @@ def lire_classes(df: pd.DataFrame | None) -> tuple[dict, dict, str | None]:
 
 def arrondir(g):
     if isinstance(g, (list, tuple)):
-        return [arrondir(x) for x in g] if g and isinstance(g[0], (list, tuple)) else [round(g[0], 5), round(g[1], 5)]
+        return [arrondir(x) for x in g] if g and isinstance(g[0], (list, tuple)) else [round(g[0], 4), round(g[1], 4)]
     return g
 
 
@@ -213,7 +215,9 @@ def construire(ecoles: pd.DataFrame, frames: dict, out_dir, problemes: list, cac
         rpis[e.rpi].append(e)
     nom_commune = lambda c: geo[c][0] if c in geo else next((e.commune for niv in NIVEAUX for e in par_commune[niv].get(c, [])), c)
 
-    features = defaultdict(list)  # département -> zones
+    # Zones par niveau, fusionnées ensuite quand les deux niveaux ont la même (école primaire seule dans sa commune,
+    # RPI valable pour les deux niveaux) : une seule géométrie, niveau « elementaire maternelle ».
+    zones = {}  # (règle, code commune ou code RPI) -> {"dep", "geom", "niv": {niveau: propriétés}}
     meta = {"rentree_classes": rentree, "contours": {**bilan_contours, "communes": len(geo), "page": PAGE_CONTOURS},
             "communes_ecartees": len(communes_ecartees), "exemples": {}}
     inconnues = set()
@@ -233,11 +237,10 @@ def construire(ecoles: pd.DataFrame, frames: dict, out_dir, problemes: list, cac
             inconnues.update(c for c in communes if c not in geo)
             if not geoms:
                 continue
-            g = unary_union(geoms).buffer(0)
-            repartition = ";".join(f"{e.uai}:{','.join(classes.get(e.uai, []))}" for e in sorted(du_niveau, key=lambda e: e.uai))
-            features[du_niveau[0].dep].append(feature(g, {
-                "niveau": niv, "regle": "rpi", "rpi": code, "uais": " ".join(sorted(e.uai for e in du_niveau)),
-                "noms": " / ".join(nom_commune(c) for c in communes), "classes": repartition if classes else None}))
+            z = zones.setdefault(("rpi", code), {"dep": du_niveau[0].dep, "geom": None, "niv": {}})
+            if z["geom"] is None:
+                z["geom"] = unary_union(geoms).buffer(0)
+            z["niv"][niv] = {"regle": "rpi", "rpi": code, "ecoles": du_niveau, "noms": " / ".join(nom_commune(c) for c in communes)}
             couvertes.update(communes)
             ecoles_zone.update(e.uai for e in du_niveau)
             n_rpi += 1
@@ -252,7 +255,8 @@ def construire(ecoles: pd.DataFrame, frames: dict, out_dir, problemes: list, cac
                 inconnues.add(c)
                 continue
             e = liste[0]
-            features[e.dep].append(feature(geo[c][1], {"niveau": niv, "regle": "commune", "uais": e.uai, "noms": nom_commune(c), "concentre": bool(e.concentre)}))
+            zones.setdefault(("commune", c), {"dep": e.dep, "geom": geo[c][1], "niv": {}})["niv"][niv] = {
+                "regle": "commune", "ecoles": [e], "noms": nom_commune(c), "concentre": bool(e.concentre)}
             ecoles_zone.add(e.uai)
             n_commune += 1
             concentres += bool(e.concentre)
@@ -267,6 +271,20 @@ def construire(ecoles: pd.DataFrame, frames: dict, out_dir, problemes: list, cac
         b.log(f"  {niv} : {n_commune} communes à une seule école ({concentres} en RPI concentré), {n_rpi} RPI dispersés sur {communes_rpi} communes, "
               f"{len(ecoles_zone)} écoles ; {len(rpi_refuses)} RPI sans zone (une commune garde une autre école) : {rpi_refuses[:8]} ; "
               f"{plusieurs} communes à plusieurs écoles (hors de cette règle)")
+    features, fusionnees = defaultdict(list), 0  # département -> zones
+    repartition = lambda ecs: ";".join(f"{e.uai}:{','.join(classes.get(e.uai, []))}" for e in sorted(ecs, key=lambda e: e.uai)) if classes else None
+    for (regle, cle), z in zones.items():
+        niv = z["niv"]
+        ensemble = len(niv) == 2 and (regle == "rpi" or niv["elementaire"]["ecoles"][0].uai == niv["maternelle"]["ecoles"][0].uai)
+        groupes = [("elementaire maternelle", list(niv.values()))] if ensemble else [(n, [v]) for n, v in niv.items()]
+        fusionnees += ensemble
+        for niveau, parts in groupes:
+            ecs = list({e.uai: e for p in parts for e in p["ecoles"]}.values())
+            p0 = parts[0]
+            features[z["dep"]].append(feature(z["geom"], {
+                "niveau": niveau, "regle": regle, "rpi": p0.get("rpi"), "uais": " ".join(sorted(e.uai for e in ecs)), "noms": p0["noms"],
+                "concentre": p0.get("concentre"), "classes": repartition(ecs) if regle == "rpi" else None}))
+    b.log(f"  {len(zones)} zones, dont {fusionnees} communes aux deux niveaux (une seule géométrie)")
     meta["communes_sans_ecole"] = len(set(geo) - communes_avec_ecole)
     meta["codes_inconnus"] = sorted(inconnues)[:30]
     meta["nb_codes_inconnus"] = len(inconnues)

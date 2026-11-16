@@ -318,7 +318,8 @@
     }
     if (c.cle === "ecoles" && carte.getLayer("secteurs-ecoles-fond")) {
       carte.setPaintProperty("secteurs-ecoles-fond", "fill-color", expr);
-      const niv = ["==", ["get", "niveau"], niveauZones()];
+      // « in » : une zone des communes peut valoir pour les deux niveaux (niveau « elementaire maternelle »).
+      const niv = ["in", niveauZones(), ["get", "niveau"]];
       carte.setFilter("secteurs-ecoles-fond", niv);
       carte.setFilter("secteurs-ecoles-contour", ["all", niv, ["!", ["has", "regle"]]]);
       carte.setFilter("secteurs-ecoles-commune", ["all", niv, ["has", "regle"]]);
@@ -1167,11 +1168,11 @@
     // qui publient leurs secteurs. Une école primaire seule dans sa commune a la même zone pour les deux niveaux.
     if (p.secteur === "public" && !infoSect) {
       const zones = niveauxSecteur(p).map((niv) => ({ niv, z: zoneDeLEcole(p.uai, niv) })).filter((x) => x.z && x.z.properties.regle);
-      const memeZone = zones.length === 2 && zones[0].z.properties.regle === "commune" && zones[1].z.properties.regle === "commune";
+      const memeZone = zones.length === 2 && (zones[0].z === zones[1].z || (zones[0].z.properties.regle === "commune" && zones[1].z.properties.regle === "commune"));
       (memeZone ? [{ niv: null, z: zones.find((x) => x.niv === niveauZones()) || zones[0] }] : zones).forEach(({ niv, z }) => {
         const titre = zones.length > 1 && !memeZone ? `Zone ${NOMS_NIVEAU[niv]}` : "Zone de l'école";
         const texte = z.properties.regle === "rpi" ? "Voir le regroupement sur la carte" : "Voir la commune sur la carte";
-        liens.push({ titre, texte, zone: z, niveau: z.properties.niveau, detail: texteZoneCommune(z, niv, p.uai) });
+        liens.push({ titre, texte, zone: z, niveau: niv || (aNiveau(z, niveauZones()) ? niveauZones() : z.properties.niveau.split(" ")[0]), detail: texteZoneCommune(z, niv, p.uai) });
       });
     }
     memeAdresse.forEach((x) => liens.push({ titre: "Même adresse", texte: x.properties.nom, ecole: x }));
@@ -1445,7 +1446,7 @@
       const rpi = zones.some(({ z }) => z.properties.regle === "rpi");
       const z0 = zones.find(({ niv }) => niv === niveauZones()) || zones[0];
       if (carte.getLayer("secteurs-ecoles-surligne"))
-        carte.setFilter("secteurs-ecoles-surligne", ["all", ["==", ["get", "niveau"], z0.z.properties.niveau], ["==", ["get", "uais"], z0.z.properties.uais]]);
+        carte.setFilter("secteurs-ecoles-surligne", ["all", ["in", z0.niv, ["get", "niveau"]], ["==", ["get", "uais"], z0.z.properties.uais]]);
       const etiquette = (l) => {
         if (l.z.properties.regle === "rpi") {
           const cl = classesZone(l.z)[l.e.properties.uai];
@@ -1523,7 +1524,7 @@
     if (infoEcoles) {
       const z = zoneEcoleAuPoint(a.coord, niveauZones(), false);
       if (z && carte.getLayer("secteurs-ecoles-surligne"))
-        carte.setFilter("secteurs-ecoles-surligne", ["all", ["==", ["get", "niveau"], niveauZones()], ["==", ["get", "uais"], z.properties.uais]]);
+        carte.setFilter("secteurs-ecoles-surligne", ["all", ["in", niveauZones(), ["get", "niveau"]], ["==", ["get", "uais"], z.properties.uais]]);
     }
     const blocEcoles = infoEcoles ? `
       <h3>Écoles de secteur</h3>
@@ -1780,6 +1781,8 @@
     return r.mat && !r.elem ? "maternelle" : "elementaire";
   }
   const zoneUais = (f) => (f.properties.uais || "").split(" ").filter(Boolean);
+  // Niveau d'une zone : « elementaire », « maternelle », ou les deux pour une zone des communes (« elementaire maternelle »).
+  const aNiveau = (f, niv) => String(f.properties.niveau || "").split(" ").includes(niv);
 
   // Chaque zone reçoit les indicateurs de sa première école, pour être colorée comme elle.
   function enrichirZonesEcoles(features) {
@@ -1870,13 +1873,13 @@
   // regle : false = secteurs publiés par les villes seulement ; true = zones des communes seulement ; absent = toutes.
   function zoneEcoleAuPoint(pt, niveau, regle) {
     return secteursEcoles.features.find((f) => {
-      if (f.properties.niveau !== niveau) return false;
+      if (!aNiveau(f, niveau)) return false;
       if (regle !== undefined && Boolean(f.properties.regle) !== regle) return false;
       const g = f.geometry, polys = g.type === "Polygon" ? [g.coordinates] : g.type === "MultiPolygon" ? g.coordinates : [];
       return polys.some((poly) => dansPolygone(pt, poly));
     });
   }
-  const zoneDeLEcole = (uai, niveau) => secteursEcoles.features.find((f) => f.properties.niveau === niveau && zoneUais(f).includes(uai));
+  const zoneDeLEcole = (uai, niveau) => secteursEcoles.features.find((f) => aNiveau(f, niveau) && zoneUais(f).includes(uai));
   // Niveaux de secteur d'une école : une école primaire a un secteur élémentaire et un secteur maternelle.
   const niveauxSecteur = (p) => (p.niveau === "primaire" ? ["elementaire", "maternelle"] : [p.niveau === "maternelle" ? "maternelle" : "elementaire"]);
 
@@ -1884,7 +1887,7 @@
     if (!carte.getLayer("secteurs-ecoles-surligne")) return;
     if (!p) { carte.setFilter("secteurs-ecoles-surligne", ["==", ["get", "uais"], "-"]); return; }
     const niv = niveauxSecteur(p).includes(niveauZones()) ? niveauZones() : niveauxSecteur(p)[0];
-    carte.setFilter("secteurs-ecoles-surligne", ["all", ["==", ["get", "niveau"], niv], ["in", p.uai, ["get", "uais"]]]);
+    carte.setFilter("secteurs-ecoles-surligne", ["all", ["in", niv, ["get", "niveau"]], ["in", p.uai, ["get", "uais"]]]);
   }
 
   function cadrerZone(f) {

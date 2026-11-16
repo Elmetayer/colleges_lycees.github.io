@@ -272,7 +272,7 @@ def ecoles_des_villes(contenus):
 def ecoles_des_communes(contenus):
     """[(requête, textes attendus)] : une école seule dans sa commune (zone élémentaire) et une école de RPI dispersé,
     avec IPS et taille des classes (fiche à onglets) et un nom distinctif (la recherche doit la trouver en premier)."""
-    zones = [z for z in contenus.get("zones-communes", []) if z["properties"].get("niveau") == "elementaire"]
+    zones = [z for z in contenus.get("zones-communes", []) if "elementaire" in z["properties"].get("niveau", "").split()]
     points = {f["properties"]["uai"]: f["properties"] for f in contenus.get("ecoles", [])}
     generiques = {"ecole", "école", "primaire", "elementaire", "élémentaire", "publique", "maternelle", "de", "du", "la", "le", "des"}
     out = []
