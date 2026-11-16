@@ -1169,7 +1169,7 @@
     if (p.secteur === "public" && !infoSect) {
       const zones = niveauxSecteur(p).map((niv) => ({ niv, z: zoneDeLEcole(p.uai, niv) })).filter((x) => x.z && x.z.properties.regle);
       const memeZone = zones.length === 2 && (zones[0].z === zones[1].z || (zones[0].z.properties.regle === "commune" && zones[1].z.properties.regle === "commune"));
-      (memeZone ? [{ niv: null, z: zones.find((x) => x.niv === niveauZones()) || zones[0] }] : zones).forEach(({ niv, z }) => {
+      (memeZone ? [{ niv: null, z: (zones.find((x) => x.niv === niveauZones()) || zones[0]).z }] : zones).forEach(({ niv, z }) => {
         const titre = zones.length > 1 && !memeZone ? `Zone ${NOMS_NIVEAU[niv]}` : "Zone de l'école";
         const texte = z.properties.regle === "rpi" ? "Voir le regroupement sur la carte" : "Voir la commune sur la carte";
         liens.push({ titre, texte, zone: z, niveau: niv || (aNiveau(z, niveauZones()) ? niveauZones() : z.properties.niveau.split(" ")[0]), detail: texteZoneCommune(z, niv, p.uai) });
