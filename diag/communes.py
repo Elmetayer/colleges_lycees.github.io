@@ -7,7 +7,14 @@ ED = "https://data.education.gouv.fr/api/explore/v2.1/catalog/datasets"
 
 
 def get(url, **p):
-    r = requests.get(url, params=p, headers=H, timeout=300); r.raise_for_status(); return r.json()
+    r = requests.get(url, params=p, headers=H, timeout=300)
+    if r.status_code >= 400:
+        print("ERREUR", r.status_code, url, r.text[:300])
+    r.raise_for_status()
+    if "/exports/" in url:
+        import io, pandas as pd
+        return pd.read_csv(io.StringIO(r.text), sep=";", dtype=str).where(lambda d: d.notna(), None).to_dict("records")
+    return r.json()
 
 
 # 1. Colonnes de l'annuaire (recherche de champs RPI / regroupement)
@@ -21,7 +28,7 @@ voulues = ["identifiant_de_l_etablissement", "nom_etablissement", "statut_public
            "code_commune", "nom_commune", "code_departement", "etat", "libelle_nature", "code_nature", "rpi_concentre", "rpi_disperse",
            "multi_uai", "type_rattachement_etablissement_mere", "code_type_contrat_prive"]
 sel = [c for c in voulues if c in cols]
-ann = get(ED + "/fr-en-annuaire-education/exports/json", where="type_etablissement='Ecole'", select=",".join(sel))
+ann = get(ED + "/fr-en-annuaire-education/exports/csv", where="type_etablissement='Ecole'", select=",".join(sel), delimiter=";")
 ann = [a for a in ann if (a.get("etat") or "OUVERT") == "OUVERT" and not str(a.get("code_commune") or "").startswith("97")]
 print("écoles ouvertes métropole :", len(ann))
 print("exemple :", ann[0])
@@ -35,7 +42,7 @@ print("publiques ordinaires :", len(pub))
 eff = {}
 for rentree in ("2025", "2024"):
     try:
-        e = get(ED + "/fr-en-ecoles-effectifs-nb_classes/exports/json", where=f"rentree_scolaire='{rentree}'")
+        e = get(ED + "/fr-en-ecoles-effectifs-nb_classes/exports/csv", where=f"rentree_scolaire='{rentree}'", delimiter=";")
     except Exception as ex:
         print("effectifs", rentree, str(ex)[:150]); continue
     if e:
