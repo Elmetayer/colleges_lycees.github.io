@@ -191,6 +191,37 @@ def lignes_secteurs_colleges(meta: dict) -> list[dict]:
 NOMS_NIV = {"elementaire": "élémentaires", "maternelle": "maternelles"}
 
 
+def ligne_zones_communes(meta: dict) -> dict:
+    """Zones déduites de l'annuaire (zones_communes.py) : communes à une seule école publique et regroupements
+    pédagogiques intercommunaux, avec les contours des communes (geo.api.gouv.fr)."""
+    z = (meta.get("ecoles") or {}).get("zones_communes")
+    base = {"cle": "zones_communes", "titre": "Règle de la commune · seule école publique ou regroupement (RPI), d'après l'annuaire",
+            "producteur": "data.education.gouv.fr · geo.api.gouv.fr", "page": "https://geo.api.gouv.fr/decoupage-administratif/communes",
+            "ville": "~", "lignes": None, "mise_a_jour": None, "telecharge_le": None}
+    if not z:
+        return dict(base, carte="absentes de cette mise à jour", etat="ko",
+                    details=[["Erreur", "zones non calculées (annuaire sans code commune, ou contours des communes injoignables)", "alerte"]])
+    c = z.get("contours") or {}
+    details = [["Contours des communes", f"{nombre(c.get('communes'))} communes, {c.get('lus')} départements lus"
+                + (f" ; versions précédentes reprises : {', '.join(c['repris'])}" if c.get("repris") else "")
+                + (f" ; absents : {', '.join(c['absents'])}" if c.get("absents") else ""), "attention" if c.get("repris") or c.get("absents") else ""]]
+    parts = []
+    for n in NOMS_NIV:
+        b = z.get(n) or {}
+        parts.append(f"{nombre(b.get('communes'))} communes ({NOMS_NIV[n]})")
+        details.append([f"Zones ({NOMS_NIV[n]})", f"{nombre(b.get('zones_commune'))} communes à une seule école publique (dont {nombre(b.get('dont_concentre'))} en RPI concentré), "
+                        f"{nombre(b.get('zones_rpi'))} RPI dispersés sur {nombre(b.get('communes_rpi'))} communes ; {nombre(b.get('eleves'))} élèves, "
+                        f"{pourcent(b.get('part_eleves'))} des élèves du public"])
+        details.append([f"Hors de la règle ({NOMS_NIV[n]})", f"{nombre(b.get('communes_plusieurs_ecoles'))} communes à plusieurs écoles sans secteurs publiés ; "
+                        f"{nombre(b.get('rpi_sans_zone'))} RPI dont une commune garde une autre école"])
+    details.append(["Communes sans école publique", f"{nombre(z.get('communes_sans_ecole'))} (rattachement inconnu : aucune zone)"])
+    if z.get("nb_codes_inconnus"):
+        details.append(["Codes commune inconnus", f"{z['nb_codes_inconnus']} codes de l'annuaire absents des contours : {', '.join(z.get('codes_inconnus') or [])[:200]}", "attention"])
+    details.append(["Classes des RPI", f"effectifs par niveau de la rentrée {z.get('rentree_classes') or '—'}"])
+    etat = "partiel" if c.get("repris") or c.get("absents") else "ok"
+    return dict(base, carte=", ".join(parts), etat=etat, details=details)
+
+
 def ligne_ville(r: dict, info: dict, t: dict, meta: dict) -> dict:
     """Ligne d'un jeu de secteurs d'écoles : titre préfixé par la ville, ce que le jeu donne sur la carte niveau par
     niveau, contrôles du rattachement aux écoles dans les détails, date des zones quand elle diffère de celle du fichier."""
@@ -248,6 +279,7 @@ def rapport(site: Path, statut: str) -> dict:
     groupes["secteurs_ecoles"].sort(key=lambda r: (r.get("ville") or "", "ecoles" in r["cle"] and r["cle"].startswith("ecoles_"), "mater" in r["cle"]))
     if meta:
         groupes["secteurs_colleges"] = lignes_secteurs_colleges(meta)
+        groupes["secteurs_ecoles"].append(ligne_zones_communes(meta))
     toutes = [r for g in groupes.values() for r in g]
     compte = {e: sum(1 for r in toutes if r["etat"] == e) for e in ("ok", "partiel", "ko")}
     erreurs = (verif or {}).get("erreurs") or []
@@ -271,6 +303,7 @@ def rapport(site: Path, statut: str) -> dict:
             "colleges": (meta.get("colleges") or {}).get("total"), "lycees": (meta.get("lycees") or {}).get("total"), "ecoles": eco.get("total"),
             "secteurs_departements": (meta.get("secteurs") or {}).get("departements"), "departements": DEPARTEMENTS_METROPOLE,
             "villes_ecoles": [m.get("ville") or re.sub(r"^Ville d(e |')", "", m.get("source", fid)) for fid, m in (eco.get("secteurs") or {}).items()],
+            "communes_zones": ((eco.get("zones_communes") or {}).get("elementaire") or {}).get("communes"),
         },
         "groupes": [{"cle": g, "titre": titre, "lignes": groupes[g]} for g, titre in GROUPES],
         "controles": (verif or {}).get("controles") or [],

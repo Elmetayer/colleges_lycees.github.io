@@ -48,6 +48,7 @@ import colleges  # noqa: E402
 import ecoles  # noqa: E402
 import lycees  # noqa: E402
 import secteurs_ecoles  # noqa: E402
+import zones_communes  # noqa: E402
 
 # Collèges et lycées : France métropolitaine (Corse comprise). L'outre-mer viendra plus tard.
 METROPOLE = re.compile(r"\d{1,2}|2[AB]")
@@ -72,8 +73,10 @@ SOURCES = {
         "titre": "Annuaire de l'éducation (type de contrat, date d'ouverture, niveaux des écoles, éducation prioritaire)",
         "explore_id": "fr-en-annuaire-education",
         "datagouv": None,
+        # code_commune, rpi_concentre, rpi_disperse : zones des communes à une seule école et des regroupements
+        # pédagogiques intercommunaux (zones_communes.py).
         "colonnes": "identifiant_de_l_etablissement,type_contrat_prive,date_ouverture,ecole_maternelle,ecole_elementaire,"
-                    "appartenance_education_prioritaire,restauration,nom_circonscription",
+                    "appartenance_education_prioritaire,restauration,nom_circonscription,code_commune,rpi_concentre,rpi_disperse",
         "obligatoire": False,
     },
     "ivac": {
@@ -135,7 +138,10 @@ SOURCES = {
         "titre": "Effectifs d'élèves par école",
         "explore_id": "fr-en-ecoles-effectifs-nb_classes",
         "datagouv": None,
-        "colonnes": "rentree_scolaire,numero_ecole,nombre_total_eleves,nombre_total_classes",
+        # Élèves par niveau : classes accueillies par chaque école d'un regroupement pédagogique (zones_communes.py).
+        "colonnes": "rentree_scolaire,numero_ecole,nombre_total_eleves,nombre_total_classes,nombre_eleves_preelementaire_hors_ulis,"
+                    "nombre_eleves_elementaire_hors_ulis,nombre_eleves_ulis,nombre_eleves_cp_hors_ulis,nombre_eleves_ce1_hors_ulis,"
+                    "nombre_eleves_ce2_hors_ulis,nombre_eleves_cm1_hors_ulis,nombre_eleves_cm2_hors_ulis",
         "filtre": "rentree_scolaire >= date'2023-01-01'",
         "obligatoire": False,
     },
@@ -501,6 +507,19 @@ def main() -> int:
     if secteurs:
         eco_meta["secteurs"] = secteurs
 
+    log("\n== zones des communes à une seule école et des regroupements (RPI)")
+    sources_supp = []
+    try:
+        zc = zones_communes.construire(eco_df, frames, out, problemes, args.cache_dir, secteurs_ecoles.VILLES)
+    except Exception as exc:  # noqa: BLE001
+        log(f"  ! zones des communes ignorées : {exc!r}")
+        problemes.append(f"zones des communes : {exc}")
+        zc = None
+    if zc:
+        eco_meta["zones_communes"] = zc
+        sources_supp.append({"cle": "contours_communes", "titre": "Contours des communes (geo.api.gouv.fr, découpage administratif)",
+                             "page": zc["contours"]["page"], "mise_a_jour": datetime.now(timezone.utc).date().isoformat()})
+
     meta = {
         "genere_le": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "perimetre": {"colleges": "France métropolitaine", "lycees": "France métropolitaine", "ecoles": "France métropolitaine"},
@@ -509,7 +528,7 @@ def main() -> int:
         "ecoles": eco_meta,
         "sources": [{"cle": k, "titre": s["titre"], "page": s.get("page"), "mise_a_jour": s.get("maj"),
                      **({"version_reprise": s["reprise"]} if s.get("reprise") else {}),
-                     **({"ville": s["ville"]} if s.get("ville") else {})} for k, s in resolved.items()],
+                     **({"ville": s["ville"]} if s.get("ville") else {})} for k, s in resolved.items()] + sources_supp,
         "problemes": problemes,
     }
     (out / "meta.json").write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")

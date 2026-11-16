@@ -12,6 +12,9 @@
    Secteurs des écoles (Paris, autres villes) : contrôles du rattachement aux écoles (SECTEURS_ECOLES_MINIMUM) ;
    la fiche d'une école de Paris donne son secteur, dont la zone est dessinée, et l'onglet « Entrée en 6e »
    (évaluations de 6e du collège de secteur).
+   Zones des communes (seule école publique, regroupements pédagogiques : pipeline/zones_communes.py) : nombre de
+   communes couvertes et part des élèves (ZONES_COMMUNES_MINIMUM) ; la fiche d'une école seule dans sa commune et celle
+   d'une école de RPI donnent leur zone, dessinée avec un contour plein.
 3. Les secteurs concordent avec les secteurs officiels de Paris et des Hauts-de-Seine : au moins
    CONCORDANCE_MINIMALE de la surface attribuée au même collège (meta.json, secteurs.controle).
    Si les secteurs officiels n'ont pas pu être téléchargés, simple avertissement.
@@ -61,6 +64,10 @@ COUVERTURE_ECOLES = {"ips": 23000, "eleves": 36000, "classe": 36000,
 # Secteurs des écoles de Paris (jalon 7b), valeurs du 15/11/2026 : rattachement des noms de la Ville aux UAI
 # 0,998 / 0,994 ; écoles publiques citées dans un secteur 0,963 / 0,989 ; écoles dans leur propre secteur 0,979 / 1.
 SECTEURS_ECOLES_MINIMUM = {"rattachement": 0.95, "couverture": 0.9, "coherence": 0.9}
+# Zones des communes (jalon 7d). Diagnostic du 16/11/2026 : 11 602 communes à une seule élémentaire publique hors RPI
+# dispersé (1 001 398 élèves, 31,2 %) et 11 392 à une seule maternelle (543 417, 29,5 %), plus les communes des RPI
+# dispersés (2 844 regroupements) ; seuils à environ 70 % de ces valeurs.
+ZONES_COMMUNES_MINIMUM = {"elementaire": {"communes": 11000, "part_eleves": 0.22}, "maternelle": {"communes": 10000, "part_eleves": 0.2}}
 
 # Part minimale de la surface attribuée au même collège que dans les secteurs officiels.
 # Valeurs au 13/11/2026 : Paris 0,937, Hauts-de-Seine 0,923 ; 0,85 laisse environ 8 points de marge.
@@ -186,6 +193,28 @@ def verifier_ecoles(data, contenus):
         for fid in sect:
             if fid not in par_fichier:
                 erreurs.append(f"secteurs des écoles {fid} annoncés dans meta.json mais fichier secteurs-ecoles/{fid}.geojson absent")
+    # Zones des communes : fichiers lisibles, chiffres de meta.json (ecoles.zones_communes).
+    zc_zones = []
+    for f in sorted((data / "zones-communes").glob("*.geojson")):
+        try:
+            zc_zones += json.loads(f.read_text(encoding="utf-8"), parse_constant=refuser_constante).get("features", [])
+        except ValueError as e:
+            erreurs.append(f"{f.relative_to(SITE)} n'est pas du JSON valide : {e}")
+    contenus["zones-communes"] = zc_zones
+    zc = ((contenus.get("meta.json") or {}).get("ecoles") or {}).get("zones_communes")
+    if not zc:
+        avertissements.append("zones des communes absentes (annuaire sans code commune ou contours injoignables ?)")
+    else:
+        if not zc_zones:
+            erreurs.append("zones des communes annoncées dans meta.json mais aucun fichier zones-communes/*.geojson")
+        for niv, seuils in ZONES_COMMUNES_MINIMUM.items():
+            c = zc.get(niv) or {}
+            print(f"zones des communes, {niv} : {c.get('zones_commune')} communes à une école, {c.get('zones_rpi')} RPI sur {c.get('communes_rpi')} communes, "
+                  f"{c.get('eleves')} élèves ({c.get('part_eleves')})")
+            if not controle(f"Zones des communes, {NIVEAUX_SECTEURS[niv]} : communes couvertes", c.get("communes"), seuils["communes"]):
+                erreurs.append(f"zones des communes ({niv}) : {c.get('communes')} communes (au moins {seuils['communes']} attendues)")
+            if not controle(f"Zones des communes, {NIVEAUX_SECTEURS[niv]} : élèves du public couverts", round((c.get("part_eleves") or 0) * 100, 1), round(seuils["part_eleves"] * 100, 1), "%"):
+                erreurs.append(f"zones des communes ({niv}) : part des élèves {c.get('part_eleves')} (au moins {seuils['part_eleves']} attendu)")
     sans_nom = sum(1 for f in points if not f["properties"].get("nom"))
     couverture = {k: sum(1 for f in points if isinstance(f["properties"].get(k), (int, float))) for k in COUVERTURE_ECOLES}
     print(f"écoles : {len(points)} dans {len(list(dossier.glob('*.geojson')))} départements, {sans_nom} sans nom ; couverture {couverture}")
@@ -237,6 +266,26 @@ def ecoles_des_villes(contenus):
         p = next((f["properties"] for f in contenus.get("ecoles", []) if f["properties"]["uai"] in cites and f["properties"].get("secteur") == "public" and "ips" in f["properties"]), None)
         if p:
             out.append((f"{p['nom']} {p['commune']}", (sect.get(fid) or {}).get("source") or "Ville de"))
+    return out
+
+
+def ecoles_des_communes(contenus):
+    """[(requête, textes attendus)] : une école seule dans sa commune (zone élémentaire) et une école de RPI dispersé,
+    avec IPS et taille des classes (fiche à onglets) et un nom distinctif (la recherche doit la trouver en premier)."""
+    zones = [z for z in contenus.get("zones-communes", []) if z["properties"].get("niveau") == "elementaire"]
+    points = {f["properties"]["uai"]: f["properties"] for f in contenus.get("ecoles", [])}
+    generiques = {"ecole", "école", "primaire", "elementaire", "élémentaire", "publique", "maternelle", "de", "du", "la", "le", "des"}
+    out = []
+    for regle, attendus in (("commune", ["Seule école publique", "Voir la commune sur la carte"]),
+                            ("rpi", ["Regroupement pédagogique intercommunal", "Voir le regroupement sur la carte"])):
+        for z in zones:
+            pr = z["properties"]
+            if pr.get("regle") != regle or pr.get("concentre"):
+                continue
+            p = next((points[u] for u in pr.get("uais", "").split() if u in points), None)
+            if p and "ips" in p and "classe" in p and len([w for w in p["nom"].lower().split() if w not in generiques]) >= 2:
+                out.append((f"{p['nom']} {p['commune']}", attendus, regle))
+                break
     return out
 
 
@@ -300,6 +349,9 @@ async def verifier_navigateur(contenus):
     secteur_ecole = bool(p_ecole) and any(p_ecole["uai"] in z["properties"].get("uais", "").split() for z in contenus.get("secteurs-ecoles", []))
     ecole_hc, _ = ecole_a_tester(contenus, public=False)
     ecoles_villes = ecoles_des_villes(contenus)
+    ecoles_communes = ecoles_des_communes(contenus) if contenus.get("zones-communes") else []
+    if contenus.get("zones-communes") and len(ecoles_communes) < 2:
+        avertissements.append(f"zones des communes : {len(ecoles_communes)} fiche(s) d'exemple trouvée(s) sur 2 (commune, RPI)")
     async with async_playwright() as p:
         b = await p.chromium.launch(args=["--use-gl=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"])
         for appareil, ctx in (("ordinateur", {"viewport": {"width": 1280, "height": 800}}), ("téléphone", p.devices["iPhone 13"])):
@@ -369,6 +421,18 @@ async def verifier_navigateur(contenus):
                         problemes.append(pb)
                     else:
                         print(f"{appareil} : fiche école « {requete} » avec son secteur ({source})")
+            # Zones des communes : fiche d'une école seule dans sa commune et d'une école de RPI, zone dessinée.
+            for requete, attendus, regle in ecoles_communes:
+                pb = await ouvrir_fiche(pg, requete, attendus, attente=3000)
+                if pb:
+                    problemes.append(pb)
+                    continue
+                await pg.wait_for_timeout(1500)
+                zn = await pg.evaluate("window.carteScolaire.getLayer('secteurs-ecoles-commune') ? window.carteScolaire.queryRenderedFeatures({layers: ['secteurs-ecoles-commune']}).length : -1")
+                if zn <= 0:
+                    problemes.append(f"zones des communes : {'calque absent' if zn < 0 else 'aucune zone affichée'} après avoir ouvert la fiche « {requete} »")
+                else:
+                    print(f"{appareil} : fiche école « {requete} » avec sa zone ({regle}), {zn} zones de communes à l'écran")
             if ecole_hc:
                 pb = await ouvrir_fiche(pg, ecole_hc, "hors contrat", "#fiche-contenu .sans-brevet", attente=2000)
                 if pb:
@@ -404,7 +468,7 @@ async def verifier_navigateur(contenus):
             for page in sorted(SITE.glob("documentation*.html")):
                 await pg.goto(f"http://localhost:8765/{page.name}")
                 await pg.wait_for_timeout(800)
-                for sel, vide in (("#liste-sources", "Chargement"), ("#resume-donnees", "Chargement"), ("#liste-villes-ecoles", "Chargement")):
+                for sel, vide in (("#liste-sources", "Chargement"), ("#resume-donnees", "Chargement"), ("#liste-villes-ecoles", "Chargement"), ("#ecoles-communes-chiffres", "Chargement")):
                     el = await pg.query_selector(sel)
                     if el and (vide in await el.inner_text() or "pas pu" in await el.inner_text()):
                         problemes.append(f"{page.name} : {sel} n'est pas rempli")

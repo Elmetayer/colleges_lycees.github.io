@@ -14,6 +14,7 @@ pipeline/ecoles.py        écoles (IPS et rangs, effectifs, taille des classes) 
 pipeline/secteurs.py      secteurs des collèges publics, département par département
 pipeline/ecoles_6e.py     entrée en 6e des écoles : évaluations de 6e du collège de secteur (après l'assemblage des secteurs)
 pipeline/secteurs_ecoles.py secteurs des écoles publiés par les villes (Paris, Bordeaux, Strasbourg, Nantes, Orléans, Clermont-Ferrand, Tours, Saint-Nazaire) → secteurs-ecoles/<ville>.geojson
+pipeline/zones_communes.py  zones des communes à une seule école publique et des regroupements pédagogiques (RPI), d'après l'annuaire → zones-communes/<dep>.geojson
 pipeline/suivi.py         rapport de chaque build (sources, contrôles) → data/suivi.json, historique dans la branche suivi-donnees
 pipeline/requirements.txt dépendances Python
 site/                     site statique publié sur GitHub Pages
