@@ -145,7 +145,8 @@
       tuile("Sources", nombre((n.ok || 0) + (n.partiel || 0) + (n.ko || 0)), `${n.ok || 0} OK · ${n.partiel || 0} partielle${(n.partiel || 0) > 1 ? "s" : ""} · ${n.ko || 0} pas OK`),
       tuile("Établissements sur la carte", nombre((ch.colleges || 0) + (ch.lycees || 0) + (ch.ecoles || 0)), `${nombre(ch.colleges)} collèges, ${nombre(ch.lycees)} lycées, ${nombre(ch.ecoles)} écoles`),
       tuile("Secteurs des collèges", `${nombre(ch.secteurs_departements)} / ${ch.departements || 96}`, "départements (les autres sont absents de la carte scolaire nationale)"),
-      tuile("Secteurs des écoles", `${villes.length} ville${villes.length > 1 ? "s" : ""}`, villes.join(", ") || "aucune"),
+      tuile("Secteurs des écoles", `${villes.length} ville${villes.length > 1 ? "s" : ""}`, (villes.join(", ") || "aucune")
+        + (ch.communes_zones ? ` ; ailleurs, ${nombre(ch.communes_zones)} communes à une seule école publique ou en regroupement` : "")),
     ].join("");
     if (rapport.build && rapport.build.lien) $("suivi-journal").href = rapport.build.lien;
     afficherFiltres();

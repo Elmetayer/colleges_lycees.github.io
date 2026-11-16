@@ -88,6 +88,20 @@ if (nav && titres.length >= 3) {
       `Sessions du brevet : ${liste(p.brevet)}. IPS : ${liste(p.ips)}. Évaluations de 6e : ${liste(p.eval6e)}.` +
       (m.lycees ? ` ${m.lycees.total} lycées (${m.lycees.publics} publics, ${m.lycees.prives} privés). Sessions du bac : ${liste(m.lycees.periodes.gt)}. IPS des lycées : ${liste(m.lycees.periodes.ips)}.` : "") +
       (m.ecoles ? ` ${m.ecoles.total} écoles (${m.ecoles.publics} publiques, ${m.ecoles.prives} privées). IPS des écoles : ${liste(m.ecoles.periodes.ips)}. Effectifs : rentrée ${m.ecoles.periodes.effectifs || "non disponible"}. Taille des classes : ${m.ecoles.periodes.classes || "non disponible"}.` : "");
+    // Page Écoles : chiffres des zones des communes (pipeline/zones_communes.py).
+    const zc = m.ecoles && m.ecoles.zones_communes, zcEl = document.getElementById("ecoles-communes-chiffres");
+    if (zcEl) {
+      if (zc && zc.elementaire && zc.maternelle) {
+        const n = (v) => Number(v || 0).toLocaleString("fr-FR");
+        const pc = (v) => (v == null ? "—" : `${(v * 100).toLocaleString("fr-FR", { maximumFractionDigits: 0 })} %`);
+        const e = zc.elementaire, ma = zc.maternelle;
+        zcEl.textContent = `Lors du dernier calcul, ${n(e.communes)} communes ont ainsi une zone pour l'école élémentaire : ${n(e.zones_commune)} communes à une seule école `
+          + `et ${n(e.communes_rpi)} communes réunies en ${n(e.zones_rpi)} regroupements ; cela concerne ${n(e.eleves)} élèves, soit ${pc(e.part_eleves)} des élèves des écoles élémentaires publiques. `
+          + `Pour la maternelle : ${n(ma.communes)} communes (${n(ma.zones_commune)} à une seule école, ${n(ma.communes_rpi)} en ${n(ma.zones_rpi)} regroupements), ${pc(ma.part_eleves)} des élèves de maternelle du public. `
+          + `${n(zc.communes_sans_ecole)} communes n'ont aucune école publique.`
+          + (zc.rentree_classes ? ` Répartition des classes des regroupements : rentrée ${zc.rentree_classes}.` : "");
+      } else zcEl.textContent = "Les zones des communes ne sont pas disponibles dans cette mise à jour.";
+    }
     const ec = m.ecoles, ecEl = document.getElementById("ecoles-chiffres");
     if (ec && ecEl) {
       const n = (v) => Number(v || 0).toLocaleString("fr-FR"), cv = ec.couverture || {}, nv = ec.niveaux || {};
@@ -100,6 +114,8 @@ if (nav && titres.length >= 3) {
     if (sourcesEl) sourcesEl.innerHTML = "<tr><td colspan='2'>La liste des sources n'a pas pu être chargée.</td></tr>";
     const villesEl = document.getElementById("liste-villes-ecoles");
     if (villesEl) villesEl.innerHTML = "<tr><td colspan='4'>La liste des villes n'a pas pu être chargée.</td></tr>";
+    const zcEl = document.getElementById("ecoles-communes-chiffres");
+    if (zcEl) zcEl.textContent = "Les chiffres n'ont pas pu être chargés.";
     const resume = document.getElementById("resume-donnees");
     if (resume) resume.textContent = "Le résumé des données n'a pas pu être chargé.";
   });

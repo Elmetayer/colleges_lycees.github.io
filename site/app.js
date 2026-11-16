@@ -318,10 +318,13 @@
     }
     if (c.cle === "ecoles" && carte.getLayer("secteurs-ecoles-fond")) {
       carte.setPaintProperty("secteurs-ecoles-fond", "fill-color", expr);
-      const niv = ["==", ["get", "niveau"], niveauZones()];
-      ["secteurs-ecoles-fond", "secteurs-ecoles-contour"].forEach((id) => carte.setFilter(id, niv));
+      // « in » : une zone des communes peut valoir pour les deux niveaux (niveau « elementaire maternelle »).
+      const niv = ["in", niveauZones(), ["get", "niveau"]];
+      carte.setFilter("secteurs-ecoles-fond", niv);
+      carte.setFilter("secteurs-ecoles-contour", ["all", niv, ["!", ["has", "regle"]]]);
+      carte.setFilter("secteurs-ecoles-commune", ["all", niv, ["has", "regle"]]);
       const vis = r.actif && r.zones && (r.mat || r.elem) ? "visible" : "none";
-      ["secteurs-ecoles-fond", "secteurs-ecoles-contour", "secteurs-ecoles-surligne"].forEach((id) => carte.setLayoutProperty(id, "visibility", vis));
+      ["secteurs-ecoles-fond", "secteurs-ecoles-contour", "secteurs-ecoles-commune", "secteurs-ecoles-surligne"].forEach((id) => carte.setLayoutProperty(id, "visibility", vis));
       if (ficheCourante && ficheCourante.type === "ecole") surlignerSecteurEcole(ficheCourante.p);
     }
     if (c.parDepartement) chargerEcolesVisibles();
@@ -1098,7 +1101,7 @@
     fiche.scrollTop = 0;
     $("fermer").focus({ preventScroll: true });
     const secteursPrets = p.secteur === "public" && coord ? Promise.all(departementsAuPoint(coord).map(chargerSecteursDep)
-      .concat(idsSecteursEcoles(p.dep).map(chargerSecteursEcoles))).catch(() => {}) : null;
+      .concat(idsSecteursEcoles(p.dep).map(chargerSecteursEcoles), [chargerZonesCommunes(p.dep)])).catch(() => {}) : null;
     Promise.all([chargerFiches(p.dep, "ecoles"), secteursPrets]).then(([dep]) => {
       const col = collegeDeSecteur(p, coord);
       return (col ? chargerFiches(col.properties.dep, "colleges").catch(() => ({})) : Promise.resolve({})).then((fc) => {
@@ -1159,6 +1162,17 @@
         const autres = zoneUais(z).filter((u) => u !== p.uai).map((u) => (ecolesParUai.get(u) || { properties: { nom: u } }).properties.nom);
         liens.push({ titre, texte: "Voir le secteur sur la carte", zone: z, niveau: niv,
           detail: (autres.length ? `Secteur commun avec ${autres.join(", ")}. ` : "") + `${infoSect.source}, ${periodeSecteurs(infoSect, niv)}` });
+      });
+    }
+    // Zone déduite de l'annuaire (seule école publique de la commune, regroupement pédagogique) : hors des villes
+    // qui publient leurs secteurs. Une école primaire seule dans sa commune a la même zone pour les deux niveaux.
+    if (p.secteur === "public" && !infoSect) {
+      const zones = niveauxSecteur(p).map((niv) => ({ niv, z: zoneDeLEcole(p.uai, niv) })).filter((x) => x.z && x.z.properties.regle);
+      const memeZone = zones.length === 2 && (zones[0].z === zones[1].z || (zones[0].z.properties.regle === "commune" && zones[1].z.properties.regle === "commune"));
+      (memeZone ? [{ niv: null, z: (zones.find((x) => x.niv === niveauZones()) || zones[0]).z }] : zones).forEach(({ niv, z }) => {
+        const titre = zones.length > 1 && !memeZone ? `Zone ${NOMS_NIVEAU[niv]}` : "Zone de l'école";
+        const texte = z.properties.regle === "rpi" ? "Voir le regroupement sur la carte" : "Voir la commune sur la carte";
+        liens.push({ titre, texte, zone: z, niveau: niv || (aNiveau(z, niveauZones()) ? niveauZones() : z.properties.niveau.split(" ")[0]), detail: texteZoneCommune(z, niv, p.uai) });
       });
     }
     memeAdresse.forEach((x) => liens.push({ titre: "Même adresse", texte: x.properties.nom, ecole: x }));
@@ -1290,7 +1304,7 @@
       if (!r.ok) throw new Error(r.status);
       const j = await r.json();
       const res = (j.results || []).filter((a) => num(a.x) && num(a.y)).map((a) => ({
-        libelle: a.fulltext, detail: a.zipcode && String(a.fulltext).includes(a.zipcode) ? "" : [a.zipcode, a.city].filter(Boolean).join(" "), coord: [a.x, a.y],
+        libelle: a.fulltext, detail: a.zipcode && String(a.fulltext).includes(a.zipcode) ? "" : [a.zipcode, a.city].filter(Boolean).join(" "), coord: [a.x, a.y], ville: a.city || "",
       }));
       if (res.length) return res;
     } catch (e) { if (e.name === "AbortError") throw e; }
@@ -1300,7 +1314,7 @@
     return (j.features || [])
       .filter((f) => enMetropole(String(f.properties.postcode || f.properties.citycode || "")))
       .slice(0, 5)
-      .map((f) => ({ libelle: f.properties.label, detail: f.properties.context || "", coord: f.geometry.coordinates }));
+      .map((f) => ({ libelle: f.properties.label, detail: f.properties.context || "", coord: f.geometry.coordinates, ville: f.properties.city || "" }));
   }
 
   function initRecherche() {
@@ -1408,8 +1422,61 @@
   // Adresse choisie : repère sur la carte et liste des collèges publics les plus proches.
   // Les secteurs des départements autour de l'adresse sont chargés avant de chercher son secteur.
   function montrerAdresse(a) {
-    Promise.all(departementsAuPoint(a.coord).map(chargerSecteursDep).concat(depsSecteursEcolesAuPoint(a.coord).map(chargerSecteursEcoles)))
+    const ecolesAutour = sources.ecoles ? Object.keys(indexEcoles).filter((d) => dansBbox(indexEcoles[d].bbox, a.coord[0], a.coord[1], 0.02)) : [];
+    Promise.all(departementsAuPoint(a.coord).map(chargerSecteursDep).concat(depsSecteursEcolesAuPoint(a.coord).map(chargerSecteursEcoles),
+      depsZonesCommunesAuPoint(a.coord).map(chargerZonesCommunes), ecolesAutour.map(chargerEcolesDep)))
       .catch(() => {}).then(() => afficherAdresse(a));
+  }
+
+  // Adresse hors des villes qui publient leurs secteurs : zone de la règle de la commune (seule école publique,
+  // regroupement pédagogique), sinon une phrase selon le nombre d'écoles publiques de la commune de l'adresse.
+  function blocEcolesCommune(a, distance) {
+    if (!sources.ecoles) return "";
+    const zones = ["maternelle", "elementaire"].map((niv) => ({ niv, z: zoneEcoleAuPoint(a.coord, niv, true) })).filter((x) => x.z);
+    if (zones.length) {
+      // Une école par ligne ; une école primaire seule dans sa commune n'apparaît qu'une fois.
+      const lignes = new Map();
+      zones.forEach(({ niv, z }) => zoneUais(z).forEach((u) => {
+        const e = ecolesParUai.get(u);
+        if (!e) return;
+        const l = lignes.get(u) || { e, niveaux: [], z };
+        l.niveaux.push(niv);
+        lignes.set(u, l);
+      }));
+      const rpi = zones.some(({ z }) => z.properties.regle === "rpi");
+      const z0 = zones.find(({ niv }) => niv === niveauZones()) || zones[0];
+      if (carte.getLayer("secteurs-ecoles-surligne"))
+        carte.setFilter("secteurs-ecoles-surligne", ["all", ["in", z0.niv, ["get", "niveau"]], ["==", ["get", "uais"], z0.z.properties.uais]]);
+      const etiquette = (l) => {
+        if (l.z.properties.regle === "rpi") {
+          const cl = classesZone(l.z)[l.e.properties.uai];
+          return `Regroupement de communes${cl && cl.length ? ` : ${listeClasses(cl)}` : ""}`;
+        }
+        return l.niveaux.length > 1 ? "Seule école publique de la commune" : `Seule école ${NOMS_NIVEAU[l.niveaux[0]]} publique de la commune`;
+      };
+      const textes = [...new Set(zones.map(({ niv, z }) => texteZoneCommune(z, zones.length > 1 && z.properties.regle === "commune" ? null : niv)))];
+      return `
+      <h3>Écoles de la commune</h3>
+      <ul class="proches">
+        ${[...lignes.values()].map((l) => `<li class="secteur-adresse"><button type="button" data-ecole="${l.e.properties.uai}">
+          <span><span class="etiquette">${echapper(etiquette(l))}</span><br>${echapper(l.e.properties.nom)}<small>${echapper(l.e.properties.commune)}</small></span>
+          <span class="distance">${distance(distanceKm(a.coord, l.e.geometry.coordinates))}</span></button></li>`).join("")}
+      </ul>
+      <p class="avertissement">${echapper(rpi ? textes.find((t) => t.startsWith("Regroupement")) : textes[0])}</p>
+      <h3>Collèges</h3>`;
+    }
+    // Pas de zone : la commune n'a aucune école publique, ou plusieurs sans secteurs publiés. Nom de la commune de
+    // l'adresse comparé à celui des écoles (Lyon : « Lyon 3e Arrondissement ») ; « aucune école » seulement si aucune
+    // école publique n'est à moins d'un kilomètre (un nom écrit autrement ne doit pas faire dire qu'il n'y en a pas).
+    const ville = normaliser(a.ville);
+    if (!ville) return "";
+    const publiques = sources.ecoles.features.filter((f) => f.properties.secteur === "public");
+    const ici = publiques.filter((f) => { const c = normaliser(f.properties.commune); return c === ville || c.startsWith(ville + " "); });
+    const proche = publiques.some((f) => distanceKm(a.coord, f.geometry.coordinates) < 1);
+    let phrase = "";
+    if (!ici.length && !proche) phrase = `Aucune école publique à ${a.ville} d'après l'annuaire de l'Éducation nationale : les enfants vont à l'école d'une commune voisine ou d'un regroupement de communes. La mairie indique l'école de rattachement.`;
+    else if (ici.length >= 2) phrase = `${a.ville} a plusieurs écoles publiques et ne publie pas ses secteurs en données ouvertes : la mairie indique l'école de secteur d'une adresse.`;
+    return phrase ? `<h3>Écoles</h3><p class="avertissement">${echapper(phrase)}</p><h3>Collèges</h3>` : "";
   }
 
   function afficherAdresse(a) {
@@ -1448,16 +1515,16 @@
     let infoEcoles = depEcoles ? indexSecteursEcoles[depEcoles] : null;
     const ecolesSecteur = [];
     if (infoEcoles) ["maternelle", "elementaire"].forEach((niv) => {
-      const z = zoneEcoleAuPoint(a.coord, niv);
+      const z = zoneEcoleAuPoint(a.coord, niv, false);
       const uais = z ? zoneUais(z) : [];
       ecolesSecteur.push({ niv, zone: Boolean(z), commun: uais.length > 1, ecoles: uais.map((u) => ecolesParUai.get(u)).filter(Boolean) });
     });
     // Adresse dans l'emprise d'une ville mais hors de ses secteurs (commune voisine) : pas de bloc.
     if (infoEcoles && infoEcoles.communes && !ecolesSecteur.some((s) => s.zone)) infoEcoles = null;
     if (infoEcoles) {
-      const z = zoneEcoleAuPoint(a.coord, niveauZones());
+      const z = zoneEcoleAuPoint(a.coord, niveauZones(), false);
       if (z && carte.getLayer("secteurs-ecoles-surligne"))
-        carte.setFilter("secteurs-ecoles-surligne", ["all", ["==", ["get", "niveau"], niveauZones()], ["==", ["get", "uais"], z.properties.uais]]);
+        carte.setFilter("secteurs-ecoles-surligne", ["all", ["in", niveauZones(), ["get", "niveau"]], ["==", ["get", "uais"], z.properties.uais]]);
     }
     const blocEcoles = infoEcoles ? `
       <h3>Écoles de secteur</h3>
@@ -1468,7 +1535,7 @@
           : `<li class="info-secteur">Aucun secteur ${NOMS_NIVEAU[s.niv]} trouvé pour cette adresse.</li>`)).join("")}
       </ul>
       <p class="avertissement">${ecolesSecteur.some((s) => s.commun) ? "Secteur commun : l'enfant est inscrit dans l'une de ces écoles. " : ""}Secteurs publiés par ${echapper(infoEcoles.par || "la " + infoEcoles.source)} (${echapper(periodeSecteurs(infoEcoles))}). Pour l'inscription, la réponse qui fait foi est celle de la mairie.</p>
-      <h3>Collèges</h3>` : "";
+      <h3>Collèges</h3>` : blocEcolesCommune(a, distance);
     $("fiche-contenu").innerHTML = `
       <h2 id="fiche-nom">${echapper(a.libelle)}</h2>
       ${blocEcoles}
@@ -1658,6 +1725,10 @@
       const b = indexSecteursEcoles[d].bbox;
       if (b && b[0] <= v.getEast() && b[2] >= v.getWest() && b[1] <= v.getNorth() && b[3] >= v.getSouth()) chargerSecteursEcoles(d);
     });
+    if (reglages.ecoles.zones) Object.keys(indexZonesCommunes).forEach((d) => {
+      const b = indexZonesCommunes[d].bbox;
+      if (b && b[0] <= v.getEast() && b[2] >= v.getWest() && b[1] <= v.getNorth() && b[3] >= v.getSouth()) chargerZonesCommunes(d);
+    });
   }
 
   // Indication « Zoomez » : écoles (zoom ZOOM_ECOLES) et secteurs des collèges (zoom ZOOM_SECTEURS).
@@ -1710,6 +1781,8 @@
     return r.mat && !r.elem ? "maternelle" : "elementaire";
   }
   const zoneUais = (f) => (f.properties.uais || "").split(" ").filter(Boolean);
+  // Niveau d'une zone : « elementaire », « maternelle », ou les deux pour une zone des communes (« elementaire maternelle »).
+  const aNiveau = (f, niv) => String(f.properties.niveau || "").split(" ").includes(niv);
 
   // Chaque zone reçoit les indicateurs de sa première école, pour être colorée comme elle.
   function enrichirZonesEcoles(features) {
@@ -1739,6 +1812,48 @@
     return secteursEcolesDep.get(id);
   }
   const idsSecteursEcoles = (dep) => Object.keys(indexSecteursEcoles).filter((id) => (indexSecteursEcoles[id].dep || id) === dep);
+
+  // Zones déduites de l'annuaire (pipeline/zones_communes.py) : commune qui n'a qu'une école publique du niveau
+  // (la zone est la commune) et regroupements pédagogiques intercommunaux dispersés (RPI : les communes du
+  // regroupement partagent leurs écoles). Un fichier par département (data/zones-communes/<dep>.geojson), dans la même
+  // couche que les secteurs publiés par les villes, avec un contour plein ; propriété « regle » : commune | rpi.
+  let indexZonesCommunes = {};
+  const zonesCommunesDep = new Map();
+  function chargerZonesCommunes(dep) {
+    if (!indexZonesCommunes[dep]) return Promise.resolve();
+    if (!zonesCommunesDep.has(dep)) {
+      zonesCommunesDep.set(dep, Promise.all([
+        fetch(`data/zones-communes/${encodeURIComponent(dep)}.geojson`).then((r) => (r.ok ? r.json() : Promise.reject(r.status))),
+        chargerEcolesDep(dep),
+      ]).then(([geo]) => {
+        secteursEcoles.features.push(...enrichirZonesEcoles(geo.features));
+        const src = carte.getSource("secteurs-ecoles");
+        if (src) src.setData(secteursEcoles);
+        if (ficheCourante && ficheCourante.type === "ecole") surlignerSecteurEcole(ficheCourante.p);
+      }).catch((e) => { zonesCommunesDep.delete(dep); console.warn(`Secteurs des écoles (communes) ${dep} indisponibles`, e); }));
+    }
+    return zonesCommunesDep.get(dep);
+  }
+  const depsZonesCommunesAuPoint = (pt) => Object.keys(indexZonesCommunes).filter((d) => dansBbox(indexZonesCommunes[d].bbox, pt[0], pt[1], 0.005));
+  // Classes accueillies par chaque école d'un RPI (« UAI:CP,CE1;UAI:CE2,CM1,CM2 »), d'après les effectifs de la dernière rentrée.
+  const classesZone = (z) => Object.fromEntries(String(z.properties.classes || "").split(";").filter(Boolean)
+    .map((x) => x.split(":")).map(([u, c]) => [u, (c || "").split(",").filter(Boolean)]));
+  const nomEcole = (u) => { const e = ecolesParUai.get(u); return e ? `${e.properties.nom} (${e.properties.commune})` : u; };
+  const listeClasses = (c) => (c && c.length ? c.join(", ") : "classes non publiées");
+  // Texte d'une zone de la règle de la commune, pour la fiche d'une école ou une adresse.
+  function texteZoneCommune(z, niv, uai) {
+    const pr = z.properties, rentree = (metaEcoles.zones_communes || {}).rentree_classes;
+    if (pr.regle === "rpi") {
+      const communes = String(pr.noms || "").split(" / ");
+      const cl = classesZone(z);
+      const repart = Object.keys(cl).length ? ` Rentrée ${rentree || "la plus récente"} : ` + Object.entries(cl)
+        .map(([u, c]) => `${u === uai ? "ici" : nomEcole(u)}, ${listeClasses(c)}`).join(" ; ") + "." : "";
+      return `Regroupement pédagogique intercommunal de ${communes.length > 1 ? communes.length + " communes (" + communes.join(", ") + ")" : communes[0]} : les classes sont réparties entre les écoles, l'école dépend de la classe de l'enfant.${repart} D'après l'annuaire de l'Éducation nationale ; la mairie fait foi.`;
+    }
+    return `Seule école publique ${niv ? NOMS_NIVEAU[niv] : ""} de ${pr.noms} : elle accueille en principe les enfants de toute la commune.`.replace("  ", " ")
+      + (pr.concentre ? " Elle accueille aussi des enfants de communes voisines (regroupement d'écoles sur un seul site)." : "")
+      + " D'après l'annuaire de l'Éducation nationale ; un hameau peut dépendre d'une autre école, la mairie fait foi.";
+  }
   // Fichier de secteurs qui couvre une école (même département, et commune couverte).
   function infoSecteursEcole(p) {
     const id = idsSecteursEcoles(p.dep).find((i) => !indexSecteursEcoles[i].communes || indexSecteursEcoles[i].communes.includes(p.commune));
@@ -1755,14 +1870,16 @@
   const depsSecteursEcolesAuPoint = (pt) => Object.keys(indexSecteursEcoles).filter((d) => dansBbox(indexSecteursEcoles[d].bbox, pt[0], pt[1], 0.005));
 
   // Zone d'un niveau contenant un point, ou zone d'une école. Sur téléphone, cadrerZone suppose la fiche repliée.
-  function zoneEcoleAuPoint(pt, niveau) {
+  // regle : false = secteurs publiés par les villes seulement ; true = zones des communes seulement ; absent = toutes.
+  function zoneEcoleAuPoint(pt, niveau, regle) {
     return secteursEcoles.features.find((f) => {
-      if (f.properties.niveau !== niveau) return false;
+      if (!aNiveau(f, niveau)) return false;
+      if (regle !== undefined && Boolean(f.properties.regle) !== regle) return false;
       const g = f.geometry, polys = g.type === "Polygon" ? [g.coordinates] : g.type === "MultiPolygon" ? g.coordinates : [];
       return polys.some((poly) => dansPolygone(pt, poly));
     });
   }
-  const zoneDeLEcole = (uai, niveau) => secteursEcoles.features.find((f) => f.properties.niveau === niveau && zoneUais(f).includes(uai));
+  const zoneDeLEcole = (uai, niveau) => secteursEcoles.features.find((f) => aNiveau(f, niveau) && zoneUais(f).includes(uai));
   // Niveaux de secteur d'une école : une école primaire a un secteur élémentaire et un secteur maternelle.
   const niveauxSecteur = (p) => (p.niveau === "primaire" ? ["elementaire", "maternelle"] : [p.niveau === "maternelle" ? "maternelle" : "elementaire"]);
 
@@ -1770,7 +1887,7 @@
     if (!carte.getLayer("secteurs-ecoles-surligne")) return;
     if (!p) { carte.setFilter("secteurs-ecoles-surligne", ["==", ["get", "uais"], "-"]); return; }
     const niv = niveauxSecteur(p).includes(niveauZones()) ? niveauZones() : niveauxSecteur(p)[0];
-    carte.setFilter("secteurs-ecoles-surligne", ["all", ["==", ["get", "niveau"], niv], ["in", p.uai, ["get", "uais"]]]);
+    carte.setFilter("secteurs-ecoles-surligne", ["all", ["in", niv, ["get", "niveau"]], ["in", p.uai, ["get", "uais"]]]);
   }
 
   function cadrerZone(f) {
@@ -1788,12 +1905,18 @@
     indexSecteursEcoles = Object.fromEntries(Object.entries(index).map(([d, v]) => [String(d), v]));
     const villes = Object.values(indexSecteursEcoles).map((v) => (v.communes ? v.communes.join(", ") : v.source.replace(/^Ville d(e |')/, "")));
     const liste = villes.length > 1 ? `${villes.slice(0, -1).join(", ")} et ${villes[villes.length - 1]}` : villes.join("");
+    const communes = Object.keys(indexZonesCommunes).length
+      ? " Ailleurs, dans les communes qui n'ont qu'une école publique, ou qui ont regroupé leurs écoles avec d'autres communes, la zone est la commune ou le regroupement (contour plein) ; les communes à plusieurs écoles qui ne publient pas leurs secteurs n'en ont pas."
+      : "";
     calque("ecoles").zones = { libelle: "Secteurs des écoles publiques",
-      note: `Pour l'instant à ${liste}, d'après les secteurs publiés par chaque ville. Les secteurs suivent le réglage Niveau : ceux des élémentaires, ou ceux des maternelles quand seules les maternelles sont cochées. Ils apparaissent avec les écoles, en zoomant sur une ville.` };
+      note: `${liste ? `À ${liste}, secteurs publiés par chaque ville (contour en pointillés).` : ""}${communes} Les zones suivent le réglage Niveau : celles des élémentaires, ou celles des maternelles quand seules les maternelles sont cochées. Elles apparaissent avec les écoles, en zoomant sur une ville.`.trim() };
     carte.addSource("secteurs-ecoles", { type: "geojson", data: secteursEcoles });
     const avant = carte.getLayer("colleges") ? "colleges" : undefined;
-    carte.addLayer({ id: "secteurs-ecoles-fond", type: "fill", source: "secteurs-ecoles", minzoom: ZOOM_ECOLES, paint: { "fill-color": ABSENT, "fill-opacity": 0.3 } }, avant);
-    carte.addLayer({ id: "secteurs-ecoles-contour", type: "line", source: "secteurs-ecoles", minzoom: ZOOM_ECOLES, paint: { "line-color": "#1e2f6b", "line-width": 1, "line-opacity": 0.6, "line-dasharray": [3, 2] } }, avant);
+    carte.addLayer({ id: "secteurs-ecoles-fond", type: "fill", source: "secteurs-ecoles", minzoom: ZOOM_ECOLES,
+      paint: { "fill-color": ABSENT, "fill-opacity": ["case", ["has", "regle"], 0.22, 0.3] } }, avant);
+    carte.addLayer({ id: "secteurs-ecoles-contour", type: "line", source: "secteurs-ecoles", minzoom: ZOOM_ECOLES, filter: ["!", ["has", "regle"]], paint: { "line-color": "#1e2f6b", "line-width": 1, "line-opacity": 0.6, "line-dasharray": [3, 2] } }, avant);
+    // Zones des communes (une seule école, regroupement) : contour plein, plus discret que les secteurs publiés.
+    carte.addLayer({ id: "secteurs-ecoles-commune", type: "line", source: "secteurs-ecoles", minzoom: ZOOM_ECOLES, filter: ["has", "regle"], paint: { "line-color": "#4a5470", "line-width": 1.2, "line-opacity": 0.55 } }, avant);
     carte.addLayer({ id: "secteurs-ecoles-surligne", type: "line", source: "secteurs-ecoles", minzoom: ZOOM_ECOLES, filter: ["==", ["get", "uais"], "-"], paint: { "line-color": "#1e2f6b", "line-width": 3 } }, avant);
   }
 
@@ -1813,7 +1936,8 @@
     fetch("data/meta.json").then((r) => (r.ok ? r.json() : {})).catch(() => ({})),
     charger("data/ecoles/index.json").catch((e) => { console.warn("Écoles indisponibles", e); return null; }),
     charger("data/secteurs-ecoles/index.json").catch(() => null),
-  ]).then(([geo, lyc, , meta, idxEcoles, idxSectEcoles]) => {
+    charger("data/zones-communes/index.json").catch(() => null),
+  ]).then(([geo, lyc, , meta, idxEcoles, idxSectEcoles, idxZonesCommunes]) => {
     donnees = geo;
     sources.colleges = geo;
     if (lyc) sources.lycees = lyc;
@@ -1832,7 +1956,8 @@
     ajouterCalqueCarte(calque("colleges"));
     if (lyc) ajouterCalqueCarte(calque("lycees"));  // au-dessus des collèges
     if (sources.ecoles) ajouterCalqueCarte(calque("ecoles"));  // au-dessus : les plus petites formes
-    if (sources.ecoles && idxSectEcoles && Object.keys(idxSectEcoles).length) ajouterSecteursEcoles(idxSectEcoles);
+    if (sources.ecoles && idxZonesCommunes) indexZonesCommunes = Object.fromEntries(Object.entries(idxZonesCommunes).map(([d, v]) => [String(d), v]));
+    if (sources.ecoles && ((idxSectEcoles && Object.keys(idxSectEcoles).length) || Object.keys(indexZonesCommunes).length)) ajouterSecteursEcoles(idxSectEcoles || {});
     construirePanneau();
     cadrer();
     initRecherche();
