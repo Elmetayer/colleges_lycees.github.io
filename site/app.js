@@ -512,6 +512,8 @@
   // Onglet choisi, gardé pour la fiche suivante du même type.
   const ongletsChoisis = { college: "brevet", lycee: "gt", ecole: "ips" };
   let ficheCourante = null;
+  let adresseCourante = null;  // adresse affichée dans la fiche (pour « Signaler une erreur »)
+  const BOUTON_SIGNALER = ' · <button type="button" class="lien-signaler" data-signaler>Signaler une erreur</button>';
   const ENCRE = "#1e2f6b", MAGENTA = "#cc4778", MAGENTA_TEXTE = "#a8335f", MEDIANE = "#8a93ad", BANDE = "#ece9f2";
 
   function seuilVA(cle) { return Number(VA.seuils[cle]) || 0; }
@@ -985,7 +987,7 @@
         </div>
         <div id="fiche-graphe" aria-live="polite"></div>` :
         (raison ? "" : `<p>Aucun indicateur n'est publié pour ce collège. C'est souvent le cas des établissements récents ou à petit effectif.</p>`)}
-      <p class="renvoi"><a href="documentation-colleges.html">Comprendre ces indicateurs</a></p>`;
+      <p class="renvoi"><a href="documentation-colleges.html">Comprendre ces indicateurs</a>${BOUTON_SIGNALER}</p>`;
     if (liste.length) afficherOnglet();
   }
 
@@ -1035,7 +1037,7 @@
         </div>
         <div id="fiche-graphe" aria-live="polite"></div>` :
         `<p>Aucun indicateur n'est publié pour ce lycée. C'est souvent le cas des établissements récents, à petit effectif, ou sans classe de terminale.</p>`}
-      <p class="renvoi"><a href="documentation-lycees.html">Comprendre ces indicateurs</a></p>`;
+      <p class="renvoi"><a href="documentation-lycees.html">Comprendre ces indicateurs</a>${BOUTON_SIGNALER}</p>`;
     if (liste.length) afficherOnglet();
   }
 
@@ -1211,7 +1213,7 @@
           ${liste.map((o) => `<button type="button" data-onglet="${o.cle}" aria-pressed="false">${o.nom}</button>`).join("")}
         </div>
         <div id="fiche-graphe" aria-live="polite"></div>` : (raison || p.contrat === "hors" ? "" : "<p>Aucun indicateur n'est publié pour cette école.</p>")}
-      <p class="renvoi"><a href="documentation-ecoles.html">Comprendre ces indicateurs</a></p>`;
+      <p class="renvoi"><a href="documentation-ecoles.html">Comprendre ces indicateurs</a>${BOUTON_SIGNALER}</p>`;
     $("fiche-contenu").querySelectorAll("[data-lien]").forEach((b) => b.addEventListener("click", () => {
       const l = liens[Number(b.dataset.lien)], x = l.college || l.ecole;
       if (l.zone) {
@@ -1536,6 +1538,7 @@
     const proches = (deSecteur ? [deSecteur] : []).concat(tous.filter((x) => x !== deSecteur).slice(0, deSecteur ? 4 : 5));
     surlignerSecteur(uaiSecteur);
     ficheCourante = null;
+    adresseCourante = a.libelle;
     const distance = (d) => (d < 1 ? fr(d * 1000, 0).replace(/\s/g, " ") + " m" : fr(d, 1) + " km");
     const lycees = sources.lycees ? sources.lycees.features
       .filter((f) => f.properties.secteur === "public")
@@ -1597,7 +1600,8 @@
           <span class="distance">${distance(x.d)}</span>
         </button></li>`).join("")}
       </ul>
-      <p class="avertissement">L'affectation en lycée passe par Affelnet : le lycée le plus proche n'est pas forcément celui obtenu.</p>` : ""}`;
+      <p class="avertissement">L'affectation en lycée passe par Affelnet : le lycée le plus proche n'est pas forcément celui obtenu.</p>` : ""}
+      <p class="renvoi"><button type="button" class="lien-signaler" data-signaler>Signaler une erreur</button></p>`;
     $("fiche-contenu").querySelectorAll("[data-ecole]").forEach((b) => b.addEventListener("click", () => {
       const f = ecolesParUai.get(b.dataset.ecole);
       if (!f) return;
@@ -2046,6 +2050,89 @@
     console.error(err);
   });
 
+  // ---------------------------------------------------------------- formulaire de contact
+  // Les messages passent par Web3Forms, qui les transfère à l'adresse email associée à la clé (parametres.js) :
+  // cette adresse n'apparaît pas sur le site. Sans clé, la fenêtre renvoie vers les issues GitHub.
+  const CLE_CONTACT = ((window.PARAMETRES || {}).contact || {}).cleWeb3Forms || "";
+  const NOMS_TYPE = { college: "Collège", lycee: "Lycée", ecole: "École" };
+  let contexteContact = "";
+
+  function ouvrirContact(contexte, type) {
+    const dlg = $("contact");
+    contexteContact = contexte || "";
+    $("contact-form").hidden = !CLE_CONTACT;
+    $("contact-repli").hidden = !!CLE_CONTACT;
+    $("contact-contexte").hidden = !contexteContact;
+    $("contact-contexte").textContent = contexteContact ? "À propos de : " + contexteContact : "";
+    if (type) $("contact-type").value = type;
+    $("contact-etat").textContent = "";
+    $("contact-etat").className = "contact-etat";
+    if (!dlg.open) dlg.showModal();
+    if (CLE_CONTACT) $("contact-message").focus();
+  }
+
+  function contexteFiche() {
+    if (ficheCourante) {
+      const p = ficheCourante.p;
+      const nom = /^(coll|lyc|[ée]cole)/i.test(p.nom || "") ? p.nom : `${NOMS_TYPE[ficheCourante.type] || ""} ${p.nom}`.trim();
+      return `${nom} (UAI ${p.uai})${p.commune ? ", " + p.commune : ""}`;
+    }
+    return adresseCourante ? "adresse " + adresseCourante : "";
+  }
+
+  $("ouvrir-contact").addEventListener("click", () => ouvrirContact("", "Question"));
+  $("contact-fermer").addEventListener("click", () => $("contact").close());
+  // Clic sur le fond (hors de la fenêtre) : fermeture.
+  $("contact").addEventListener("click", (e) => { if (e.target === $("contact")) $("contact").close(); });
+  $("fiche-contenu").addEventListener("click", (e) => {
+    if (e.target.closest("[data-signaler]")) ouvrirContact(contexteFiche(), "Donnée erronée (établissement, secteur…)");
+  });
+  if (location.hash === "#contact") ouvrirContact("", "Question");
+
+  $("contact-form").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const etatEl = $("contact-etat"), bouton = $("contact-envoyer");
+    const message = $("contact-message").value.trim(), email = $("contact-email").value.trim();
+    if (!message) { etatEl.textContent = "Écrivez votre message avant d'envoyer."; etatEl.className = "contact-etat erreur"; $("contact-message").focus(); return; }
+    if (email && !$("contact-email").checkValidity()) { etatEl.textContent = "L'adresse email ne semble pas valide (vous pouvez aussi la laisser vide)."; etatEl.className = "contact-etat erreur"; $("contact-email").focus(); return; }
+    const fini = () => {
+      etatEl.textContent = "Merci, votre message a bien été envoyé." + (email ? " Une réponse vous sera faite à l'adresse indiquée." : "");
+      etatEl.className = "contact-etat ok";
+      $("contact-message").value = "";
+      etatEl.scrollIntoView({ block: "nearest" });
+    };
+    if ($("contact-piege").checked) { fini(); return; }  // robot : on fait comme si
+    const type = $("contact-type").value;
+    const c = carte.getCenter();
+    const corps = {
+      access_key: CLE_CONTACT,
+      subject: `Carte scolaire · ${type}${contexteContact ? " · " + contexteContact : ""}`.slice(0, 200),
+      from_name: "Carte scolaire",
+      Objet: type,
+      Message: message,
+      "À propos de": contexteContact || "(rien)",
+      Page: location.href,
+      Carte: `${c.lat.toFixed(5)}, ${c.lng.toFixed(5)}, zoom ${carte.getZoom().toFixed(1)}`,
+      Navigateur: navigator.userAgent,
+    };
+    if (email) corps.email = email;
+    bouton.disabled = true;
+    etatEl.textContent = "Envoi en cours…";
+    etatEl.className = "contact-etat";
+    fetch("https://api.web3forms.com/submit", {
+      method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify(corps),
+    }).then((r) => r.json().catch(() => ({})).then((j) => {
+      if (!r.ok || !j.success) throw new Error(j.message || "HTTP " + r.status);
+      fini();
+    })).catch((err) => {
+      console.warn("Contact : envoi impossible", err);
+      etatEl.innerHTML = "Le message n'a pas pu être envoyé. Réessayez dans un moment, ou ouvrez une " +
+        '<a href="https://github.com/Elmetayer/colleges_lycees.github.io/issues">demande sur GitHub</a>.';
+      etatEl.className = "contact-etat erreur";
+      etatEl.scrollIntoView({ block: "nearest" });
+    }).finally(() => { bouton.disabled = false; });
+  });
+
   $("fermer").addEventListener("click", fermerFiche);
-  document.addEventListener("keydown", (e) => { if (e.key === "Escape") fermerFiche(); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("contact").open) fermerFiche(); });
 })();

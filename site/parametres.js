@@ -34,4 +34,11 @@ window.PARAMETRES = {
     texteZone: "Entre {min} et {max} {unite}, l'écart est considéré comme faible.",
     texteRepartition: "{dessous} % des {etablissements} en dessous de l'attendu, {proches} % proches, {dessus} % au-dessus.",
   },
+
+  // Formulaire de contact (bouton « Contact » de la carte et « Signaler une erreur » des fiches).
+  // Clé d'accès Web3Forms (web3forms.com) : les messages arrivent à l'adresse email associée à cette clé,
+  // qui n'apparaît pas sur le site. Vide : le formulaire renvoie vers les issues GitHub.
+  contact: {
+    cleWeb3Forms: "",
+  },
 };

@@ -315,7 +315,7 @@ def exemple(contenus, fichier, cle):
     return None
 
 
-async def ouvrir_fiche(pg, nom, attendu, selecteur="#fiche-contenu .onglets button", attente=1200, interdit=None, onglet=None):
+async def ouvrir_fiche(pg, nom, attendu, selecteur="#fiche-contenu .onglets button", attente=1200, interdit=None, onglet=None, signaler=False):
     await pg.fill("#recherche", nom)
     await pg.wait_for_timeout(attente)
     await pg.keyboard.press("ArrowDown")
@@ -341,6 +341,21 @@ async def ouvrir_fiche(pg, nom, attendu, selecteur="#fiche-contenu .onglets butt
         contenu = await pg.inner_text("#fiche-graphe")
         if onglet[1] not in contenu or "svg" not in (await pg.inner_html("#fiche-graphe")):
             return f"l'onglet « {onglet[0]} » de la fiche « {nom} » est incomplet : {contenu[:300]!r}"
+    if signaler:
+        # « Signaler une erreur » : ouvre la fenêtre de contact avec l'établissement joint.
+        bouton = await pg.query_selector("#fiche-contenu [data-signaler]")
+        if not bouton:
+            return f"la fiche « {nom} » n'a pas de bouton « Signaler une erreur »"
+        await bouton.click()
+        await pg.wait_for_timeout(300)
+        ouvert = await pg.evaluate("document.getElementById('contact').open")
+        contexte = await pg.evaluate("document.getElementById('contact-contexte').textContent")
+        if not ouvert or nom.split()[-1] not in contexte:
+            return f"« Signaler une erreur » sur la fiche « {nom} » : fenêtre {'ouverte' if ouvert else 'fermée'}, contexte « {contexte} »"
+        await pg.click("#contact-fermer")
+        await pg.wait_for_timeout(200)
+        if await pg.evaluate("document.getElementById('contact').open"):
+            return "la fenêtre de contact ne se ferme pas"
     await pg.click("#fermer")
     return None
 
@@ -424,7 +439,7 @@ async def verifier_navigateur(contenus):
                 if not nom:
                     problemes.append(f"aucun {type_} n'a l'indicateur nécessaire pour tester sa fiche")
                     continue
-                pb = await ouvrir_fiche(pg, nom, attendu)
+                pb = await ouvrir_fiche(pg, nom, attendu, signaler=type_ == "collège")
                 if pb:
                     problemes.append(pb)
             # École publique : fiche avec IPS (rangs) et collège de secteur ; écoles affichées une fois zoomé.
@@ -527,6 +542,23 @@ async def verifier_navigateur(contenus):
                     problemes.append(f"recherche : après Effacer, champ « {valeur} », bouton ou suggestions encore visibles")
                 else:
                     print(f"{appareil} : bouton Effacer de la recherche OK")
+            # Bouton « Contact » : fenêtre avec le formulaire (clé Web3Forms renseignée) ou le renvoi vers les issues ;
+            # Échap la ferme sans fermer autre chose. Aucun message n'est envoyé par le test.
+            await pg.click("#ouvrir-contact")
+            await pg.wait_for_timeout(300)
+            ouvert = await pg.evaluate("document.getElementById('contact').open")
+            formulaire = await pg.is_visible("#contact-form")
+            repli = await pg.is_visible("#contact-repli a[href$='/issues']")
+            if not ouvert or formulaire == repli:
+                problemes.append(f"contact : fenêtre {'ouverte' if ouvert else 'fermée'}, formulaire {'visible' if formulaire else 'caché'}, "
+                                 f"renvoi vers les issues {'visible' if repli else 'caché'}")
+            else:
+                await pg.keyboard.press("Escape")
+                await pg.wait_for_timeout(200)
+                if await pg.evaluate("document.getElementById('contact').open"):
+                    problemes.append("contact : la touche Échap ne ferme pas la fenêtre")
+                else:
+                    print(f"{appareil} : fenêtre de contact OK ({'formulaire' if formulaire else 'renvoi vers les issues, clé Web3Forms absente'})")
             # Pages de documentation : chargement sans erreur, données de meta.json affichées.
             for page in sorted(SITE.glob("documentation*.html")):
                 await pg.goto(f"http://localhost:8765/{page.name}")
