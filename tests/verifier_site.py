@@ -30,6 +30,7 @@ import functools
 import http.server
 import json
 import os
+import re
 import sys
 import threading
 from datetime import datetime, timezone
@@ -37,6 +38,9 @@ from pathlib import Path
 
 from playwright.async_api import async_playwright
 
+GOATCOUNTER = 'data-goatcounter="https://macartescolaire.goatcounter.com/count"'
+# Actions comptées (app.js, compter()) : jamais le texte d'une adresse ni une position.
+ACTION_AUDIENCE = re.compile(r"^(fiche-(ecole|college|lycee)/[0-9A-Z]{8}|recherche-(adresse|etablissement|commune)|adresse-(secteur-trouve|sans-secteur))$")
 SITE = Path(sys.argv[1] if len(sys.argv) > 1 else "site")
 erreurs, avertissements = [], []
 # Contrôles chiffrés et résultat du test navigateur, écrits dans data/verification.json pour la page de suivi.
@@ -344,8 +348,14 @@ async def ouvrir_fiche(pg, nom, attendu, selecteur="#fiche-contenu .onglets butt
 async def verifier_navigateur(contenus):
     college = exemple(contenus, "colleges.geojson", "taux_reussite")
     lycee = exemple(contenus, "lycees.geojson", "ips")
-    hors_contrat = next((f["properties"]["nom"] for f in contenus.get("colleges.geojson", {}).get("features", [])
-                         if f["properties"].get("sans_brevet") == "hors_contrat"), None)
+    # Collège hors contrat cherché par son nom et sa commune, de préférence un nom porté par un seul collège :
+    # « Collège privé Saint Joseph » seul renvoyait d'abord un homonyme sous contrat (build de la PR #50).
+    cols = [f["properties"] for f in contenus.get("colleges.geojson", {}).get("features", [])]
+    noms = {}
+    for p in cols:
+        noms[p["nom"]] = noms.get(p["nom"], 0) + 1
+    hc = sorted((p for p in cols if p.get("sans_brevet") == "hors_contrat"), key=lambda p: noms[p["nom"]] > 1)
+    hors_contrat = f"{hc[0]['nom']} {hc[0].get('commune', '')}".strip() if hc else None
     college_secteur, fichier_secteur = college_hors_idf(contenus)
     ecole, p_ecole = ecole_a_tester(contenus)
     secteur_ecole = bool(p_ecole) and any(p_ecole["uai"] in z["properties"].get("uais", "").split() for z in contenus.get("secteurs-ecoles", []))
@@ -358,6 +368,11 @@ async def verifier_navigateur(contenus):
         b = await p.chromium.launch(args=["--use-gl=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"])
         for appareil, ctx in (("ordinateur", {"viewport": {"width": 1280, "height": 800}}), ("téléphone", p.devices["iPhone 13"])):
             c = await b.new_context(**ctx)
+            # GoatCounter : script bloqué pendant le test, remplacé par un relevé des actions comptées.
+            async def bloquer(route):
+                await route.abort()
+            await c.route("**/gc.zgo.at/**", bloquer)
+            await c.add_init_script("window.goatcounter = { appels: [], count(o) { this.appels.push(o.path); } };")
             pg = await c.new_page()
             problemes, secteurs_charges = [], []
             pg.on("response", lambda r: secteurs_charges.append(r.url) if "/data/secteurs/" in r.url and "index.json" not in r.url and r.ok else None)
@@ -484,6 +499,16 @@ async def verifier_navigateur(contenus):
                 else:
                     problemes.append(f"les secteurs du département {fichier_secteur} ne se chargent pas en zoomant sur « {college_secteur} » "
                                      f"(chargés : {[u.split('/')[-1].split('?')[0] for u in secteurs_charges]})")
+            # Mesure d'audience (avant le rechargement ci-dessous, qui remet le relevé à zéro) : les fiches ouvertes
+            # par le test sont comptées, et chaque action a un nom attendu (aucune adresse, aucune position).
+            appels = await pg.evaluate("(window.goatcounter && window.goatcounter.appels) || []")
+            mauvais = [a for a in appels if not ACTION_AUDIENCE.match(str(a))]
+            if mauvais:
+                problemes.append(f"audience : actions inattendues {mauvais[:3]}")
+            elif not any(str(a).startswith("fiche-") for a in appels):
+                problemes.append(f"audience : aucune fiche comptée ({len(appels)} action(s))")
+            else:
+                print(f"{appareil} : audience, {len(appels)} action(s) comptée(s) : {sorted(set(a.split('/')[0] for a in appels))}")
             # Bouton « Effacer la recherche » : caché champ vide, visible avec du texte, vide le champ au clic.
             # (la recherche est branchée une fois les établissements chargés : attendre comme au démarrage)
             await pg.goto("http://localhost:8765/index.html")
@@ -558,9 +583,17 @@ def verifier_icones():
                 erreurs.append(f"icône : {page.name} ne déclare pas {attendu}")
 
 
+def verifier_audience():
+    """Mesure d'audience : le script GoatCounter est présent dans chaque page."""
+    for page in sorted(SITE.glob("*.html")):
+        if GOATCOUNTER not in page.read_text(encoding="utf-8"):
+            erreurs.append(f"audience : {page.name} n'a pas le script GoatCounter")
+
+
 def main():
     try:
         verifier_icones()
+        verifier_audience()
         contenus = verifier_fichiers()
 
         class Silencieux(http.server.SimpleHTTPRequestHandler):
