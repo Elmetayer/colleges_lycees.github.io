@@ -546,8 +546,21 @@ def ecrire_verification():
     }, ensure_ascii=False, indent=1), encoding="utf-8")
 
 
+def verifier_icones():
+    """Icône d'onglet (favicon) : fichiers présents et déclarés dans chaque page."""
+    for nom in ("favicon.svg", "favicon.ico", "apple-touch-icon.png"):
+        if not (SITE / nom).is_file() or (SITE / nom).stat().st_size == 0:
+            erreurs.append(f"icône : {nom} manquant")
+    for page in sorted(SITE.glob("*.html")):
+        texte = page.read_text(encoding="utf-8")
+        for attendu in ('href="favicon.svg"', 'href="favicon.ico"', 'rel="apple-touch-icon"'):
+            if attendu not in texte:
+                erreurs.append(f"icône : {page.name} ne déclare pas {attendu}")
+
+
 def main():
     try:
+        verifier_icones()
         contenus = verifier_fichiers()
 
         class Silencieux(http.server.SimpleHTTPRequestHandler):
