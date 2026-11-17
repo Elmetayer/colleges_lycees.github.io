@@ -30,6 +30,7 @@ import functools
 import http.server
 import json
 import os
+import re
 import sys
 import threading
 from datetime import datetime, timezone
@@ -37,6 +38,9 @@ from pathlib import Path
 
 from playwright.async_api import async_playwright
 
+GOATCOUNTER = 'data-goatcounter="https://macartescolaire.goatcounter.com/count"'
+# Actions comptées (app.js, compter()) : jamais le texte d'une adresse ni une position.
+ACTION_AUDIENCE = re.compile(r"^(fiche-(ecole|college|lycee)/[0-9A-Z]{8}|recherche-(adresse|etablissement|commune)|adresse-(secteur-trouve|sans-secteur))$")
 SITE = Path(sys.argv[1] if len(sys.argv) > 1 else "site")
 erreurs, avertissements = [], []
 # Contrôles chiffrés et résultat du test navigateur, écrits dans data/verification.json pour la page de suivi.
@@ -358,6 +362,11 @@ async def verifier_navigateur(contenus):
         b = await p.chromium.launch(args=["--use-gl=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"])
         for appareil, ctx in (("ordinateur", {"viewport": {"width": 1280, "height": 800}}), ("téléphone", p.devices["iPhone 13"])):
             c = await b.new_context(**ctx)
+            # GoatCounter : script bloqué pendant le test, remplacé par un relevé des actions comptées.
+            async def bloquer(route):
+                await route.abort()
+            await c.route("**/gc.zgo.at/**", bloquer)
+            await c.add_init_script("window.goatcounter = { appels: [], count(o) { this.appels.push(o.path); } };")
             pg = await c.new_page()
             problemes, secteurs_charges = [], []
             pg.on("response", lambda r: secteurs_charges.append(r.url) if "/data/secteurs/" in r.url and "index.json" not in r.url and r.ok else None)
@@ -502,6 +511,13 @@ async def verifier_navigateur(contenus):
                     problemes.append(f"recherche : après Effacer, champ « {valeur} », bouton ou suggestions encore visibles")
                 else:
                     print(f"{appareil} : bouton Effacer de la recherche OK")
+            # Mesure d'audience : chaque action comptée a un nom attendu (aucune adresse, aucune position).
+            appels = await pg.evaluate("(window.goatcounter && window.goatcounter.appels) || []")
+            mauvais = [a for a in appels if not ACTION_AUDIENCE.match(str(a))]
+            if mauvais:
+                problemes.append(f"audience : actions inattendues {mauvais[:3]}")
+            else:
+                print(f"{appareil} : audience, {len(appels)} action(s) comptée(s) : {sorted(set(a.split('/')[0] for a in appels))}")
             # Pages de documentation : chargement sans erreur, données de meta.json affichées.
             for page in sorted(SITE.glob("documentation*.html")):
                 await pg.goto(f"http://localhost:8765/{page.name}")
@@ -558,9 +574,17 @@ def verifier_icones():
                 erreurs.append(f"icône : {page.name} ne déclare pas {attendu}")
 
 
+def verifier_audience():
+    """Mesure d'audience : le script GoatCounter est présent dans chaque page."""
+    for page in sorted(SITE.glob("*.html")):
+        if GOATCOUNTER not in page.read_text(encoding="utf-8"):
+            erreurs.append(f"audience : {page.name} n'a pas le script GoatCounter")
+
+
 def main():
     try:
         verifier_icones()
+        verifier_audience()
         contenus = verifier_fichiers()
 
         class Silencieux(http.server.SimpleHTTPRequestHandler):

@@ -928,7 +928,17 @@
 
   const secteurLibelle = (p) => p.secteur === "public" ? "public" : p.contrat === "hors" ? "privé hors contrat" : "privé sous contrat";
 
+  // Mesure d'audience (GoatCounter, sans cookie) : nom de l'action et, pour les fiches, l'établissement ouvert.
+  // Jamais le texte d'une adresse ni une position. Sans le script (bloqueur, test), rien ne se passe.
+  function compter(chemin, titre) {
+    try {
+      if (window.goatcounter && typeof window.goatcounter.count === "function")
+        window.goatcounter.count({ path: chemin, title: titre || chemin, event: true });
+    } catch (e) { /* mesure facultative */ }
+  }
+
   function ouvrirFiche(p) {
+    compter(`fiche-college/${p.uai}`, `${p.nom} (${p.commune})`);
     surlignerSecteur(p.uai);
     const type = "Collège " + secteurLibelle(p);
     const tete = `
@@ -988,6 +998,7 @@
 
   // Fiche lycée : effectifs, puis un graphique par indicateur, comme pour les collèges.
   function ouvrirFicheLycee(p) {
+    compter(`fiche-lycee/${p.uai}`, `${p.nom} (${p.commune})`);
     surlignerSecteur(null);
     ficheCourante = { type: "lycee", p, onglets: [] };
     $("fiche-contenu").innerHTML = `<h2 id="fiche-nom">${echapper(p.nom)}</h2><p class="chargement">Chargement des indicateurs…</p>`;
@@ -1101,6 +1112,7 @@
     // Propriétés complètes et position exacte (celles renvoyées par la carte sont arrondies aux tuiles).
     const g = ecolesParUai.get(p0.uai);
     const p = g ? g.properties : p0, coord = g ? g.geometry.coordinates : coord0;
+    compter(`fiche-ecole/${p.uai}`, `${p.nom} (${p.commune})`);
     ficheCourante = { type: "ecole", p, onglets: [] };
     $("fiche-contenu").innerHTML = `<h2 id="fiche-nom">${echapper(p.nom)}</h2><p class="chargement">Chargement de la fiche…</p>`;
     const fiche = $("fiche");
@@ -1371,6 +1383,7 @@
       champ.value = it.libelle;
       majEffacer();
       champ.blur();
+      compter(it.type === "commune" ? "recherche-commune" : it.type === "college" || it.type === "lycee" || it.type === "ecole" ? "recherche-etablissement" : "recherche-adresse");
       if (it.type === "college") {
         centrer(it.f.geometry.coordinates, Math.max(carte.getZoom(), 14));
         ouvrirFiche(it.f.properties);
@@ -1519,6 +1532,7 @@
       .map((f) => ({ f, d: distanceKm(a.coord, f.geometry.coordinates) }))
       .sort((x, y) => x.d - y.d);
     const deSecteur = tous.find((x) => x.f.properties.uai === uaiSecteur);
+    compter(deSecteur ? "adresse-secteur-trouve" : "adresse-sans-secteur");
     const proches = (deSecteur ? [deSecteur] : []).concat(tous.filter((x) => x !== deSecteur).slice(0, deSecteur ? 4 : 5));
     surlignerSecteur(uaiSecteur);
     ficheCourante = null;
