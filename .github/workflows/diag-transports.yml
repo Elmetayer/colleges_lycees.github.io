@@ -1,0 +1,38 @@
+name: Diagnostic transports (temporaire)
+on:
+  push:
+    branches: [diag-transports]
+permissions:
+  contents: write
+jobs:
+  diag:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+      - name: Outils
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq osmium-tool
+          pip install osmium shapely
+      - name: Extrait OSM France (Geofabrik)
+        run: |
+          curl -sSfL --retry 4 -o france.osm.pbf https://download.geofabrik.de/europe/france-latest.osm.pbf
+          ls -lh france.osm.pbf
+          osmium fileinfo france.osm.pbf | grep -i timestamp || true
+      - name: Filtrer lignes, gares et arrêts de tram
+        run: |
+          osmium tags-filter france.osm.pbf \
+            r/route=subway,monorail,light_rail,tram,train,funicular \
+            r/route_master=subway,monorail,light_rail,tram,train,funicular \
+            nwr/railway=station,halt,tram_stop nwr/public_transport=station \
+            -o filtre.osm.pbf --overwrite
+          ls -lh filtre.osm.pbf
+          rm france.osm.pbf
+      - name: Diagnostic
+        run: python diag/transports.py filtre.osm.pbf diag/resultats
+      - name: Ranger les résultats dans la branche
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add diag/resultats
+          git commit -m "Résultats du diagnostic transports" && git push || echo "rien à ranger"
