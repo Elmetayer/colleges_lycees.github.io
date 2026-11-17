@@ -510,6 +510,14 @@ async def verifier_navigateur(contenus):
                     el = await pg.query_selector(sel)
                     if el and (vide in await el.inner_text() or "pas pu" in await el.inner_text()):
                         problemes.append(f"{page.name} : {sel} n'est pas rempli")
+                # Page sur la construction du site (usage de l'IA) : auteur, IA nommée, lien pour signaler une erreur.
+                if page.name == "documentation-construction.html":
+                    texte = await pg.inner_text("main")
+                    lien = await pg.query_selector("#signaler a[href$='/issues']")
+                    if "Bruno Lemetayer" not in texte or "Claude" not in texte or not lien:
+                        problemes.append("documentation-construction.html : auteur, IA ou lien vers les issues manquant")
+                if page.name == "documentation.html" and not await pg.query_selector(".doc-cartes a[href='documentation-construction.html']"):
+                    problemes.append("documentation.html : pas de lien vers « Comment ce site est construit »")
             # Page de suivi des données : rapport de ce build (data/suivi.json, provisoire) affiché.
             if (SITE / "suivi.html").exists():
                 await pg.goto("http://localhost:8765/suivi.html")
