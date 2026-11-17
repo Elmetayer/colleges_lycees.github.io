@@ -1,0 +1,1430 @@
+{
+ "lignes": {
+  "funicular": {
+   "lignes": 10,
+   "km": 5,
+   "avec_couleur": 6,
+   "avec_ref": 7,
+   "avec_reseau": 6,
+   "fragmentees_plus_de_3_morceaux": 5,
+   "reseaux": [
+    [
+     "(aucun)",
+     4
+    ],
+    [
+     "TCL",
+     2
+    ],
+    [
+     "RATP",
+     1
+    ],
+    [
+     "LiA",
+     1
+    ],
+    [
+     "Funiculaire",
+     1
+    ],
+    [
+     "Star'T",
+     1
+    ]
+   ],
+   "sans_couleur_exemples": [
+    "None · None · Funiculaire de Saint-Hilaire-du-Touvet",
+    "Funiculaire · Funiculaire · Funiculaire de Saint-Hilaire-du-Touvet",
+    "None · None · Funiculaire",
+    "None · None · L'Incliné"
+   ]
+  },
+  "light_rail": {
+   "lignes": 8,
+   "km": 185,
+   "avec_couleur": 6,
+   "avec_ref": 7,
+   "avec_reseau": 8,
+   "fragmentees_plus_de_3_morceaux": 4,
+   "reseaux": [
+    [
+     "TER Pays de la Loire",
+     2
+    ],
+    [
+     "Tramway du Cap Ferret",
+     1
+    ],
+    [
+     "TER Grand Est;Soléa",
+     1
+    ],
+    [
+     "Rhônexpress",
+     1
+    ],
+    [
+     "CDGVAL",
+     1
+    ],
+    [
+     "saarVV;TER Grand Est",
+     1
+    ],
+    [
+     "Paradiski",
+     1
+    ]
+   ],
+   "sans_couleur_exemples": [
+    "Tramway du Cap Ferret · None · Le Petit Train",
+    "Paradiski · FUN ARC BGSM · FUN ARC BGSM"
+   ]
+  },
+  "metro": {
+   "lignes": 32,
+   "km": 630,
+   "avec_couleur": 30,
+   "avec_ref": 30,
+   "avec_reseau": 30,
+   "fragmentees_plus_de_3_morceaux": 10,
+   "reseaux": [
+    [
+     "Métro de Paris",
+     17
+    ],
+    [
+     "TCL",
+     4
+    ],
+    [
+     "FR:STAR",
+     2
+    ],
+    [
+     "Ilévia",
+     2
+    ],
+    [
+     "Tisséo",
+     2
+    ],
+    [
+     "RTM",
+     2
+    ],
+    [
+     "(aucun)",
+     2
+    ],
+    [
+     "CDGVAL",
+     1
+    ]
+   ],
+   "sans_couleur_exemples": [
+    "None · None · monorail",
+    "None · None · Voyage en coquille de noix"
+   ]
+  },
+  "train-car_shuttle": {
+   "lignes": 1,
+   "km": 111,
+   "avec_couleur": 0,
+   "avec_ref": 0,
+   "avec_reseau": 0,
+   "fragmentees_plus_de_3_morceaux": 0,
+   "reseaux": [
+    [
+     "(aucun)",
+     1
+    ]
+   ],
+   "sans_couleur_exemples": [
+    "None · None · Eurotunnel Le Shuttle: Folkestone <=> Calais"
+   ]
+  },
+  "train-commuter": {
+   "lignes": 7,
+   "km": 469,
+   "avec_couleur": 7,
+   "avec_ref": 7,
+   "avec_reseau": 7,
+   "fragmentees_plus_de_3_morceaux": 5,
+   "reseaux": [
+    [
+     "Unireso",
+     6
+    ],
+    [
+     "TER Bretagne",
+     1
+    ]
+   ],
+   "sans_couleur_exemples": []
+  },
+  "train-high_speed": {
+   "lignes": 10,
+   "km": 14735,
+   "avec_couleur": 10,
+   "avec_ref": 10,
+   "avec_reseau": 10,
+   "fragmentees_plus_de_3_morceaux": 9,
+   "reseaux": [
+    [
+     "TGV InOui",
+     4
+    ],
+    [
+     "TGV",
+     3
+    ],
+    [
+     "TGV InOui;DB InterCityExpress",
+     2
+    ],
+    [
+     "TGV Lyria",
+     1
+    ]
+   ],
+   "sans_couleur_exemples": []
+  },
+  "train-international": {
+   "lignes": 21,
+   "km": 19006,
+   "avec_couleur": 21,
+   "avec_ref": 21,
+   "avec_reseau": 21,
+   "fragmentees_plus_de_3_morceaux": 16,
+   "reseaux": [
+    [
+     "Eurostar",
+     6
+    ],
+    [
+     "TGV",
+     6
+    ],
+    [
+     "TGV InOui",
+     4
+    ],
+    [
+     "TGV InOui;DB InterCityExpress",
+     2
+    ],
+    [
+     "TGV Europe",
+     2
+    ],
+    [
+     "TER Hauts-de-France",
+     1
+    ]
+   ],
+   "sans_couleur_exemples": []
+  },
+  "train-light_rail": {
+   "lignes": 1,
+   "km": 1,
+   "avec_couleur": 1,
+   "avec_ref": 1,
+   "avec_reseau": 1,
+   "fragmentees_plus_de_3_morceaux": 0,
+   "reseaux": [
+    [
+     "Euskotren Trena",
+     1
+    ]
+   ],
+   "sans_couleur_exemples": []
+  },
+  "train-long_distance": {
+   "lignes": 10,
+   "km": 2569,
+   "avec_couleur": 6,
+   "avec_ref": 10,
+   "avec_reseau": 10,
+   "fragmentees_plus_de_3_morceaux": 5,
+   "reseaux": [
+    [
+     "ch-integral",
+     5
+    ],
+    [
+     "Ouigo Train Classique",
+     3
+    ],
+    [
+     "IC",
+     2
+    ]
+   ],
+   "sans_couleur_exemples": [
+    "IC · IC-26 · IC-26",
+    "IC · IC-19 · IC-19 Lille - Tournai - Mons - Charleroi - Namur",
+    "ch-integral · IR 90 · IR 90",
+    "ch-integral · IR 95 · IR 95"
+   ]
+  },
+  "train-national": {
+   "lignes": 57,
+   "km": 52624,
+   "avec_couleur": 55,
+   "avec_ref": 57,
+   "avec_reseau": 57,
+   "fragmentees_plus_de_3_morceaux": 52,
+   "reseaux": [
+    [
+     "TGV",
+     29
+    ],
+    [
+     "TGV InOui",
+     14
+    ],
+    [
+     "Intercités",
+     8
+    ],
+    [
+     "TER Normandie",
+     3
+    ],
+    [
+     "TER Pays de la Loire",
+     1
+    ],
+    [
+     "TER Centre – Val de Loire",
+     1
+    ],
+    [
+     "IC",
+     1
+    ]
+   ],
+   "sans_couleur_exemples": [
+    "Intercités · IC · IC : Aubrac",
+    "IC · IC-04 · IC-04"
+   ]
+  },
+  "train-night": {
+   "lignes": 1,
+   "km": 1533,
+   "avec_couleur": 1,
+   "avec_ref": 1,
+   "avec_reseau": 1,
+   "fragmentees_plus_de_3_morceaux": 1,
+   "reseaux": [
+    [
+     "Intercités",
+     1
+    ]
+   ],
+   "sans_couleur_exemples": []
+  },
+  "train-regional": {
+   "lignes": 336,
+   "km": 64874,
+   "avec_couleur": 329,
+   "avec_ref": 327,
+   "avec_reseau": 331,
+   "fragmentees_plus_de_3_morceaux": 264,
+   "reseaux": [
+    [
+     "TER Grand Est",
+     57
+    ],
+    [
+     "TER Auvergne-Rhône-Alpes",
+     56
+    ],
+    [
+     "TER Hauts-de-France",
+     48
+    ],
+    [
+     "TER Bretagne",
+     22
+    ],
+    [
+     "TER Pays de la Loire",
+     20
+    ],
+    [
+     "TER Bourgogne-Franche-Comté",
+     20
+    ],
+    [
+     "TER Occitanie",
+     19
+    ],
+    [
+     "TER Provence-Alpes-Côte d'Azur",
+     17
+    ],
+    [
+     "TER Nouvelle-Aquitaine",
+     13
+    ],
+    [
+     "TER Normandie",
+     12
+    ],
+    [
+     "TER Centre – Val de Loire",
+     12
+    ],
+    [
+     "TGV InOui",
+     7
+    ],
+    [
+     "Société Nationale des Chemins de fer Luxembourgeois",
+     5
+    ],
+    [
+     "(aucun)",
+     5
+    ],
+    [
+     "Nomad Train",
+     3
+    ],
+    [
+     "L",
+     2
+    ],
+    [
+     "Regio-Verkehrsverbund Freiburg;TER Grand Est",
+     1
+    ],
+    [
+     "Karlsruher Verkehrsverbund;Verkehrsverbund Rhein-Neckar",
+     1
+    ],
+    [
+     "Verkehrsverbund Rhein-Neckar;Karlsruher Verkehrsverbund",
+     1
+    ],
+    [
+     "Tarifverbund Ortenau;TER Grand Est",
+     1
+    ],
+    [
+     "TGV",
+     1
+    ],
+    [
+     "Mobilis;Unireso",
+     1
+    ],
+    [
+     "Trenitalia",
+     1
+    ],
+    [
+     "Karlsruher Verkehrsverbund;Tarifverbund Ortenau;Regio-Verkehrsverbund Freiburg;Regio Verkehrsverbund Lörrach;Tarifverbund Nordwestschweiz",
+     1
+    ],
+    [
+     "Intercités",
+     1
+    ],
+    [
+     "Rodalies de Catalunya",
+     1
+    ],
+    [
+     "Chemins de Fer de la Corse",
+     1
+    ],
+    [
+     "S;TER Hauts-de-France",
+     1
+    ],
+    [
+     "TER Grand Est;saarVV",
+     1
+    ],
+    [
+     "TER Grand Est;saarVV;VRT",
+     1
+    ],
+    [
+     "Regio-Verkehrsverbund Freiburg;Regio Verkehrsverbund Lörrach",
+     1
+    ],
+    [
+     "CH-VS",
+     1
+    ],
+    [
+     "liO TER Occitanie",
+     1
+    ],
+    [
+     "Société Nationale des Chemins de fer Luxembourgeois;TER Grand Est",
+     1
+    ]
+   ],
+   "sans_couleur_exemples": [
+    "TER Bretagne · TER 32 · TER 32 : Auray - Quiberon",
+    "Trenitalia · 109 · (R) Cuneo-Ventimiglia",
+    "Chemins de Fer de la Corse · CFC · CFC : Ajaccio − Calvi",
+    "L · L-13 · L-13 Libramont - Bertrix - Virton - Athus - Arlon",
+    "L · L-29 · L-29 Geraardsbergen - Jurbise - Mons - Tournai - Mouscron",
+    "TER Centre – Val de Loire · None · Rémi Express Paris ↔ Les Aubrais ↔ Tours",
+    "Société Nationale des Chemins de fer Luxembourgeois · None · RE: Mersch <=> Pétange"
+   ]
+  },
+  "train-regional;touristic": {
+   "lignes": 2,
+   "km": 87,
+   "avec_couleur": 2,
+   "avec_ref": 2,
+   "avec_reseau": 2,
+   "fragmentees_plus_de_3_morceaux": 2,
+   "reseaux": [
+    [
+     "TER Occitanie",
+     1
+    ],
+    [
+     "TER Auvergne-Rhône-Alpes;CH-VS",
+     1
+    ]
+   ],
+   "sans_couleur_exemples": []
+  },
+  "train-rer": {
+   "lignes": 5,
+   "km": 1088,
+   "avec_couleur": 5,
+   "avec_ref": 5,
+   "avec_reseau": 5,
+   "fragmentees_plus_de_3_morceaux": 5,
+   "reseaux": [
+    [
+     "RER",
+     5
+    ]
+   ],
+   "sans_couleur_exemples": []
+  },
+  "train-sans-service": {
+   "lignes": 124,
+   "km": 22777,
+   "avec_couleur": 76,
+   "avec_ref": 86,
+   "avec_reseau": 92,
+   "fragmentees_plus_de_3_morceaux": 80,
+   "reseaux": [
+    [
+     "(aucun)",
+     32
+    ],
+    [
+     "TER Nouvelle-Aquitaine",
+     20
+    ],
+    [
+     "TER Hauts-de-France",
+     19
+    ],
+    [
+     "TGV InOui",
+     8
+    ],
+    [
+     "TER Occitanie",
+     7
+    ],
+    [
+     "TER Auvergne-Rhône-Alpes",
+     5
+    ],
+    [
+     "TER Bourgogne-Franche-Comté",
+     3
+    ],
+    [
+     "Fourvière Ouest-Lyonnais",
+     3
+    ],
+    [
+     "TGV Lyria",
+     2
+    ],
+    [
+     "TER Grand Est",
+     2
+    ],
+    [
+     "Zou !",
+     2
+    ],
+    [
+     "TER Provence-Alpes-Côte d'Azur",
+     2
+    ],
+    [
+     "Vagabond",
+     2
+    ],
+    [
+     "Intercités",
+     1
+    ],
+    [
+     "Train touristique du Centre-Var",
+     1
+    ],
+    [
+     "SNCF",
+     1
+    ],
+    [
+     "TER Auvergne-Rhône-Alpes; ch-direct",
+     1
+    ],
+    [
+     "TER Centre – Val de Loire",
+     1
+    ],
+    [
+     "End of life 8/27/2016",
+     1
+    ],
+    [
+     "Compagnie meusienne de chemins de fer",
+     1
+    ],
+    [
+     "Panoramique des Dômes",
+     1
+    ],
+    [
+     "Le petit train touristique (P.G.V.S.)",
+     1
+    ],
+    [
+     "TER Normandie",
+     1
+    ],
+    [
+     "RDT13",
+     1
+    ],
+    [
+     "Napoléon Express",
+     1
+    ],
+    [
+     "ferroviaire",
+     1
+    ],
+    [
+     "Mobilis",
+     1
+    ],
+    [
+     "Onde Verte",
+     1
+    ],
+    [
+     "C.B.R.",
+     1
+    ],
+    [
+     "Tramways de l'Ain (TA)",
+     1
+    ]
+   ],
+   "sans_couleur_exemples": [
+    "Train touristique du Centre-Var · 947000 · Carnoules - Brignoles",
+    "TER Occitanie · None · TER",
+    "None · None · Chemin de fer touristique de la vallée de la Canner",
+    "None · None · None",
+    "None · None · 21154.03N",
+    "None · None · Disneyland Railroad",
+    "None · 761 000 · Ligne d'Étang-sur-Arroux à Santenay (via Autun)",
+    "TER Auvergne-Rhône-Alpes; ch-direct · 151 · None",
+    "None · None · Centre d'Essais Ferroviaires",
+    "None · None · Installation Terminale Embranchée Alsthom",
+    "TER Centre – Val de Loire · Navette · Navette Tours ↔ Saint-Pierre-des-Corps",
+    "End of life 8/27/2016 · Poma 2000 · Ancien Poma 2000 * Former Poma2000",
+    "None · R · Petit Train panoramique : Les Montuires ↔ Pied du Barrage",
+    "None · FUN · Minifuniculaire",
+    "TER Bourgogne-Franche-Comté · None · TER de Besançon à Mouchard",
+    "None · None · Chemin de fer touristique Pontarlier-Vallorbe (Le Coni'Fer)",
+    "Compagnie meusienne de chemins de fer · None · ancienne ligne ferroviaire Bar-le-Duc Verdun",
+    "Panoramique des Dômes · PDD · Panoramique des Dômes",
+    "Le petit train touristique (P.G.V.S.) · None · Le Petit Train Touristique",
+    "None · None · Le P’tit Train de Saint-Trojan",
+    "None · None · Les Bas-Champs",
+    "None · None · Entre Terre & Prés-Salés",
+    "RDT13 · Vélorail des Alpilles · Vélorail des Alpilles",
+    "None · None · Le Train des aventuriers",
+    "None · 42103.03D · La Galoche du Pilat"
+   ]
+  },
+  "train-tourism": {
+   "lignes": 5,
+   "km": 69,
+   "avec_couleur": 2,
+   "avec_ref": 3,
+   "avec_reseau": 3,
+   "fragmentees_plus_de_3_morceaux": 1,
+   "reseaux": [
+    [
+     "(aucun)",
+     2
+    ],
+    [
+     "Transvap",
+     1
+    ],
+    [
+     "Parc Départemental des Chanteraines",
+     1
+    ],
+    [
+     "Rhein-Nahe-Nahverkehrsverbund;Verkehrsverbund Rhein-Neckar;Karlsruher Verkehrsverbund",
+     1
+    ]
+   ],
+   "sans_couleur_exemples": [
+    "Transvap · None · Transvap",
+    "None · TdA · Le Mastrou",
+    "None · None · Velay Express"
+   ]
+  },
+  "train-touristic": {
+   "lignes": 3,
+   "km": 32,
+   "avec_couleur": 1,
+   "avec_ref": 3,
+   "avec_reseau": 1,
+   "fragmentees_plus_de_3_morceaux": 1,
+   "reseaux": [
+    [
+     "(aucun)",
+     2
+    ],
+    [
+     "Train Thur Doller Alsace",
+     1
+    ]
+   ],
+   "sans_couleur_exemples": [
+    "Train Thur Doller Alsace · 131000 · Train Thur Doller Alsace",
+    "None · CFV · Chemin de fer de la Vendée"
+   ]
+  },
+  "train-transilien": {
+   "lignes": 9,
+   "km": 1962,
+   "avec_couleur": 9,
+   "avec_ref": 9,
+   "avec_reseau": 9,
+   "fragmentees_plus_de_3_morceaux": 7,
+   "reseaux": [
+    [
+     "Transilien",
+     9
+    ]
+   ],
+   "sans_couleur_exemples": []
+  },
+  "tram": {
+   "lignes": 111,
+   "km": 1964,
+   "avec_couleur": 102,
+   "avec_ref": 102,
+   "avec_reseau": 104,
+   "fragmentees_plus_de_3_morceaux": 40,
+   "reseaux": [
+    [
+     "Tramway d'Île de France",
+     14
+    ],
+    [
+     "TCL",
+     10
+    ],
+    [
+     "(aucun)",
+     7
+    ],
+    [
+     "TBM",
+     6
+    ],
+    [
+     "Compagnie des Transports Strasbourgeois",
+     6
+    ],
+    [
+     "TaM",
+     5
+    ],
+    [
+     "M réso",
+     5
+    ],
+    [
+     "Lignes d'Azur",
+     4
+    ],
+    [
+     "Unireso",
+     4
+    ],
+    [
+     "TNW",
+     3
+    ],
+    [
+     "RTM",
+     3
+    ],
+    [
+     "STAS",
+     3
+    ],
+    [
+     "Irigo",
+     3
+    ],
+    [
+     "LiA",
+     3
+    ],
+    [
+     "Soléa",
+     3
+    ],
+    [
+     "Twisto",
+     3
+    ],
+    [
+     "TAN",
+     2
+    ],
+    [
+     "Ilévia",
+     2
+    ],
+    [
+     "FR:TAO",
+     2
+    ],
+    [
+     "Divia",
+     2
+    ],
+    [
+     "SETRAM",
+     2
+    ],
+    [
+     "Bibus",
+     2
+    ],
+    [
+     "Ginko",
+     2
+    ],
+    [
+     "Lignes de l'Agglo",
+     2
+    ],
+    [
+     "Transvilles",
+     2
+    ],
+    [
+     "Grand Reims Mobilités",
+     2
+    ],
+    [
+     "Naolib",
+     1
+    ],
+    [
+     "Astuce",
+     1
+    ],
+    [
+     "Tisséo",
+     1
+    ],
+    [
+     "SMTC-AC",
+     1
+    ],
+    [
+     "Fil Bleu",
+     1
+    ],
+    [
+     "RVL;TNW",
+     1
+    ],
+    [
+     "Amitram",
+     1
+    ],
+    [
+     "Orizo",
+     1
+    ],
+    [
+     "Île-de-France Mobilités",
+     1
+    ]
+   ],
+   "sans_couleur_exemples": [
+    "None · None · Ancien chemin de fer de Saint-Amand à Hellemmes",
+    "Amitram · None · Tramway touristique de la vallée de la Deûle",
+    "None · None · Horse-Drawn Streetcars",
+    "None · None · Tramway Grenoble — Villard-de-Lans",
+    "Lignes de l'Agglo · None · Val'Tram Aubagne - La Bouilladisse",
+    "None · None · None",
+    "None · None · None",
+    "None · None · Carcassonne - Lastours",
+    "None · None · Carcassonne - Caunes"
+   ]
+  }
+ },
+ "controles": {
+  "metro_paris_refs": [
+   "1",
+   "10",
+   "11",
+   "12",
+   "13",
+   "14",
+   "2",
+   "3",
+   "3bis",
+   "4",
+   "5",
+   "6",
+   "7",
+   "7bis",
+   "8",
+   "9",
+   "CDGVAL",
+   "Orlyval"
+  ],
+  "metro_lyon_refs": [
+   "A",
+   "B",
+   "C",
+   "D"
+  ],
+  "metro_marseille_refs": [
+   "M1",
+   "M2"
+  ],
+  "metro_lille_refs": [
+   "1",
+   "2"
+  ],
+  "metro_toulouse_refs": [
+   "A",
+   "B"
+  ],
+  "metro_rennes_refs": [
+   "a",
+   "b"
+  ],
+  "rer_refs": [
+   "A",
+   "B",
+   "C",
+   "D",
+   "E"
+  ],
+  "transilien_refs": [
+   "H",
+   "J",
+   "K",
+   "L",
+   "N",
+   "P",
+   "R",
+   "U",
+   "V"
+  ],
+  "tram_reseaux": [
+   [
+    "Tramway d'Île de France",
+    14
+   ],
+   [
+    "TCL",
+    10
+   ],
+   [
+    "(aucun)",
+    7
+   ],
+   [
+    "TBM",
+    6
+   ],
+   [
+    "Compagnie des Transports Strasbourgeois",
+    6
+   ],
+   [
+    "TaM",
+    5
+   ],
+   [
+    "M réso",
+    5
+   ],
+   [
+    "Lignes d'Azur",
+    4
+   ],
+   [
+    "Unireso",
+    4
+   ],
+   [
+    "TNW",
+    3
+   ],
+   [
+    "RTM",
+    3
+   ],
+   [
+    "STAS",
+    3
+   ],
+   [
+    "Irigo",
+    3
+   ],
+   [
+    "LiA",
+    3
+   ],
+   [
+    "Soléa",
+    3
+   ],
+   [
+    "Twisto",
+    3
+   ],
+   [
+    "TAN",
+    2
+   ],
+   [
+    "Ilévia",
+    2
+   ],
+   [
+    "FR:TAO",
+    2
+   ],
+   [
+    "Divia",
+    2
+   ],
+   [
+    "SETRAM",
+    2
+   ],
+   [
+    "Bibus",
+    2
+   ],
+   [
+    "Ginko",
+    2
+   ],
+   [
+    "Lignes de l'Agglo",
+    2
+   ],
+   [
+    "Transvilles",
+    2
+   ],
+   [
+    "Grand Reims Mobilités",
+    2
+   ],
+   [
+    "Naolib",
+    1
+   ],
+   [
+    "Astuce",
+    1
+   ],
+   [
+    "Tisséo",
+    1
+   ],
+   [
+    "SMTC-AC",
+    1
+   ],
+   [
+    "Fil Bleu",
+    1
+   ],
+   [
+    "RVL;TNW",
+    1
+   ],
+   [
+    "Amitram",
+    1
+   ],
+   [
+    "Orizo",
+    1
+   ],
+   [
+    "Île-de-France Mobilités",
+    1
+   ]
+  ]
+ },
+ "points": {
+  "autre": {
+   "objets_osm": 7268,
+   "apres_dedoublonnage": 6655,
+   "avec_nom": 5854,
+   "avec_uic_ref": 615,
+   "exploitants": [
+    [
+     "(aucun)",
+     5360
+    ],
+    [
+     "SNCF Gares & Connexions",
+     584
+    ],
+    [
+     "Arcs Domaine Skiable",
+     77
+    ],
+    [
+     "SAP",
+     37
+    ],
+    [
+     "Serma",
+     29
+    ],
+    [
+     "SEM SEDEV",
+     28
+    ],
+    [
+     "SETAM",
+     23
+    ],
+    [
+     "SECMH",
+     21
+    ],
+    [
+     "DSV",
+     19
+    ],
+    [
+     "Stretto;SNCF;Keolis",
+     18
+    ]
+   ]
+  },
+  "funicular": {
+   "objets_osm": 29,
+   "apres_dedoublonnage": 28,
+   "avec_nom": 28,
+   "avec_uic_ref": 0,
+   "exploitants": [
+    [
+     "(aucun)",
+     14
+    ],
+    [
+     "Ville d'Évian-les-Bains",
+     5
+    ],
+    [
+     "Paradiski",
+     4
+    ],
+    [
+     "RATP",
+     2
+    ],
+    [
+     "Saint-Gervais Mont-Blanc",
+     1
+    ],
+    [
+     "Société des Transports de l'Agglomération Thononnaise - STAT",
+     1
+    ],
+    [
+     "Société des Transports de l'Agglomération Thononnaise",
+     1
+    ]
+   ]
+  },
+  "light_rail": {
+   "objets_osm": 51,
+   "apres_dedoublonnage": 50,
+   "avec_nom": 50,
+   "avec_uic_ref": 50,
+   "exploitants": [
+    [
+     "SNCF Gares & Connexions",
+     30
+    ],
+    [
+     "Stretto",
+     16
+    ],
+    [
+     "SNCF",
+     3
+    ],
+    [
+     "Transkeo",
+     1
+    ]
+   ]
+  },
+  "metro": {
+   "objets_osm": 553,
+   "apres_dedoublonnage": 540,
+   "avec_nom": 536,
+   "avec_uic_ref": 3,
+   "exploitants": [
+    [
+     "(aucun)",
+     300
+    ],
+    [
+     "RATP",
+     103
+    ],
+    [
+     "Keolis Lille Métropole",
+     60
+    ],
+    [
+     "Tisséo Voyageurs",
+     35
+    ],
+    [
+     "Régie des Transports Marseillais",
+     22
+    ],
+    [
+     "Keolis Lyon",
+     4
+    ],
+    [
+     "Keolis Rennes",
+     4
+    ],
+    [
+     "Régie des Transports Métropolitains",
+     3
+    ],
+    [
+     "RATP Ile de France Mobilités",
+     2
+    ],
+    [
+     "TCL",
+     2
+    ]
+   ]
+  },
+  "train-gare": {
+   "objets_osm": 2299,
+   "apres_dedoublonnage": 2252,
+   "avec_nom": 2226,
+   "avec_uic_ref": 2031,
+   "exploitants": [
+    [
+     "SNCF Gares & Connexions",
+     1782
+    ],
+    [
+     "(aucun)",
+     188
+    ],
+    [
+     "SNCF Voyageurs",
+     44
+    ],
+    [
+     "SNCF",
+     34
+    ],
+    [
+     "RATP",
+     25
+    ],
+    [
+     "SEM des Chemins de Fer de la Corse",
+     18
+    ],
+    [
+     "Régie Régionale des Transports",
+     15
+    ],
+    [
+     "Compagnie du Mont-Blanc",
+     7
+    ],
+    [
+     "SNCF Réseau",
+     7
+    ],
+    [
+     "Syndicat Ferroviaire du Livradois-Forez (SFLF)",
+     7
+    ]
+   ]
+  },
+  "train-halte": {
+   "objets_osm": 1043,
+   "apres_dedoublonnage": 1038,
+   "avec_nom": 1035,
+   "avec_uic_ref": 898,
+   "exploitants": [
+    [
+     "SNCF Gares & Connexions",
+     688
+    ],
+    [
+     "(aucun)",
+     158
+    ],
+    [
+     "SNCF",
+     124
+    ],
+    [
+     "Régie Régionale des Transports",
+     14
+    ],
+    [
+     "SNCF Réseau",
+     6
+    ],
+    [
+     "Syndicat Ferroviaire du Livradois-Forez (SFLF)",
+     6
+    ],
+    [
+     "Compagnie du Mont-Blanc",
+     5
+    ],
+    [
+     "TTDA",
+     3
+    ],
+    [
+     "A.E.C.F.M",
+     3
+    ],
+    [
+     "Région Occitanie",
+     3
+    ]
+   ]
+  },
+  "tram": {
+   "objets_osm": 3460,
+   "apres_dedoublonnage": 1771,
+   "avec_nom": 1764,
+   "avec_uic_ref": 83,
+   "exploitants": [
+    [
+     "(aucun)",
+     739
+    ],
+    [
+     "Keolis Bordeaux Métropole",
+     140
+    ],
+    [
+     "RATP",
+     126
+    ],
+    [
+     "Keolis Lyon",
+     119
+    ],
+    [
+     "Compagnie des Transports Strasbourgeois",
+     94
+    ],
+    [
+     "TaM",
+     64
+    ],
+    [
+     "RATP Dev Caen la mer",
+     46
+    ],
+    [
+     "Transports de l'agglomération de Montpellier",
+     37
+    ],
+    [
+     "Keolis Dijon Mobilités",
+     37
+    ],
+    [
+     "T2C",
+     36
+    ]
+   ]
+  }
+ },
+ "poids": {
+  "lignes_perimetre2": {
+   "mo": 0.48,
+   "mo_gzip": 0.14,
+   "objets": 182
+  },
+  "lignes_toutes": {
+   "mo": 8.19,
+   "mo_gzip": 2.49,
+   "objets": 753
+  },
+  "gares": {
+   "mo": 1.05,
+   "mo_gzip": 0.14,
+   "objets": 5679
+  }
+ },
+ "lignes_hors_metropole": 0,
+ "lignes_sans_geometrie": 6
+}
