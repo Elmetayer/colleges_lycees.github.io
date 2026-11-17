@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Comment ce site est construit – Documentation – Carte scolaire</title>
+  <meta name="description" content="Un projet personnel de Bruno Lemetayer, développé avec l'aide d'une intelligence artificielle : qui fait quoi, ce que l'IA ne fait pas, comment les erreurs sont limitées.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Literata:opsz,wght@7..72,500;7..72,650&display=swap" rel="stylesheet">
+  <link href="style.css?v=__VERSION__" rel="stylesheet">
+</head>
+<body class="page-doc">
+  <header class="barre">
+    <a class="titre" href="./">Carte scolaire</a>
+    <a class="lien-doc" href="./">Retour à la carte</a>
+  </header>
+
+  <main>
+    <p class="fil"><a href="documentation.html">Documentation</a> › Comment ce site est construit</p>
+    <h1>Comment ce site est construit</h1>
+    <p>Ce site est un projet personnel, conçu par Bruno Lemetayer et développé avec l'aide de Claude, un assistant d'intelligence artificielle de l'entreprise <a href="https://www.anthropic.com">Anthropic</a>.</p>
+    <nav class="doc-sommaire" aria-label="Sur cette page" hidden></nav>
+
+    <h2 id="qui-fait-quoi">Qui fait quoi</h2>
+    <ul>
+      <li>Bruno Lemetayer décide de ce que montre la carte : les indicateurs retenus, la façon de présenter ce qui est incertain, l'ordre des étapes. Il valide chaque modification avant sa mise en ligne.</li>
+      <li>Claude explore les sources de données, propose des façons de faire, et écrit le code qui prépare les données, celui du site, les tests automatiques et une grande partie de cette documentation. Chaque modification est proposée sous forme de demande de fusion, que Bruno Lemetayer accepte ou refuse.</li>
+    </ul>
+
+    <h2 id="ce-que-l-ia-ne-fait-pas">Ce que l'IA ne fait pas</h2>
+    <ul>
+      <li>Elle n'invente aucune donnée. Les chiffres, les secteurs et les zones viennent de fichiers publics, listés sur la page <a href="documentation-sources.html">Sources</a>. Un programme sans IA les recalcule à chaque mise à jour, et son code est public.</li>
+      <li>Aucune IA ne fonctionne sur le site lui-même : pas d'assistant conversationnel, pas de texte généré à la volée, aucune information sur les visiteurs transmise à une IA.</li>
+      <li>Elle ne note pas les établissements. Les indicateurs sont ceux que publie le ministère de l'Éducation nationale, comparés aux médianes de l'académie et de la France.</li>
+    </ul>
+
+    <h2 id="controle-des-erreurs">Comment les erreurs sont limitées</h2>
+    <ul>
+      <li>Avant chaque mise en ligne, des tests automatiques vérifient les données (nombre d'établissements, indicateurs disponibles, secteurs comparés aux secteurs officiels) et l'affichage sur ordinateur et sur téléphone. Si un test échoue, le site n'est pas mis à jour.</li>
+      <li>La page <a href="suivi.html">Suivi des données</a> montre, pour chaque mise à jour, ce qui a été récupéré et ce qui a manqué.</li>
+      <li>Ce qui est reconstitué ou approximatif est signalé comme tel : <a href="documentation-secteurs.html">secteurs des collèges reconstitués</a>, écoles qui accueillent « en principe » les enfants de la commune (<a href="documentation-ecoles.html#ecoles-communes">règle de la commune</a>).</li>
+      <li>Le code est public sur <a href="https://github.com/Elmetayer/colleges_lycees.github.io">GitHub</a> : chacun peut vérifier comment les chiffres sont obtenus.</li>
+    </ul>
+
+    <h2 id="ia-limites">Les limites</h2>
+    <p>Une IA peut se tromper, comme une personne. Malgré ces contrôles, des erreurs restent possibles. Pour une décision importante, une inscription par exemple, la réponse qui fait foi est celle de l'établissement, de la mairie ou de l'académie.</p>
+    <p id="signaler">Pour signaler une erreur, ouvrez une <a href="https://github.com/Elmetayer/colleges_lycees.github.io/issues">demande (« issue ») sur GitHub</a>, en indiquant l'établissement ou l'adresse concernés et ce qui vous semble faux. Un compte GitHub, gratuit, est nécessaire.</p>
+
+    <nav class="doc-suite" aria-label="Pages de la documentation">
+      <a class="prec" href="documentation-sources.html"><small>Page précédente</small>Sources, limites et licences</a>
+    </nav>
+  </main>
+
+  <script src="parametres.js?v=__VERSION__"></script>
+  <script src="documentation.js?v=__VERSION__"></script>
+</body>
+</html>
