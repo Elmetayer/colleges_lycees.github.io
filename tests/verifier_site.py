@@ -348,8 +348,14 @@ async def ouvrir_fiche(pg, nom, attendu, selecteur="#fiche-contenu .onglets butt
 async def verifier_navigateur(contenus):
     college = exemple(contenus, "colleges.geojson", "taux_reussite")
     lycee = exemple(contenus, "lycees.geojson", "ips")
-    hors_contrat = next((f["properties"]["nom"] for f in contenus.get("colleges.geojson", {}).get("features", [])
-                         if f["properties"].get("sans_brevet") == "hors_contrat"), None)
+    # Collège hors contrat cherché par son nom et sa commune, de préférence un nom porté par un seul collège :
+    # « Collège privé Saint Joseph » seul renvoyait d'abord un homonyme sous contrat (build de la PR #50).
+    cols = [f["properties"] for f in contenus.get("colleges.geojson", {}).get("features", [])]
+    noms = {}
+    for p in cols:
+        noms[p["nom"]] = noms.get(p["nom"], 0) + 1
+    hc = sorted((p for p in cols if p.get("sans_brevet") == "hors_contrat"), key=lambda p: noms[p["nom"]] > 1)
+    hors_contrat = f"{hc[0]['nom']} {hc[0].get('commune', '')}".strip() if hc else None
     college_secteur, fichier_secteur = college_hors_idf(contenus)
     ecole, p_ecole = ecole_a_tester(contenus)
     secteur_ecole = bool(p_ecole) and any(p_ecole["uai"] in z["properties"].get("uais", "").split() for z in contenus.get("secteurs-ecoles", []))
