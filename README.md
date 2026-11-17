@@ -19,7 +19,7 @@ pipeline/suivi.py         rapport de chaque build (sources, contrôles) → data
 pipeline/requirements.txt dépendances Python
 site/                     site statique publié sur GitHub Pages
   index.html, app.js      carte (MapLibre GL)
-  parametres.js           réglages modifiables sans toucher au code (zone neutre de la valeur ajoutée, textes)
+  parametres.js           réglages modifiables sans toucher au code (zone neutre de la valeur ajoutée, textes, clé Web3Forms du formulaire de contact)
   documentation.html      sommaire de la documentation
   documentation-*.html    pages : carte, collèges, lycées, écoles, secteurs, sources
   suivi.html, suivi.js    suivi de la récupération des données (état des sources, contrôles, historique)

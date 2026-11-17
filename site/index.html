@@ -24,7 +24,10 @@
       </button>
       <ul id="suggestions" role="listbox" aria-label="Suggestions" hidden></ul>
     </div>
-    <a class="lien-doc" href="documentation.html">Documentation</a>
+    <nav class="liens-barre" aria-label="Pages du site">
+      <button type="button" class="lien-doc lien-contact" id="ouvrir-contact" aria-haspopup="dialog">Contact</button>
+      <a class="lien-doc" href="documentation.html">Documentation</a>
+    </nav>
   </header>
 
   <main id="carte" aria-label="Carte des écoles, collèges et lycées"></main>
@@ -44,6 +47,32 @@
     <button class="fermer" id="fermer" type="button" aria-label="Fermer la fiche">×</button>
     <div class="fiche-contenu" id="fiche-contenu"></div>
   </aside>
+
+  <dialog class="contact" id="contact" aria-labelledby="contact-titre">
+    <button class="fermer" id="contact-fermer" type="button" aria-label="Fermer">×</button>
+    <h2 id="contact-titre">Contact</h2>
+    <p class="contact-intro">Une question, un bug, une donnée qui vous semble fausse, une idée ? Écrivez-nous.</p>
+    <form id="contact-form" novalidate hidden>
+      <p class="contact-contexte" id="contact-contexte" hidden></p>
+      <label class="champ" for="contact-type">Objet</label>
+      <select id="contact-type" name="type">
+        <option>Question</option>
+        <option>Bug ou problème d'affichage</option>
+        <option>Donnée erronée (établissement, secteur…)</option>
+        <option>Suggestion</option>
+        <option>Autre</option>
+      </select>
+      <label class="champ" for="contact-message">Message</label>
+      <textarea id="contact-message" name="message" rows="6" maxlength="5000" required></textarea>
+      <label class="champ" for="contact-email">Votre adresse email <small>(facultatif, seulement pour vous répondre)</small></label>
+      <input id="contact-email" name="email" type="email" autocomplete="email" maxlength="200">
+      <input type="checkbox" name="botcheck" id="contact-piege" tabindex="-1" autocomplete="off" hidden>
+      <p class="contact-note">Le message est transmis par le service Web3Forms. La page et la position de la carte sont jointes pour aider à comprendre le problème. L'adresse email n'est utilisée que pour vous répondre.</p>
+      <button type="submit" class="contact-envoyer" id="contact-envoyer">Envoyer</button>
+      <p class="contact-etat" id="contact-etat" role="status"></p>
+    </form>
+    <p class="contact-repli" id="contact-repli" hidden>Le formulaire n'est pas encore ouvert. En attendant, signalez une erreur ou posez une question en ouvrant une <a href="https://github.com/Elmetayer/colleges_lycees.github.io/issues">demande (« issue ») sur GitHub</a> (compte gratuit nécessaire).</p>
+  </dialog>
 
   <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
   <script src="parametres.js?v=__VERSION__"></script>
