@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <style>
+    .epingle { fill: #1e2f6b; }
+    @media (prefers-color-scheme: dark) { .epingle { fill: #5b74c4; } }
+  </style>
+  <path class="epingle" d="M32 4C19 4 10 13.5 10 26C10 41 32 60 32 60C32 60 54 41 54 26C54 13.5 45 4 32 4Z"/>
+  <circle cx="32" cy="26" r="15" fill="#ffffff"/>
+  <polygon points="21.5,27 32,17.5 42.5,27" fill="#b7791f"/>
+  <rect x="25" y="26.5" width="14" height="9" fill="#1e2f6b"/>
+  <rect x="30" y="30" width="4" height="5.5" fill="#ffffff"/>
+</svg>

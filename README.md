@@ -24,6 +24,7 @@ site/                     site statique publié sur GitHub Pages
   documentation-*.html    pages : carte, collèges, lycées, écoles, secteurs, sources
   suivi.html, suivi.js    suivi de la récupération des données (état des sources, contrôles, historique)
   documentation.js        valeurs lues dans meta.json et sommaire de chaque page
+  favicon.svg, favicon.ico, apple-touch-icon.png  icône d'onglet (épingle et école) ; .ico et .png tirés du .svg
   data/                   fichiers générés par le script (non versionnés) ; data/fiches/ : historiques par département
 .github/workflows/        construction et publication automatiques
 ```
