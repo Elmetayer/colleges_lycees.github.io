@@ -499,6 +499,16 @@ async def verifier_navigateur(contenus):
                 else:
                     problemes.append(f"les secteurs du département {fichier_secteur} ne se chargent pas en zoomant sur « {college_secteur} » "
                                      f"(chargés : {[u.split('/')[-1].split('?')[0] for u in secteurs_charges]})")
+            # Mesure d'audience (avant le rechargement ci-dessous, qui remet le relevé à zéro) : les fiches ouvertes
+            # par le test sont comptées, et chaque action a un nom attendu (aucune adresse, aucune position).
+            appels = await pg.evaluate("(window.goatcounter && window.goatcounter.appels) || []")
+            mauvais = [a for a in appels if not ACTION_AUDIENCE.match(str(a))]
+            if mauvais:
+                problemes.append(f"audience : actions inattendues {mauvais[:3]}")
+            elif not any(str(a).startswith("fiche-") for a in appels):
+                problemes.append(f"audience : aucune fiche comptée ({len(appels)} action(s))")
+            else:
+                print(f"{appareil} : audience, {len(appels)} action(s) comptée(s) : {sorted(set(a.split('/')[0] for a in appels))}")
             # Bouton « Effacer la recherche » : caché champ vide, visible avec du texte, vide le champ au clic.
             # (la recherche est branchée une fois les établissements chargés : attendre comme au démarrage)
             await pg.goto("http://localhost:8765/index.html")
@@ -517,13 +527,6 @@ async def verifier_navigateur(contenus):
                     problemes.append(f"recherche : après Effacer, champ « {valeur} », bouton ou suggestions encore visibles")
                 else:
                     print(f"{appareil} : bouton Effacer de la recherche OK")
-            # Mesure d'audience : chaque action comptée a un nom attendu (aucune adresse, aucune position).
-            appels = await pg.evaluate("(window.goatcounter && window.goatcounter.appels) || []")
-            mauvais = [a for a in appels if not ACTION_AUDIENCE.match(str(a))]
-            if mauvais:
-                problemes.append(f"audience : actions inattendues {mauvais[:3]}")
-            else:
-                print(f"{appareil} : audience, {len(appels)} action(s) comptée(s) : {sorted(set(a.split('/')[0] for a in appels))}")
             # Pages de documentation : chargement sans erreur, données de meta.json affichées.
             for page in sorted(SITE.glob("documentation*.html")):
                 await pg.goto(f"http://localhost:8765/{page.name}")
