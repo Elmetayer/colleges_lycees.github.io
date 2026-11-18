@@ -29,7 +29,7 @@ import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
-VERSION_CALCUL = 1
+VERSION_CALCUL = 2  # 2 : un TER marqué « commuter » reste un TER (non dessiné)
 AGE_MAX_JOURS = 25
 PAGE_SOURCE = "https://download.geofabrik.de/europe/france.html"
 # Contours des départements (Etalab, découpage administratif) pour couper les lignes à la frontière.
@@ -90,8 +90,8 @@ def categorie(t: dict) -> str:
     if "Transilien" in texte:
         return "transilien"
     service = (t.get("service") or "").split(";")[0]
-    if service == "commuter":
-        return "banlieue"
+    if service == "commuter" and not re.search(r"\bTER\b", texte):
+        return "banlieue"  # Léman Express ; un TER marqué « commuter » reste un TER
     if service in ("tourism", "touristic"):
         return "touristique"
     if service in ("high_speed", "long_distance", "national", "international", "night", "car_shuttle"):
