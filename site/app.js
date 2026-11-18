@@ -130,6 +130,7 @@
       if (!c.indicateurs.some((i) => i.cle === r.indicateur)) r.indicateur = c.defaut;
       reglages[c.cle] = r;
     });
+    reglages.transports = Object.assign({ actif: true }, lu.transports || {});
   })();
   function sauverReglages() {
     try { localStorage.setItem(CLE_STOCKAGE, JSON.stringify(reglages)); } catch (e) { /* stockage indisponible */ }
@@ -466,6 +467,12 @@
   function initPanneau() {
     const zone = $("calques");
     zone.addEventListener("click", (e) => {
+      if (e.target.closest("[data-transports-actif]")) {
+        reglages.transports.actif = !reglages.transports.actif;
+        sauverReglages();
+        majTransports();
+        return;
+      }
       const ouvrir = e.target.closest(".calque-ouvrir");
       if (ouvrir && ouvrir.tagName === "BUTTON") {
         ouvrirReglages(ouvrir.closest(".calque").dataset.calque, ouvrir.getAttribute("aria-expanded") !== "true");
@@ -1711,6 +1718,7 @@
       carte.addLayer({ id: "secteurs-contour", type: "line", source: "secteurs", minzoom: ZOOM_SECTEURS, paint: { "line-color": "#1e2f6b", "line-width": ["interpolate", ["linear"], ["zoom"], 9, 0.3, 14, 1.2], "line-opacity": 0.55 } }, "colleges");
       carte.addLayer({ id: "secteurs-surligne", type: "line", source: "secteurs", minzoom: ZOOM_SECTEURS, filter: ["==", ["get", "uai"], ""], paint: { "line-color": "#1e2f6b", "line-width": 3 } }, "colleges");
       appliquerCalque(calque("colleges"));
+      placerTransports();
       carte.on("moveend", chargerSecteursVisibles);
       chargerSecteursVisibles();
     }).catch((e) => console.warn("Secteurs indisponibles", e));
@@ -1977,6 +1985,114 @@
     carte.addLayer({ id: "secteurs-ecoles-surligne", type: "line", source: "secteurs-ecoles", minzoom: ZOOM_ZONES_ECOLES, filter: ["==", ["get", "uais"], "-"], paint: { "line-color": "#1e2f6b", "line-width": 3 } }, avant);
   }
 
+  // ---------------------------------------------------------------- transports (fond de carte)
+  // Calque Transports (pipeline/transports.py, OpenStreetMap) : lignes de métro, tram, tram-train, RER, Transilien
+  // et Léman Express à leurs couleurs, gares et stations ; au clic, les lignes qui desservent la gare, TER compris
+  // (option A choisie par Bruno le 18/11/2026). Indépendant des calques d'établissements, affiché par défaut.
+  const COUCHES_TRANSPORTS = ["transports-lignes", "transports-gares", "transports-stations", "transports-noms-gares", "transports-noms-stations"];
+  const TYPES_GARES = { gare: "Gare", halte: "Halte ferroviaire", metro: "Station de métro", tram: "Arrêt de tram",
+    "tram-train": "Station de tram-train", funiculaire: "Station de funiculaire" };
+  const ICONE_TRANSPORTS = '<svg class="forme" width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="3" width="14" height="15" rx="3" fill="#1e2f6b"/><rect x="7.5" y="6" width="9" height="5" rx="1" fill="#fff"/><circle cx="9" cy="14.5" r="1.3" fill="#fff"/><circle cx="15" cy="14.5" r="1.3" fill="#fff"/><path d="M8 18l-2 3M16 18l2 3" stroke="#1e2f6b" stroke-width="1.8" stroke-linecap="round"/></svg>';
+  let metaTransports = null, popupGare = null;
+
+  // Les lignes passent au-dessus des zones (secteurs) et sous les établissements.
+  function placerTransports() {
+    if (!carte.getLayer("colleges")) return;
+    COUCHES_TRANSPORTS.forEach((id) => { if (carte.getLayer(id)) carte.moveLayer(id, "colleges"); });
+  }
+  const transportsVisibles = () => reglages.transports.actif && !!carte.getLayer("transports-gares");
+
+  function majTransports() {
+    const vis = reglages.transports.actif ? "visible" : "none";
+    COUCHES_TRANSPORTS.forEach((id) => { if (carte.getLayer(id)) carte.setLayoutProperty(id, "visibility", vis); });
+    const el = document.querySelector("[data-transports]");
+    if (el) {
+      el.querySelector("[data-transports-actif]").setAttribute("aria-checked", String(reglages.transports.actif));
+      el.classList.toggle("masque", !reglages.transports.actif);
+    }
+    if (!reglages.transports.actif && popupGare) popupGare.remove();
+  }
+
+  function ajouterTransports(lignes, gares) {
+    const attribution = "Transports : © contributeurs OpenStreetMap";
+    carte.addSource("transports-lignes", { type: "geojson", data: lignes, attribution });
+    carte.addSource("transports-gares", { type: "geojson", data: gares });
+    const avant = carte.getLayer("colleges") ? "colleges" : undefined;
+    const cat = ["get", "cat"];
+    const poids = ["match", cat, ["rer", "transilien", "banlieue"], 1.3, "metro", 1.1, 0.85];
+    carte.addLayer({ id: "transports-lignes", type: "line", source: "transports-lignes", minzoom: 8,
+      layout: { "line-cap": "round", "line-join": "round", "line-sort-key": ["match", cat, "metro", 3, ["rer", "transilien", "banlieue"], 2, 1] },
+      paint: { "line-color": ["coalesce", ["get", "couleur"], "#8a93ad"],
+        "line-width": ["interpolate", ["linear"], ["zoom"], 8, ["*", poids, 0.8], 11, ["*", poids, 1.8], 14, ["*", poids, 3.2], 17, ["*", poids, 5]],
+        "line-opacity": ["interpolate", ["linear"], ["zoom"], 8, 0.55, 12, 0.85] } }, avant);
+    const type = ["get", "type"], halte = ["==", type, "halte"];
+    // Gares dès le zoom 9 (les haltes à partir de 11) ; stations de métro et arrêts de tram à partir de 12.
+    const visible = ["step", ["zoom"], ["case", halte, 0, 1], 11, 1];
+    carte.addLayer({ id: "transports-gares", type: "circle", source: "transports-gares", minzoom: 9,
+      filter: ["in", type, ["literal", ["gare", "halte"]]],
+      paint: { "circle-radius": ["interpolate", ["linear"], ["zoom"], 9, ["case", halte, 1.4, 2.4], 13, ["case", halte, 3, 4.5], 16, ["case", halte, 4.5, 6.5]],
+        "circle-color": "#ffffff", "circle-stroke-color": "#1e2f6b", "circle-opacity": visible, "circle-stroke-opacity": visible,
+        "circle-stroke-width": ["interpolate", ["linear"], ["zoom"], 9, 0.8, 13, 1.6] } }, avant);
+    carte.addLayer({ id: "transports-stations", type: "circle", source: "transports-gares", minzoom: 12,
+      filter: ["in", type, ["literal", ["metro", "tram", "tram-train", "funiculaire"]]],
+      paint: { "circle-radius": ["interpolate", ["linear"], ["zoom"], 12, 1.8, 15, 4, 17, 5.5], "circle-color": "#ffffff",
+        "circle-stroke-color": "#4a5470", "circle-stroke-width": ["interpolate", ["linear"], ["zoom"], 12, 0.7, 15, 1.3] } }, avant);
+    // Noms : gares à partir du zoom 11, stations à partir de 14 (fond de carte en ligne seulement : polices).
+    if (!secours) {
+      const texte = (id, minzoom, types) => carte.addLayer({ id, type: "symbol", source: "transports-gares", minzoom,
+        filter: ["in", type, ["literal", types]],
+        layout: { "text-field": ["get", "nom"], "text-font": ["Noto Sans Regular"], "text-size": ["interpolate", ["linear"], ["zoom"], 11, 10, 16, 12.5],
+          "text-anchor": "top", "text-offset": [0, 0.7], "text-optional": true, "text-max-width": 8 },
+        paint: { "text-color": "#1e2f6b", "text-halo-color": "rgba(255,255,255,0.9)", "text-halo-width": 1.4 } }, avant);
+      texte("transports-noms-gares", 11, ["gare"]);
+      texte("transports-noms-stations", 14, ["halte", "metro", "tram", "tram-train", "funiculaire"]);
+    }
+    const date = metaTransports && metaTransports.donnees_osm ? new Date(metaTransports.donnees_osm).toLocaleDateString("fr-FR") : null;
+    const html = `<section class="calque calque-transports" data-transports>
+        <div class="calque-tete">
+          <div class="calque-ouvrir">${ICONE_TRANSPORTS}<span class="calque-titres"><span class="calque-nom">Transports</span><span class="calque-resume">Métro, tram, RER et gares</span></span></div>
+          <button type="button" class="interrupteur" role="switch" data-transports-actif aria-checked="${reglages.transports.actif}" aria-label="Afficher les transports"></button>
+        </div>
+        <p class="note">Lignes à leurs couleurs ; gares et stations en zoomant. Touchez une gare pour voir ses lignes, TER compris.
+          Source : OpenStreetMap${date ? `, données du ${date}` : ""} (<a href="documentation-carte.html#transports">en savoir plus</a>).</p>
+      </section>`;
+    $("calques").insertAdjacentHTML("beforeend", html);
+    majTransports();
+    ["transports-gares", "transports-stations"].forEach((id) => {
+      carte.on("mouseenter", id, () => (carte.getCanvas().style.cursor = "pointer"));
+      carte.on("mouseleave", id, () => (carte.getCanvas().style.cursor = ""));
+    });
+  }
+
+  function chargerTransports() {
+    Promise.all([charger("data/transports/lignes.geojson"), charger("data/transports/gares.geojson")])
+      .then(([l, g]) => ajouterTransports(l, g))
+      .catch((e) => console.info("Calque Transports non chargé", e));
+  }
+
+  // Texte lisible sur la couleur d'une ligne (blanc ou encre selon la luminosité).
+  function texteSur(c) {
+    const n = parseInt(c.slice(1), 16), r = n >> 16, g = (n >> 8) & 255, b = n & 255;
+    return 0.299 * r + 0.587 * g + 0.114 * b > 160 ? "#1e2f6b" : "#ffffff";
+  }
+
+  function ouvrirGare(f) {
+    const p = f.properties;
+    const lignes = (p.lignes || "").split(";").filter(Boolean).map((s) => {
+      const [ref, c, titre] = s.split("~");
+      return { ref, c: /^#[0-9a-f]{6}$/i.test(c || "") ? c : null, titre: titre || ref };
+    });
+    const badges = lignes.map((l) => `<span class="ligne-badge"${l.c ? ` style="background:${l.c};color:${texteSur(l.c)}"` : ""} title="${echapper(l.titre)}">${echapper(l.ref)}</span>`).join("");
+    // Trajets (TER surtout) : le nom complet aide à comprendre un numéro comme « K12 ».
+    const trajets = lignes.filter((l) => l.titre !== l.ref && /[-–↔→:]/.test(l.titre)).slice(0, 6)
+      .map((l) => `<li><span class="ligne-badge petit"${l.c ? ` style="background:${l.c};color:${texteSur(l.c)}"` : ""}>${echapper(l.ref)}</span> ${echapper(l.titre.replace(/^[^:]*:\s*/, ""))}</li>`).join("");
+    const html = `<div class="popup-gare"><strong>${echapper(p.nom)}</strong><span class="popup-type">${TYPES_GARES[p.type] || ""}</span>
+      ${badges ? `<div class="badges">${badges}</div>` : `<p>Lignes non renseignées dans OpenStreetMap.</p>`}
+      ${trajets ? `<ul class="trajets">${trajets}</ul>` : ""}</div>`;
+    if (popupGare) popupGare.remove();
+    popupGare = new maplibregl.Popup({ maxWidth: "290px", offset: 8 }).setLngLat(f.geometry.coordinates).setHTML(html).addTo(carte);
+  }
+
   // ---------------------------------------------------------------- démarrage
   function cadrer() {
     const b = new maplibregl.LngLatBounds();
@@ -1998,6 +2114,7 @@
     donnees = geo;
     sources.colleges = geo;
     if (lyc) sources.lycees = lyc;
+    if (meta && meta.transports) metaTransports = meta.transports;
     if (meta && meta.medianes) medianes = Object.assign(medianes, meta.medianes);
     if (meta && meta.medianes_academies) medianesAcademies = meta.medianes_academies;
     if (meta && meta.lycees && meta.lycees.medianes) medianesLycees = Object.assign(medianesLycees, meta.lycees.medianes);
@@ -2019,6 +2136,7 @@
     cadrer();
     initRecherche();
     chargerSecteurs();
+    chargerTransports();
     if (sources.ecoles) { carte.on("moveend", chargerEcolesVisibles); chargerEcolesVisibles(); }
     etat.textContent = "";
     const couches = () => ["ecoles", "lycees", "colleges", "ecoles-loin"].filter((id) => carte.getLayer(id));
@@ -2032,6 +2150,10 @@
         else ouvrirFiche(pt.properties);
         return;
       }
+      // Gare ou station (calque Transports) : lignes qui la desservent.
+      const gare = transportsVisibles() ? carte.queryRenderedFeatures(zone, { layers: ["transports-gares", "transports-stations"] })
+        .find((f) => f.properties.type !== "halte" || carte.getZoom() >= 11) : null;
+      if (gare) { ouvrirGare(gare); return; }
       const ze = carte.getLayer("secteurs-ecoles-fond") && carte.getLayoutProperty("secteurs-ecoles-fond", "visibility") !== "none"
         ? carte.queryRenderedFeatures(e.point, { layers: ["secteurs-ecoles-fond"] })[0] : null;
       const ecoleZone = ze && ecolesParUai.get((ze.properties.uais || "").split(" ")[0]);
