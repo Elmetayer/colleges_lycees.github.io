@@ -622,10 +622,37 @@ def verifier_audience():
             erreurs.append(f"audience : {page.name} n'a pas le script GoatCounter")
 
 
+def verifier_referencement():
+    """Référencement : robots.txt, sitemap.xml complet, et dans chaque page une adresse canonique (www),
+    un titre, une description et les balises de partage (Open Graph) avec l'image partage.png."""
+    base = "https://www.macartescolaire.fr/"
+    robots = SITE / "robots.txt"
+    if not robots.is_file() or f"Sitemap: {base}sitemap.xml" not in robots.read_text(encoding="utf-8"):
+        erreurs.append("référencement : robots.txt absent ou sans lien vers sitemap.xml")
+    plan = (SITE / "sitemap.xml").read_text(encoding="utf-8") if (SITE / "sitemap.xml").is_file() else ""
+    image = SITE / "partage.png"
+    if not image.is_file() or image.stat().st_size == 0:
+        erreurs.append("référencement : partage.png manquant")
+    for page in sorted(SITE.glob("*.html")):
+        url = base if page.name == "index.html" else base + page.name
+        texte = page.read_text(encoding="utf-8")
+        if f"<loc>{url}</loc>" not in plan:
+            erreurs.append(f"référencement : {page.name} absent de sitemap.xml")
+        for attendu in (f'<link rel="canonical" href="{url}">', f'<meta property="og:url" content="{url}">',
+                        '<meta name="description" content="', '<meta property="og:title" content="',
+                        '<meta property="og:description" content="', f'<meta property="og:image" content="{base}partage.png">'):
+            if attendu not in texte:
+                erreurs.append(f"référencement : {page.name} n'a pas {attendu[:60]}")
+        titre = re.search(r"<title>(.*?)</title>", texte)
+        if not titre or len(titre.group(1)) > 70:
+            erreurs.append(f"référencement : titre de {page.name} absent ou trop long (70 caractères au plus)")
+
+
 def main():
     try:
         verifier_icones()
         verifier_audience()
+        verifier_referencement()
         contenus = verifier_fichiers()
 
         class Silencieux(http.server.SimpleHTTPRequestHandler):
