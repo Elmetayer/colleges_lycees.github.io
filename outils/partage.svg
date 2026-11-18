@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <rect width="1200" height="630" fill="#fbfcfe"/>
+  <g fill="none" stroke="#d9e0ef" stroke-width="3">
+    <path d="M760 630 L800 470 L930 430 L1010 520 L980 630"/>
+    <path d="M930 430 L1060 360 L1200 400 L1200 560 L1010 520"/>
+    <path d="M800 470 L770 330 L900 260 L1060 360 L930 430"/>
+    <path d="M900 260 L960 120 L1120 90 L1200 170 L1200 400 L1060 360"/>
+  </g>
+  <rect x="1078" y="300" width="22" height="22" fill="#9fb0d6"/>
+  <polygon points="1146,236 1160,212 1174,236" fill="#9fb0d6"/>
+  <circle cx="1130" cy="470" r="10" fill="#9fb0d6"/>
+  <g transform="translate(70,105) scale(6.2)">
+    <path d="M32 4C19 4 10 13.5 10 26C10 41 32 60 32 60C32 60 54 41 54 26C54 13.5 45 4 32 4Z" fill="#1e2f6b"/>
+    <circle cx="32" cy="26" r="15" fill="#ffffff"/>
+    <polygon points="21.5,27 32,17.5 42.5,27" fill="#b7791f"/>
+    <rect x="25" y="26.5" width="14" height="9" fill="#1e2f6b"/>
+    <rect x="30" y="30" width="4" height="5.5" fill="#ffffff"/>
+  </g>
+  <text x="470" y="250" font-family="Literata" font-weight="600" font-size="86" fill="#1e2f6b">Carte scolaire</text>
+  <text font-family="Atkinson Hyperlegible" font-size="38" fill="#2b3550">
+    <tspan x="472" y="330">École et collège de secteur</tspan>
+    <tspan x="472" y="380">d'une adresse, IPS et résultats</tspan>
+    <tspan x="472" y="430">des écoles, collèges et lycées</tspan>
+  </text>
+  <text x="472" y="530" font-family="Atkinson Hyperlegible" font-weight="700" font-size="34" fill="#b7791f">www.macartescolaire.fr</text>
+</svg>

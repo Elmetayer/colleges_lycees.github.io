@@ -25,6 +25,8 @@ site/                     site statique publié sur GitHub Pages
   suivi.html, suivi.js    suivi de la récupération des données (état des sources, contrôles, historique)
   documentation.js        valeurs lues dans meta.json et sommaire de chaque page
   favicon.svg, favicon.ico, apple-touch-icon.png  icône d'onglet (épingle et école) ; .ico et .png tirés du .svg
+  robots.txt, sitemap.xml  référencement (liste des pages à mettre à jour quand on en ajoute une)
+  partage.png             image des liens partagés (Open Graph), tirée de outils/partage.svg
                           mesure d'audience : GoatCounter (macartescolaire.goatcounter.com, sans cookie), script en bas de chaque page,
                           actions comptées par compter() dans app.js (fiches par UAI, recherches, collège de secteur trouvé)
   data/                   fichiers générés par le script (non versionnés) ; data/fiches/ : historiques par département
