@@ -34,7 +34,14 @@ GROUPES = [
     ("etablissements", "Établissements et indicateurs"),
     ("secteurs_colleges", "Secteurs des collèges"),
     ("secteurs_ecoles", "Secteurs des écoles"),
+    ("fond_de_carte", "Fond de carte"),
 ]
+NOMS_LIGNES = {"metro": "métro", "tram": "tram", "tram-train": "tram-train", "rer": "RER", "transilien": "Transilien",
+               "banlieue": "banlieue (Léman Express)", "funiculaire": "funiculaires"}
+NOMS_GARES = {"gare": "gares", "halte": "haltes", "metro": "stations de métro", "tram": "arrêts de tram",
+              "tram-train": "stations de tram-train", "funiculaire": "stations de funiculaire"}
+# Au-delà, les données OSM sont signalées comme anciennes (l'extrait est repris chaque mois).
+AGE_ALERTE_TRANSPORTS = 45
 
 
 def lire(chemin: Path):
@@ -222,6 +229,51 @@ def ligne_zones_communes(meta: dict) -> dict:
     return dict(base, carte=", ".join(parts), etat=etat, details=details)
 
 
+def ligne_transports(meta: dict) -> dict:
+    """Calque Transports (pipeline/transports.py) : lignes et gares d'OpenStreetMap, extrait France de Geofabrik."""
+    t = meta.get("transports")
+    base = {"cle": "osm_transports", "titre": "Transports · lignes, gares et stations (OpenStreetMap)",
+            "producteur": "OpenStreetMap (Geofabrik), ODbL", "page": "https://download.geofabrik.de/europe/france.html",
+            "lignes": None, "mise_a_jour": None, "telecharge_le": None}
+    if not t:
+        return dict(base, carte="calque absent de cette mise à jour", etat="ko",
+                    details=[["Erreur", "aucune donnée : téléchargement de l'extrait OSM ou calcul en échec, rien en cache", "alerte"]])
+    lignes, gares = t.get("lignes") or {}, t.get("gares") or {}
+    details = [["Lignes dessinées", ", ".join(f"{nombre(n)} {NOMS_LIGNES.get(c, c)}" for c, n in sorted(lignes.items(), key=lambda x: -x[1]))
+                + f" ; {nombre(t.get('lignes_avec_couleur'))} avec leur couleur"],
+               ["Gares et arrêts", ", ".join(f"{nombre(n)} {NOMS_GARES.get(c, c)}" for c, n in sorted(gares.items(), key=lambda x: -x[1]))
+                + f" ; {nombre(t.get('gares_avec_lignes'))} gares avec leurs lignes"]]
+    metro = t.get("metro") or {}
+    details.append(["Métro", " ; ".join(f"{v} {', '.join(r)}" for v, r in metro.items() if r) or "—", "" if all(metro.values()) else "attention"])
+    ecartees = t.get("ecartees") or {}
+    if ecartees:
+        details.append(["Écartées", ", ".join(f"{nombre(n)} {k.replace('_', ' ')}" for k, n in ecartees.items())])
+    passage = t.get("passage") or {}
+    etat = "ok"
+    if t.get("reprise"):
+        etat = "partiel"
+        details.append(["Version réutilisée", f"téléchargement {passage.get('telechargement')}, calcul {passage.get('calcul')} : "
+                        f"données OSM du {fr_date(t.get('donnees_osm'))} gardées", "attention"])
+    else:
+        calc, tele = passage.get("calcul"), passage.get("telechargement")
+        details.append(["Ce passage", "données du cache (moins de 25 jours), non recalculées" if calc == "non_necessaire"
+                        else "extrait OSM téléchargé et recalculé" if tele == "ok" else "recalculé à partir de l'extrait gardé en cache"])
+    try:
+        age = (datetime.now(timezone.utc) - datetime.fromisoformat(str(t.get("donnees_osm")).replace("Z", "+00:00"))).days
+    except ValueError:
+        age = None
+    if age is not None and age > AGE_ALERTE_TRANSPORTS:
+        etat = "partiel"
+        details.append(["Données anciennes", f"{age} jours", "attention"])
+    if not t.get("frontiere"):
+        etat = "partiel"
+        details.append(["Frontière", "contours des départements injoignables : lignes non coupées à la frontière", "attention"])
+    taille = t.get("taille_mo") or {}
+    details.append(["Fichiers", f"lignes {str(taille.get('lignes')).replace('.', ',')} Mo, gares {str(taille.get('gares')).replace('.', ',')} Mo"])
+    return dict(base, lignes=t.get("lignes_total"), mise_a_jour=t.get("donnees_osm"), telecharge_le=t.get("calcule_le"),
+                carte=f"{nombre(t.get('lignes_total'))} lignes, {nombre(sum(gares.values()))} gares et arrêts", etat=etat, details=details)
+
+
 def ligne_ville(r: dict, info: dict, t: dict, meta: dict) -> dict:
     """Ligne d'un jeu de secteurs d'écoles : titre préfixé par la ville, ce que le jeu donne sur la carte niveau par
     niveau, contrôles du rattachement aux écoles dans les détails, date des zones quand elle diffère de celle du fichier."""
@@ -280,6 +332,8 @@ def rapport(site: Path, statut: str) -> dict:
     if meta:
         groupes["secteurs_colleges"] = lignes_secteurs_colleges(meta)
         groupes["secteurs_ecoles"].append(ligne_zones_communes(meta))
+        if "transports" in meta:
+            groupes["fond_de_carte"].append(ligne_transports(meta))
     toutes = [r for g in groupes.values() for r in g]
     compte = {e: sum(1 for r in toutes if r["etat"] == e) for e in ("ok", "partiel", "ko")}
     erreurs = (verif or {}).get("erreurs") or []

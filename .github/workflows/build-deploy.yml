@@ -61,8 +61,80 @@ jobs:
           if-no-files-found: ignore
           retention-days: 3
 
+  # Calque Transports (pipeline/transports.py) : lignes et gares d'OpenStreetMap. L'extrait France de Geofabrik
+  # (4,8 Go, une vingtaine de minutes) n'est retéléchargé que si les données en cache ont plus de 25 jours ;
+  # l'extrait filtré (environ 15 Mo) reste en cache pour recalculer sans retélécharger. En cas d'échec, la
+  # version précédente est publiée (et signalée sur la page de suivi), ou la carte sans transports.
+  transports:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    timeout-minutes: 80
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pipeline/requirements.txt
+
+      - name: Installer les dépendances
+        run: pip install -r pipeline/requirements.txt osmium
+
+      - name: Reprendre les derniers transports calculés
+        uses: actions/cache/restore@v6
+        with:
+          path: transports-out
+          key: transports-${{ github.run_id }}
+          restore-keys: transports-
+
+      - name: Faut-il retélécharger ou recalculer ?
+        id: age
+        run: python pipeline/transports.py age --entree transports-out
+
+      - name: Télécharger et filtrer l'extrait OSM (Geofabrik)
+        if: steps.age.outputs.telecharger == '1'
+        continue-on-error: true
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq osmium-tool
+          curl -sSfL --retry 4 --retry-delay 30 -o france.osm.pbf https://download.geofabrik.de/europe/france-latest.osm.pbf
+          osmium tags-filter france.osm.pbf \
+            r/route=subway,monorail,light_rail,tram,train,funicular \
+            r/route_master=subway,monorail,light_rail,tram,train,funicular \
+            nwr/railway=station,halt,tram_stop nwr/public_transport=station \
+            -o filtre-neuf.osm.pbf --overwrite
+          rm france.osm.pbf
+          ls -lh filtre-neuf.osm.pbf
+
+      - name: Calculer lignes et gares
+        if: steps.age.outputs.recalculer == '1'
+        continue-on-error: true
+        run: |
+          if [ -f filtre-neuf.osm.pbf ]; then pbf=filtre-neuf.osm.pbf; tele=ok
+          elif [ "${{ steps.age.outputs.telecharger }}" = "1" ]; then pbf=transports-out/filtre.osm.pbf; tele=echec
+          else pbf=transports-out/filtre.osm.pbf; tele=non_necessaire; fi
+          if [ ! -f "$pbf" ]; then echo "aucun extrait OSM disponible"; exit 1; fi
+          python pipeline/transports.py calculer --pbf "$pbf" --sortie transports-out --telechargement "$tele"
+
+      - name: Garder les transports pour le prochain passage
+        if: always()
+        uses: actions/cache/save@v6
+        with:
+          path: transports-out
+          key: transports-${{ github.run_id }}
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: transports
+          path: |
+            transports-out/*.geojson
+            transports-out/*.json
+          if-no-files-found: ignore
+          retention-days: 3
+
   build:
-    needs: secteurs
+    needs: [secteurs, transports]
     if: always()
     runs-on: ubuntu-latest
     permissions:
@@ -114,6 +186,18 @@ jobs:
       - name: Entrée en 6e des écoles (évaluations du collège de secteur)
         continue-on-error: true
         run: python pipeline/ecoles_6e.py --out site/data
+
+      - name: Récupérer les transports
+        uses: actions/download-artifact@v8
+        continue-on-error: true
+        with:
+          name: transports
+          path: transports-out
+
+      - name: Ajouter les transports (lignes et gares)
+        # Sans données (premier passage en échec), la carte est publiée sans le calque Transports.
+        continue-on-error: true
+        run: python pipeline/transports.py assembler --entree transports-out --out site/data
 
       - name: Rapport de suivi provisoire (testé par la vérification)
         continue-on-error: true

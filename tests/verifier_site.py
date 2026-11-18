@@ -17,6 +17,9 @@
    Zones des communes (seule école publique, regroupements pédagogiques : pipeline/zones_communes.py) : nombre de
    communes couvertes et part des élèves (ZONES_COMMUNES_MINIMUM) ; la fiche d'une école seule dans sa commune et celle
    d'une école de RPI donnent leur zone, dessinée avec un contour plein.
+   Calque Transports (pipeline/transports.py, OpenStreetMap) : nombre de lignes de métro, de tram et de RER et nombre
+   de gares (TRANSPORTS_MINIMUM) ; lignes et gares affichées à Paris, et la fenêtre d'une gare donne ses lignes.
+   Transports absents (premier passage en échec) : simple avertissement.
 3. Les secteurs concordent avec les secteurs officiels de Paris et des Hauts-de-Seine : au moins
    CONCORDANCE_MINIMALE de la surface attribuée au même collège (meta.json, secteurs.controle).
    Si les secteurs officiels n'ont pas pu être téléchargés, simple avertissement.
@@ -89,6 +92,10 @@ LIBELLES = {
 NIVEAUX_SECTEURS = {"elementaire": "élémentaires", "maternelle": "maternelles"}
 
 
+# Calque Transports : environ 80 % du diagnostic du 18/11/2026 (32 lignes de métro, 111 de tram, 5 RER, 2 252 gares).
+TRANSPORTS_MINIMUM = {"metro": 25, "tram": 80, "rer": 5, "gares": 2000}
+
+
 def refuser_constante(nom):
     raise ValueError(f"valeur {nom} interdite en JSON")
 
@@ -96,7 +103,7 @@ def refuser_constante(nom):
 def verifier_fichiers():
     data = SITE / "data"
     fichiers = (sorted(data.glob("*.json")) + sorted(data.glob("*.geojson")) + sorted(data.glob("fiches/*.json"))
-                + sorted(data.glob("secteurs/*.json")) + sorted(data.glob("secteurs/*.geojson")))
+                + sorted(data.glob("secteurs/*.json")) + sorted(data.glob("secteurs/*.geojson")) + sorted(data.glob("transports/*.geojson")))
     contenus = {}
     for f in fichiers:
         try:
@@ -153,7 +160,32 @@ def verifier_fichiers():
             if not controle(f"Concordance des secteurs des collèges, {dep}", round(c["taux_surface"] * 100, 1), round(CONCORDANCE_MINIMALE * 100, 1), "%"):
                 erreurs.append(f"secteurs : {dep}, {c['taux_surface']:.1%} seulement de la surface attribuée au même collège "
                                f"que les secteurs officiels (au moins {CONCORDANCE_MINIMALE:.0%} attendus)")
+    verifier_transports(contenus)
     return contenus
+
+
+def verifier_transports(contenus):
+    """Calque Transports : fichiers lisibles et chiffres de meta.json (transports). Absent : avertissement."""
+    t = (contenus.get("meta.json") or {}).get("transports")
+    if not t:
+        avertissements.append("calque Transports absent de cette mise à jour (téléchargement ou calcul en échec, rien en cache)")
+        return
+    lignes, gares = contenus.get("lignes.geojson"), contenus.get("gares.geojson")
+    if not lignes or not gares:
+        erreurs.append("transports : meta.json annonce le calque mais data/transports/lignes.geojson ou gares.geojson manque")
+        return
+    par_cat, par_type = {}, {}
+    for f in lignes["features"]:
+        par_cat[f["properties"].get("cat")] = par_cat.get(f["properties"].get("cat"), 0) + 1
+    for f in gares["features"]:
+        par_type[f["properties"].get("type")] = par_type.get(f["properties"].get("type"), 0) + 1
+    print(f"transports : {len(lignes['features'])} lignes {par_cat}, {len(gares['features'])} gares et arrêts, données OSM du {t.get('donnees_osm')}")
+    for k, mini in TRANSPORTS_MINIMUM.items():
+        n = par_type.get("gare", 0) if k == "gares" else par_cat.get(k, 0)
+        if not controle(f"Transports : {'gares' if k == 'gares' else 'lignes de ' + ('RER' if k == 'rer' else k.replace('metro', 'métro'))}", n, mini):
+            erreurs.append(f"transports : {n} {k} seulement (au moins {mini} attendus)")
+    if t.get("reprise"):
+        avertissements.append(f"transports : version précédente publiée (données OSM du {t.get('donnees_osm')})")
 
 
 def verifier_ecoles(data, contenus):
@@ -432,6 +464,36 @@ async def verifier_navigateur(contenus):
                     problemes.append("zoom 10,5 : aucune école dans la couche au-dessus des collèges")
                 else:
                     print(f"{appareil} : zoom 10,5, {dessus} écoles au-dessus des collèges")
+            # Calque Transports : lignes et gares à Paris ; la fenêtre d'une gare (sans établissement sous le doigt) donne ses lignes.
+            if (contenus.get("meta.json") or {}).get("transports"):
+                try:
+                    await pg.wait_for_function("!!window.carteScolaire.getLayer('transports-gares')", timeout=15000)
+                    await pg.evaluate("window.carteScolaire.jumpTo({center: [2.355, 48.876], zoom: 13.5})")
+                    await pg.wait_for_timeout(3000)
+                    r = await pg.evaluate("""(() => {
+                      const m = window.carteScolaire, q = (l) => m.queryRenderedFeatures({layers: l}).length;
+                      const etab = ['ecoles', 'lycees', 'colleges'].filter((l) => m.getLayer(l));
+                      const res = {lignes: q(['transports-lignes']), gares: q(['transports-gares', 'transports-stations']), ouverte: null};
+                      for (const f of m.queryRenderedFeatures({layers: ['transports-gares']})) {
+                        if (!(f.properties.lignes || '').includes('~')) continue;
+                        const p = m.project(f.geometry.coordinates);
+                        if (m.queryRenderedFeatures([[p.x - 12, p.y - 12], [p.x + 12, p.y + 12]], {layers: etab}).length) continue;
+                        m.fire('click', {point: p, lngLat: m.unproject(p), originalEvent: {}});
+                        const el = document.querySelector('.popup-gare');
+                        res.ouverte = el ? {nom: f.properties.nom, badges: el.querySelectorAll('.ligne-badge').length} : {nom: f.properties.nom, badges: -1};
+                        break;
+                      }
+                      return res;
+                    })()""")
+                    if r["lignes"] <= 0 or r["gares"] <= 0:
+                        problemes.append(f"transports : {r['lignes']} lignes et {r['gares']} gares affichées à Paris (zoom 13,5)")
+                    elif not r["ouverte"] or r["ouverte"]["badges"] <= 0:
+                        problemes.append(f"transports : fenêtre d'une gare {'non testée (aucune gare dégagée)' if not r['ouverte'] else 'sans lignes (' + r['ouverte']['nom'] + ')'}")
+                    else:
+                        print(f"{appareil} : transports à Paris, {r['lignes']} lignes et {r['gares']} gares ; fenêtre « {r['ouverte']['nom']} », {r['ouverte']['badges']} lignes")
+                    await pg.evaluate("document.querySelectorAll('.maplibregl-popup').forEach((p) => p.remove())")
+                except Exception as e:  # noqa: BLE001
+                    problemes.append(f"transports : le calque ne se charge pas ({type(e).__name__})")
             panneau = await pg.inner_text("#panneau")
             if "Données indisponibles" in panneau:
                 problemes.append("un calque affiche « Données indisponibles »")
