@@ -39,6 +39,6 @@ window.PARAMETRES = {
   // Clé d'accès Web3Forms (web3forms.com) : les messages arrivent à l'adresse email associée à cette clé,
   // qui n'apparaît pas sur le site. Vide : le formulaire renvoie vers les issues GitHub.
   contact: {
-    cleWeb3Forms: "",
+    cleWeb3Forms: "ea5a0656-9954-4eba-bc8a-ae3651ce1e0c",
   },
 };
