@@ -2,12 +2,28 @@
 (function () {
   "use strict";
 
+  // Couleurs : toutes lues dans la charte graphique (variables CSS du bloc :root de style.css),
+  // pour que la carte suive l'interface. style.css est chargé avant ce script.
+  const CHARTE = getComputedStyle(document.documentElement);
+  function charte(nom) {
+    const v = CHARTE.getPropertyValue("--" + nom).trim();
+    if (!v) console.error("Variable de couleur absente de style.css : --" + nom);
+    return v || "#888888";
+  }
+  const C = {
+    encre: charte("encre"), encreDouce: charte("encre-douce"), texteInactif: charte("texte-inactif"),
+    surEncre: charte("sur-encre"), grisClair: charte("gris-clair"),
+    serie2: charte("graphe-serie-2"), serie2Texte: charte("graphe-serie-2-texte"),
+    bande: charte("graphe-bande"), grille: charte("graphe-grille"),
+    fondSecours: charte("carte-fond-secours"), contourPublic: charte("carte-contour-public"),
+    zoneCommune: charte("carte-zone-commune"), ter: charte("carte-ter"), ligneDefaut: charte("carte-ligne-defaut"),
+  };
   // Plasma, du plus bas (jaune) au plus haut (bleu nuit). Lisible pour les daltoniens.
-  const ECHELLE = ["#f0f921", "#f89540", "#cc4778", "#7e03a8", "#0d0887"];
+  const ECHELLE = [1, 2, 3, 4, 5].map((i) => charte("donnees-" + i));
   // Valeur ajoutée, dans la logique de Plasma : valeurs basses côté orange, valeurs hautes côté violet,
   // zéro en gris très clair. Les extrêmes ont une clarté proche pour ne favoriser aucun côté.
-  const DIVERGENTE = ["#c4500f", "#f4ad73", "#f3f1f6", "#b48ad9", "#6a0d9e"];
-  const ABSENT = "#a7adba";
+  const DIVERGENTE = [1, 2, 3, 4, 5].map((i) => charte("divergente-" + i));
+  const ABSENT = charte("absent");
 
   // Réglages modifiables dans parametres.js (valeurs par défaut si le fichier manque).
   const VA = Object.assign({
@@ -139,7 +155,7 @@
 
   // ---------------------------------------------------------------- carte
   // Si le fond de carte ne répond pas, on garde au moins les points sur un fond uni.
-  const STYLE_SECOURS = { version: 8, sources: {}, layers: [{ id: "fond", type: "background", paint: { "background-color": "#eef1f4" } }] };
+  const STYLE_SECOURS = { version: 8, sources: {}, layers: [{ id: "fond", type: "background", paint: { "background-color": C.fondSecours } }] };
   const carte = new maplibregl.Map({
     container: "carte",
     style: "https://tiles.openfreemap.org/styles/positron",
@@ -186,9 +202,9 @@
     });
   }
   // Petite icône de la forme, pour le panneau et les légendes.
-  function iconeForme(forme, { couleur = "#7e03a8", prive = false, taille = 22, gris = false } = {}) {
-    const fill = gris ? "#c9cede" : couleur;
-    const trait = prive && !gris ? 'stroke="#1e2f6b" stroke-width="2.5"' : 'stroke="#ffffff" stroke-width="1.5"';
+  function iconeForme(forme, { couleur = ECHELLE[3], prive = false, taille = 22, gris = false } = {}) {
+    const fill = gris ? C.grisClair : couleur;
+    const trait = prive && !gris ? `stroke="${C.encre}" stroke-width="2.5"` : `stroke="${C.contourPublic}" stroke-width="1.5"`;
     const fig = forme === "cercle" ? `<circle cx="11" cy="11" r="7" fill="${fill}" ${trait}/>`
       : forme === "carre" ? `<rect x="3.5" y="3.5" width="15" height="15" rx="2" fill="${fill}" ${trait}/>`
       : `<path d="M11 2.5 L20 18.5 L2 18.5 Z" fill="${fill}" ${trait} stroke-linejoin="round"/>`;
@@ -267,7 +283,7 @@
     const couche = (id, zooms, taille, halo, dessous) => carte.addLayer(Object.assign({
       id, type: "symbol", source: c.cle,
       layout: { "icon-image": "forme-" + c.forme, "icon-size": taille, "icon-allow-overlap": true, "icon-ignore-placement": true },
-      paint: { "icon-color": ABSENT, "icon-halo-color": ["case", prive, "#1e2f6b", "#ffffff"], "icon-halo-width": halo },
+      paint: { "icon-color": ABSENT, "icon-halo-color": ["case", prive, C.encre, C.contourPublic], "icon-halo-width": halo },
     }, zooms), dessous);
     if (!c.parDepartement) {
       couche(c.cle, {}, ["interpolate", ["linear"], ["zoom"], 8, 0.55, 11, 0.85, 13, 1, 16, 1.4],
@@ -521,7 +537,7 @@
   let ficheCourante = null;
   let adresseCourante = null;  // adresse affichée dans la fiche (pour « Signaler une erreur »)
   const BOUTON_SIGNALER = ' · <button type="button" class="lien-signaler" data-signaler>Signaler une erreur</button>';
-  const ENCRE = "#1e2f6b", MAGENTA = "#cc4778", MAGENTA_TEXTE = "#a8335f", MEDIANE = "#8a93ad", BANDE = "#ece9f2";
+  const ENCRE = C.encre, MAGENTA = C.serie2, MAGENTA_TEXTE = C.serie2Texte, MEDIANE = C.texteInactif, BANDE = C.bande;
 
   function seuilVA(cle) { return Number(VA.seuils[cle]) || 0; }
   function lectureVA(cle, v) {
@@ -575,7 +591,7 @@
       if (multi) svg += `<text x="${L - 34}" y="${top - 8}" class="titre-panneau">${echapper(pan.titre)}</text>`;
       if (pan.bande) svg += `<rect x="${L}" y="${y(pan.bande[1]).toFixed(1)}" width="${pw}" height="${(y(pan.bande[0]) - y(pan.bande[1])).toFixed(1)}" fill="${BANDE}"/>`;
       e.ticks.forEach((t) => {
-        svg += `<line x1="${L}" x2="${W - R}" y1="${y(t).toFixed(1)}" y2="${y(t).toFixed(1)}" stroke="${t === 0 && pan.zero ? "#56648f" : "#e3e7f0"}" stroke-width="1"/>`;
+        svg += `<line x1="${L}" x2="${W - R}" y1="${y(t).toFixed(1)}" y2="${y(t).toFixed(1)}" stroke="${t === 0 && pan.zero ? C.encreDouce : C.grille}" stroke-width="1"/>`;
         svg += `<text x="${L - 6}" y="${(y(t) + 4).toFixed(1)}" text-anchor="end">${echapper(pan.tick(t))}</text>`;
       });
       pan.series.forEach((s) => {
@@ -1715,8 +1731,8 @@
       indexSecteurs = Object.fromEntries(Object.entries(index).map(([d, v]) => [normDep(d), Object.assign({ fichier: d }, v)]));
       carte.addSource("secteurs", { type: "geojson", data: secteurs });
       carte.addLayer({ id: "secteurs-fond", type: "fill", source: "secteurs", minzoom: ZOOM_SECTEURS, paint: { "fill-color": ABSENT, "fill-opacity": 0.35 } }, "colleges");
-      carte.addLayer({ id: "secteurs-contour", type: "line", source: "secteurs", minzoom: ZOOM_SECTEURS, paint: { "line-color": "#1e2f6b", "line-width": ["interpolate", ["linear"], ["zoom"], 9, 0.3, 14, 1.2], "line-opacity": 0.55 } }, "colleges");
-      carte.addLayer({ id: "secteurs-surligne", type: "line", source: "secteurs", minzoom: ZOOM_SECTEURS, filter: ["==", ["get", "uai"], ""], paint: { "line-color": "#1e2f6b", "line-width": 3 } }, "colleges");
+      carte.addLayer({ id: "secteurs-contour", type: "line", source: "secteurs", minzoom: ZOOM_SECTEURS, paint: { "line-color": C.encre, "line-width": ["interpolate", ["linear"], ["zoom"], 9, 0.3, 14, 1.2], "line-opacity": 0.55 } }, "colleges");
+      carte.addLayer({ id: "secteurs-surligne", type: "line", source: "secteurs", minzoom: ZOOM_SECTEURS, filter: ["==", ["get", "uai"], ""], paint: { "line-color": C.encre, "line-width": 3 } }, "colleges");
       appliquerCalque(calque("colleges"));
       placerTransports();
       carte.on("moveend", chargerSecteursVisibles);
@@ -1979,10 +1995,10 @@
     const avant = carte.getLayer("colleges") ? "colleges" : undefined;
     carte.addLayer({ id: "secteurs-ecoles-fond", type: "fill", source: "secteurs-ecoles", minzoom: ZOOM_ZONES_ECOLES,
       paint: { "fill-color": ABSENT, "fill-opacity": ["case", ["has", "regle"], 0.22, 0.3] } }, avant);
-    carte.addLayer({ id: "secteurs-ecoles-contour", type: "line", source: "secteurs-ecoles", minzoom: ZOOM_ZONES_ECOLES, filter: ["!", ["has", "regle"]], paint: { "line-color": "#1e2f6b", "line-width": 1, "line-opacity": 0.6, "line-dasharray": [3, 2] } }, avant);
+    carte.addLayer({ id: "secteurs-ecoles-contour", type: "line", source: "secteurs-ecoles", minzoom: ZOOM_ZONES_ECOLES, filter: ["!", ["has", "regle"]], paint: { "line-color": C.encre, "line-width": 1, "line-opacity": 0.6, "line-dasharray": [3, 2] } }, avant);
     // Zones des communes (une seule école, regroupement) : contour plein, plus discret que les secteurs publiés.
-    carte.addLayer({ id: "secteurs-ecoles-commune", type: "line", source: "secteurs-ecoles", minzoom: ZOOM_ZONES_ECOLES, filter: ["has", "regle"], paint: { "line-color": "#4a5470", "line-width": 1.2, "line-opacity": 0.55 } }, avant);
-    carte.addLayer({ id: "secteurs-ecoles-surligne", type: "line", source: "secteurs-ecoles", minzoom: ZOOM_ZONES_ECOLES, filter: ["==", ["get", "uais"], "-"], paint: { "line-color": "#1e2f6b", "line-width": 3 } }, avant);
+    carte.addLayer({ id: "secteurs-ecoles-commune", type: "line", source: "secteurs-ecoles", minzoom: ZOOM_ZONES_ECOLES, filter: ["has", "regle"], paint: { "line-color": C.zoneCommune, "line-width": 1.2, "line-opacity": 0.55 } }, avant);
+    carte.addLayer({ id: "secteurs-ecoles-surligne", type: "line", source: "secteurs-ecoles", minzoom: ZOOM_ZONES_ECOLES, filter: ["==", ["get", "uais"], "-"], paint: { "line-color": C.encre, "line-width": 3 } }, avant);
   }
 
   // ---------------------------------------------------------------- transports (fond de carte)
@@ -1995,7 +2011,7 @@
     "transports-stations", "transports-noms-gares", "transports-noms-stations"];
   const TYPES_GARES = { gare: "Gare", halte: "Halte ferroviaire", metro: "Station de métro", tram: "Arrêt de tram",
     "tram-train": "Station de tram-train", funiculaire: "Station de funiculaire" };
-  const ICONE_TRANSPORTS = '<svg class="forme" width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="3" width="14" height="15" rx="3" fill="#1e2f6b"/><rect x="7.5" y="6" width="9" height="5" rx="1" fill="#fff"/><circle cx="9" cy="14.5" r="1.3" fill="#fff"/><circle cx="15" cy="14.5" r="1.3" fill="#fff"/><path d="M8 18l-2 3M16 18l2 3" stroke="#1e2f6b" stroke-width="1.8" stroke-linecap="round"/></svg>';
+  const ICONE_TRANSPORTS = '<svg class="forme" width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="3" width="14" height="15" rx="3" fill="var(--encre)"/><rect x="7.5" y="6" width="9" height="5" rx="1" fill="var(--sur-encre)"/><circle cx="9" cy="14.5" r="1.3" fill="var(--sur-encre)"/><circle cx="15" cy="14.5" r="1.3" fill="var(--sur-encre)"/><path d="M8 18l-2 3M16 18l2 3" stroke="var(--encre)" stroke-width="1.8" stroke-linecap="round"/></svg>';
   let metaTransports = null, popupGare = null, etatTransports = "absent"; // absent | chargement | charge | erreur
 
   // Les lignes passent au-dessus des zones (secteurs) et sous les établissements.
@@ -2028,7 +2044,7 @@
       carte.addSource("transports-ter", { type: "geojson", data: ter });
       carte.addLayer({ id: "transports-ter", type: "line", source: "transports-ter", minzoom: 7,
         layout: { "line-cap": "round", "line-join": "round" },
-        paint: { "line-color": "#9aa3b5", "line-opacity": 0.8,
+        paint: { "line-color": C.ter, "line-opacity": 0.8,
           "line-width": ["interpolate", ["linear"], ["zoom"], 7, 0.5, 10, 0.9, 13, 1.6, 16, 2.4] } }, avant);
     }
     const cat = ["get", "cat"];
@@ -2037,31 +2053,31 @@
     carte.addLayer({ id: "transports-lignes", type: "line", source: "transports-lignes", minzoom: 8,
       filter: ["!=", cat, "telepherique"],
       layout: { "line-cap": "round", "line-join": "round", "line-sort-key": ["match", cat, "metro", 3, ["rer", "transilien", "banlieue"], 2, 1] },
-      paint: { "line-color": ["coalesce", ["get", "couleur"], "#8a93ad"], "line-width": largeur,
+      paint: { "line-color": ["coalesce", ["get", "couleur"], C.ligneDefaut], "line-width": largeur,
         "line-opacity": ["interpolate", ["linear"], ["zoom"], 8, 0.55, 12, 0.85] } }, avant);
     // Téléphériques urbains (Brest, Toulouse…) en tirets.
     carte.addLayer({ id: "transports-telepheriques", type: "line", source: "transports-lignes", minzoom: 10,
       filter: ["==", cat, "telepherique"],
-      paint: { "line-color": ["coalesce", ["get", "couleur"], "#4a5470"], "line-width": largeur, "line-dasharray": [2, 1.2] } }, avant);
+      paint: { "line-color": ["coalesce", ["get", "couleur"], C.zoneCommune], "line-width": largeur, "line-dasharray": [2, 1.2] } }, avant);
     const type = ["get", "type"], halte = ["==", type, "halte"];
     // Gares dès le zoom 9 (les haltes à partir de 11) ; stations de métro et arrêts de tram à partir de 12.
     const visible = ["step", ["zoom"], ["case", halte, 0, 1], 11, 1];
     carte.addLayer({ id: "transports-gares", type: "circle", source: "transports-gares", minzoom: 9,
       filter: ["in", type, ["literal", ["gare", "halte"]]],
       paint: { "circle-radius": ["interpolate", ["linear"], ["zoom"], 9, ["case", halte, 1.4, 2.4], 13, ["case", halte, 3, 4.5], 16, ["case", halte, 4.5, 6.5]],
-        "circle-color": "#ffffff", "circle-stroke-color": "#1e2f6b", "circle-opacity": visible, "circle-stroke-opacity": visible,
+        "circle-color": C.contourPublic, "circle-stroke-color": C.encre, "circle-opacity": visible, "circle-stroke-opacity": visible,
         "circle-stroke-width": ["interpolate", ["linear"], ["zoom"], 9, 0.8, 13, 1.6] } }, avant);
     carte.addLayer({ id: "transports-stations", type: "circle", source: "transports-gares", minzoom: 12,
       filter: ["in", type, ["literal", ["metro", "tram", "tram-train", "funiculaire"]]],
-      paint: { "circle-radius": ["interpolate", ["linear"], ["zoom"], 12, 1.8, 15, 4, 17, 5.5], "circle-color": "#ffffff",
-        "circle-stroke-color": "#4a5470", "circle-stroke-width": ["interpolate", ["linear"], ["zoom"], 12, 0.7, 15, 1.3] } }, avant);
+      paint: { "circle-radius": ["interpolate", ["linear"], ["zoom"], 12, 1.8, 15, 4, 17, 5.5], "circle-color": C.contourPublic,
+        "circle-stroke-color": C.zoneCommune, "circle-stroke-width": ["interpolate", ["linear"], ["zoom"], 12, 0.7, 15, 1.3] } }, avant);
     // Noms : gares à partir du zoom 11, stations à partir de 14 (fond de carte en ligne seulement : polices).
     if (!secours) {
       const texte = (id, minzoom, types) => carte.addLayer({ id, type: "symbol", source: "transports-gares", minzoom,
         filter: ["in", type, ["literal", types]],
         layout: { "text-field": ["get", "nom"], "text-font": ["Noto Sans Regular"], "text-size": ["interpolate", ["linear"], ["zoom"], 11, 10, 16, 12.5],
           "text-anchor": "top", "text-offset": [0, 0.7], "text-optional": true, "text-max-width": 8 },
-        paint: { "text-color": "#1e2f6b", "text-halo-color": "rgba(255,255,255,0.9)", "text-halo-width": 1.4 } }, avant);
+        paint: { "text-color": C.encre, "text-halo-color": "rgba(255,255,255,0.9)", "text-halo-width": 1.4 } }, avant);
       texte("transports-noms-gares", 11, ["gare"]);
       texte("transports-noms-stations", 14, ["halte", "metro", "tram", "tram-train", "funiculaire"]);
     }
@@ -2098,7 +2114,7 @@
   // Texte lisible sur la couleur d'une ligne (blanc ou encre selon la luminosité).
   function texteSur(c) {
     const n = parseInt(c.slice(1), 16), r = n >> 16, g = (n >> 8) & 255, b = n & 255;
-    return 0.299 * r + 0.587 * g + 0.114 * b > 160 ? "#1e2f6b" : "#ffffff";
+    return 0.299 * r + 0.587 * g + 0.114 * b > 160 ? C.encre : C.surEncre;
   }
 
   function ouvrirGare(f) {
