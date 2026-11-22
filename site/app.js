@@ -5,25 +5,25 @@
   // Couleurs : toutes lues dans la charte graphique (variables CSS du bloc :root de style.css),
   // pour que la carte suive l'interface. style.css est chargé avant ce script.
   const CHARTE = getComputedStyle(document.documentElement);
-  function couleur(nom) {
+  function charte(nom) {
     const v = CHARTE.getPropertyValue("--" + nom).trim();
     if (!v) console.error("Variable de couleur absente de style.css : --" + nom);
     return v || "#888888";
   }
   const C = {
-    encre: couleur("encre"), encreDouce: couleur("encre-douce"), texteInactif: couleur("texte-inactif"),
-    surEncre: couleur("sur-encre"), grisClair: couleur("gris-clair"),
-    serie2: couleur("graphe-serie-2"), serie2Texte: couleur("graphe-serie-2-texte"),
-    bande: couleur("graphe-bande"), grille: couleur("graphe-grille"),
-    fondSecours: couleur("carte-fond-secours"), contourPublic: couleur("carte-contour-public"),
-    zoneCommune: couleur("carte-zone-commune"), ter: couleur("carte-ter"), ligneDefaut: couleur("carte-ligne-defaut"),
+    encre: charte("encre"), encreDouce: charte("encre-douce"), texteInactif: charte("texte-inactif"),
+    surEncre: charte("sur-encre"), grisClair: charte("gris-clair"),
+    serie2: charte("graphe-serie-2"), serie2Texte: charte("graphe-serie-2-texte"),
+    bande: charte("graphe-bande"), grille: charte("graphe-grille"),
+    fondSecours: charte("carte-fond-secours"), contourPublic: charte("carte-contour-public"),
+    zoneCommune: charte("carte-zone-commune"), ter: charte("carte-ter"), ligneDefaut: charte("carte-ligne-defaut"),
   };
   // Plasma, du plus bas (jaune) au plus haut (bleu nuit). Lisible pour les daltoniens.
-  const ECHELLE = [1, 2, 3, 4, 5].map((i) => couleur("donnees-" + i));
+  const ECHELLE = [1, 2, 3, 4, 5].map((i) => charte("donnees-" + i));
   // Valeur ajoutée, dans la logique de Plasma : valeurs basses côté orange, valeurs hautes côté violet,
   // zéro en gris très clair. Les extrêmes ont une clarté proche pour ne favoriser aucun côté.
-  const DIVERGENTE = [1, 2, 3, 4, 5].map((i) => couleur("divergente-" + i));
-  const ABSENT = couleur("absent");
+  const DIVERGENTE = [1, 2, 3, 4, 5].map((i) => charte("divergente-" + i));
+  const ABSENT = charte("absent");
 
   // Réglages modifiables dans parametres.js (valeurs par défaut si le fichier manque).
   const VA = Object.assign({
