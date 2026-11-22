@@ -61,7 +61,7 @@ jobs:
           if-no-files-found: ignore
           retention-days: 3
 
-  # Calque Transports (pipeline/transports.py) : lignes et gares d'OpenStreetMap. L'extrait France de Geofabrik
+  # Calque Transports (pipeline/transports.py) : lignes, réseau TER, téléphériques urbains et gares d'OpenStreetMap. L'extrait France de Geofabrik
   # (4,8 Go, une vingtaine de minutes) n'est retéléchargé que si les données en cache ont plus de 25 jours ;
   # l'extrait filtré (environ 15 Mo) reste en cache pour recalculer sans retélécharger. En cas d'échec, la
   # version précédente est publiée (et signalée sur la page de suivi), ou la carte sans transports.
@@ -99,8 +99,9 @@ jobs:
           sudo apt-get update -qq && sudo apt-get install -y -qq osmium-tool
           curl -sSfL --retry 4 --retry-delay 30 -o france.osm.pbf https://download.geofabrik.de/europe/france-latest.osm.pbf
           osmium tags-filter france.osm.pbf \
-            r/route=subway,monorail,light_rail,tram,train,funicular \
-            r/route_master=subway,monorail,light_rail,tram,train,funicular \
+            r/route=subway,monorail,light_rail,tram,train,funicular,aerialway \
+            r/route_master=subway,monorail,light_rail,tram,train,funicular,aerialway \
+            w/aerialway=cable_car,gondola \
             nwr/railway=station,halt,tram_stop nwr/public_transport=station \
             -o filtre-neuf.osm.pbf --overwrite
           rm france.osm.pbf

@@ -93,7 +93,7 @@ NIVEAUX_SECTEURS = {"elementaire": "élémentaires", "maternelle": "maternelles"
 
 
 # Calque Transports : environ 80 % du diagnostic du 18/11/2026 (32 lignes de métro, 111 de tram, 5 RER, 2 252 gares).
-TRANSPORTS_MINIMUM = {"metro": 25, "tram": 80, "rer": 5, "gares": 2000}
+TRANSPORTS_MINIMUM = {"metro": 25, "tram": 80, "rer": 5, "gares": 2000, "ter_km": 8000}
 
 
 def refuser_constante(nom):
@@ -181,11 +181,22 @@ def verifier_transports(contenus):
         par_type[f["properties"].get("type")] = par_type.get(f["properties"].get("type"), 0) + 1
     print(f"transports : {len(lignes['features'])} lignes {par_cat}, {len(gares['features'])} gares et arrêts, données OSM du {t.get('donnees_osm')}")
     for k, mini in TRANSPORTS_MINIMUM.items():
+        if k == "ter_km":
+            continue  # contrôlé plus bas, seulement si le réseau TER est annoncé
         n = par_type.get("gare", 0) if k == "gares" else par_cat.get(k, 0)
         if not controle(f"Transports : {'gares' if k == 'gares' else 'lignes de ' + ('RER' if k == 'rer' else k.replace('metro', 'métro'))}", n, mini):
             erreurs.append(f"transports : {n} {k} seulement (au moins {mini} attendus)")
     if t.get("reprise"):
         avertissements.append(f"transports : version précédente publiée (données OSM du {t.get('donnees_osm')})")
+    if not t.get("frontiere"):
+        avertissements.append("transports : lignes non coupées à la frontière (contours injoignables, aucune copie en cache)")
+    if t.get("ter"):
+        if not contenus.get("ter.geojson"):
+            erreurs.append("transports : meta.json annonce le réseau TER mais data/transports/ter.geojson manque")
+        elif not controle("Transports : réseau TER (km)", t.get("ter_km") or 0, TRANSPORTS_MINIMUM["ter_km"], "km"):
+            erreurs.append(f"transports : réseau TER de {t.get('ter_km')} km seulement")
+    if not par_cat.get("telepherique"):
+        avertissements.append("transports : aucun téléphérique urbain (Brest, Toulouse attendus)")
 
 
 def verifier_ecoles(data, contenus):
@@ -467,13 +478,20 @@ async def verifier_navigateur(contenus):
             # Calque Transports : lignes et gares à Paris ; la fenêtre d'une gare (sans établissement sous le doigt) donne ses lignes.
             if (contenus.get("meta.json") or {}).get("transports"):
                 try:
-                    await pg.wait_for_function("!!window.carteScolaire.getLayer('transports-gares')", timeout=15000)
+                    # Masqué par défaut (22/11/2026) : interrupteur présent, aucune couche chargée tant qu'il n'est pas activé.
+                    defaut = await pg.evaluate("""(() => { const b = document.querySelector('[data-transports-actif]');
+                      return {bouton: !!b, actif: b ? b.getAttribute('aria-checked') : null, couche: !!window.carteScolaire.getLayer('transports-gares')}; })()""")
+                    if not defaut["bouton"] or defaut["actif"] != "false" or defaut["couche"]:
+                        problemes.append(f"transports : le calque doit être masqué par défaut avec son interrupteur ({defaut})")
+                    await pg.evaluate("document.querySelector('[data-transports-actif]').click()")
+                    await pg.wait_for_function("!!window.carteScolaire.getLayer('transports-gares')", timeout=20000)
                     await pg.evaluate("window.carteScolaire.jumpTo({center: [2.355, 48.876], zoom: 13.5})")
                     await pg.wait_for_timeout(3000)
                     r = await pg.evaluate("""(() => {
                       const m = window.carteScolaire, q = (l) => m.queryRenderedFeatures({layers: l}).length;
                       const etab = ['ecoles', 'lycees', 'colleges'].filter((l) => m.getLayer(l));
-                      const res = {lignes: q(['transports-lignes']), gares: q(['transports-gares', 'transports-stations']), ouverte: null};
+                      const res = {lignes: q(['transports-lignes']), gares: q(['transports-gares', 'transports-stations']),
+                                   ter: m.getLayer('transports-ter') ? q(['transports-ter']) : -1, ouverte: null};
                       for (const f of m.queryRenderedFeatures({layers: ['transports-gares']})) {
                         if (!(f.properties.lignes || '').includes('~')) continue;
                         const p = m.project(f.geometry.coordinates);
@@ -490,7 +508,10 @@ async def verifier_navigateur(contenus):
                     elif not r["ouverte"] or r["ouverte"]["badges"] <= 0:
                         problemes.append(f"transports : fenêtre d'une gare {'non testée (aucune gare dégagée)' if not r['ouverte'] else 'sans lignes (' + r['ouverte']['nom'] + ')'}")
                     else:
-                        print(f"{appareil} : transports à Paris, {r['lignes']} lignes et {r['gares']} gares ; fenêtre « {r['ouverte']['nom']} », {r['ouverte']['badges']} lignes")
+                        print(f"{appareil} : transports masqués par défaut puis activés ; à Paris, {r['lignes']} lignes, {r['gares']} gares, "
+                              f"réseau TER {'absent' if r['ter'] < 0 else str(r['ter']) + ' morceau(x)'} ; fenêtre « {r['ouverte']['nom']} », {r['ouverte']['badges']} lignes")
+                    if (contenus.get("meta.json") or {}).get("transports", {}).get("ter") and r["ter"] <= 0:
+                        problemes.append("transports : réseau TER annoncé mais pas affiché à Paris")
                     await pg.evaluate("document.querySelectorAll('.maplibregl-popup').forEach((p) => p.remove())")
                 except Exception as e:  # noqa: BLE001
                     problemes.append(f"transports : le calque ne se charge pas ({type(e).__name__})")

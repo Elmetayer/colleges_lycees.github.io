@@ -37,7 +37,7 @@ GROUPES = [
     ("fond_de_carte", "Fond de carte"),
 ]
 NOMS_LIGNES = {"metro": "métro", "tram": "tram", "tram-train": "tram-train", "rer": "RER", "transilien": "Transilien",
-               "banlieue": "banlieue (Léman Express)", "funiculaire": "funiculaires"}
+               "banlieue": "banlieue (Léman Express)", "funiculaire": "funiculaires", "telepherique": "téléphériques"}
 NOMS_GARES = {"gare": "gares", "halte": "haltes", "metro": "stations de métro", "tram": "arrêts de tram",
               "tram-train": "stations de tram-train", "funiculaire": "stations de funiculaire"}
 # Au-delà, les données OSM sont signalées comme anciennes (l'extrait est repris chaque mois).
@@ -243,6 +243,10 @@ def ligne_transports(meta: dict) -> dict:
                 + f" ; {nombre(t.get('lignes_avec_couleur'))} avec leur couleur"],
                ["Gares et arrêts", ", ".join(f"{nombre(n)} {NOMS_GARES.get(c, c)}" for c, n in sorted(gares.items(), key=lambda x: -x[1]))
                 + f" ; {nombre(t.get('gares_avec_lignes'))} gares avec leurs lignes"]]
+    if t.get("ter"):
+        details.append(["Réseau TER", f"{nombre(t.get('ter_km'))} km de voies, dessinés en gris"])
+    if t.get("telepheriques"):
+        details.append(["Téléphériques", " ; ".join(t["telepheriques"])])
     metro = t.get("metro") or {}
     details.append(["Métro", " ; ".join(f"{v} {', '.join(r)}" for v, r in metro.items() if r) or "—", "" if all(metro.values()) else "attention"])
     ecartees = t.get("ecartees") or {}
@@ -265,11 +269,14 @@ def ligne_transports(meta: dict) -> dict:
     if age is not None and age > AGE_ALERTE_TRANSPORTS:
         etat = "partiel"
         details.append(["Données anciennes", f"{age} jours", "attention"])
+    if t.get("frontiere") and "(copie du" in str(t.get("frontiere")):
+        details.append(["Frontière", f"contours injoignables, copie en cache utilisée : {t['frontiere']}"])
     if not t.get("frontiere"):
         etat = "partiel"
         details.append(["Frontière", "contours des départements injoignables : lignes non coupées à la frontière", "attention"])
     taille = t.get("taille_mo") or {}
-    details.append(["Fichiers", f"lignes {str(taille.get('lignes')).replace('.', ',')} Mo, gares {str(taille.get('gares')).replace('.', ',')} Mo"])
+    details.append(["Fichiers", f"lignes {str(taille.get('lignes')).replace('.', ',')} Mo, gares {str(taille.get('gares')).replace('.', ',')} Mo"
+                + (f", TER {str(taille.get('ter')).replace('.', ',')} Mo" if taille.get("ter") is not None else "")])
     return dict(base, lignes=t.get("lignes_total"), mise_a_jour=t.get("donnees_osm"), telecharge_le=t.get("calcule_le"),
                 carte=f"{nombre(t.get('lignes_total'))} lignes, {nombre(sum(gares.values()))} gares et arrêts", etat=etat, details=details)
 
