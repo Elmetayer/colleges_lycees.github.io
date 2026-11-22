@@ -29,7 +29,8 @@ import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
-VERSION_CALCUL = 3  # 2 : un TER marqué « commuter » reste un TER ; 3 : TER en gris, téléphériques urbains, lignes séparées par numéro
+VERSION_CALCUL = 4  # 2 : un TER marqué « commuter » reste un TER ; 3 : TER en gris, téléphériques urbains, lignes séparées par numéro ;
+                    # 4 : téléphérique déjà présent par sa relation non repris par ses voies (Téléo en triple)
 VERSION_FILTRE = 3  # extrait filtré (osmium tags-filter du workflow) : 3 = téléphériques ajoutés ; plus ancien → retélécharger
 AGE_MAX_JOURS = 25
 PAGE_SOURCE = "https://download.geofabrik.de/europe/france.html"
@@ -317,9 +318,11 @@ def calculer(pbf: str, sortie: Path, cache_frontiere: Path | None = None) -> dic
         if segs and urbain(t):
             ajouter_aerien(t, segs, arrets)
             reseaux_aeriens.add(t.get("network"))
+    noms_aeriens = [norm(li["nom"]) for li in lignes if li["cat"] == "telepherique"]
     for a in L.aeriens:
         t = a["tags"]
-        if urbain(t) and t.get("network") not in reseaux_aeriens and dans_bbox(*a["pts"][0]):
+        deja = norm(t.get("name")) and any(norm(t.get("name")) in n for n in noms_aeriens)
+        if urbain(t) and t.get("network") not in reseaux_aeriens and not deja and dans_bbox(*a["pts"][0]):
             ajouter_aerien(t, [a["pts"]], [])
     log(f"  téléphériques urbains : {[(li['reseau'], li['nom']) for li in lignes if li['cat'] == 'telepherique']} "
         f"({len(aeriens_rel)} relations et {len(L.aeriens)} voies aerialway lues)")
