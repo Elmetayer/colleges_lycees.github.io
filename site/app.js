@@ -130,7 +130,7 @@
       if (!c.indicateurs.some((i) => i.cle === r.indicateur)) r.indicateur = c.defaut;
       reglages[c.cle] = r;
     });
-    reglages.transports = Object.assign({ actif: true }, lu.transports || {});
+    reglages.transports = Object.assign({ actif: false }, lu.transports || {}); // masqué par défaut (22/11/2026)
   })();
   function sauverReglages() {
     try { localStorage.setItem(CLE_STOCKAGE, JSON.stringify(reglages)); } catch (e) { /* stockage indisponible */ }
@@ -1987,13 +1987,16 @@
 
   // ---------------------------------------------------------------- transports (fond de carte)
   // Calque Transports (pipeline/transports.py, OpenStreetMap) : lignes de métro, tram, tram-train, RER, Transilien
-  // et Léman Express à leurs couleurs, gares et stations ; au clic, les lignes qui desservent la gare, TER compris
-  // (option A choisie par Bruno le 18/11/2026). Indépendant des calques d'établissements, affiché par défaut.
-  const COUCHES_TRANSPORTS = ["transports-lignes", "transports-gares", "transports-stations", "transports-noms-gares", "transports-noms-stations"];
+  // et Léman Express à leurs couleurs, téléphériques urbains en tirets, réseau TER en gris, gares et stations ; au clic,
+  // les lignes qui desservent la gare, TER compris (option A choisie par Bruno le 18/11/2026). Indépendant des calques
+  // d'établissements. Masqué par défaut (choix de Bruno, 22/11/2026) : les fichiers ne sont chargés qu'à la première
+  // activation, puis le choix est mémorisé dans le navigateur.
+  const COUCHES_TRANSPORTS = ["transports-ter", "transports-lignes", "transports-telepheriques", "transports-gares",
+    "transports-stations", "transports-noms-gares", "transports-noms-stations"];
   const TYPES_GARES = { gare: "Gare", halte: "Halte ferroviaire", metro: "Station de métro", tram: "Arrêt de tram",
     "tram-train": "Station de tram-train", funiculaire: "Station de funiculaire" };
   const ICONE_TRANSPORTS = '<svg class="forme" width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="3" width="14" height="15" rx="3" fill="#1e2f6b"/><rect x="7.5" y="6" width="9" height="5" rx="1" fill="#fff"/><circle cx="9" cy="14.5" r="1.3" fill="#fff"/><circle cx="15" cy="14.5" r="1.3" fill="#fff"/><path d="M8 18l-2 3M16 18l2 3" stroke="#1e2f6b" stroke-width="1.8" stroke-linecap="round"/></svg>';
-  let metaTransports = null, popupGare = null;
+  let metaTransports = null, popupGare = null, etatTransports = "absent"; // absent | chargement | charge | erreur
 
   // Les lignes passent au-dessus des zones (secteurs) et sous les établissements.
   function placerTransports() {
@@ -2003,28 +2006,43 @@
   const transportsVisibles = () => reglages.transports.actif && !!carte.getLayer("transports-gares");
 
   function majTransports() {
-    const vis = reglages.transports.actif ? "visible" : "none";
+    const actif = reglages.transports.actif;
+    if (actif && etatTransports === "absent") chargerDonneesTransports();
+    const vis = actif ? "visible" : "none";
     COUCHES_TRANSPORTS.forEach((id) => { if (carte.getLayer(id)) carte.setLayoutProperty(id, "visibility", vis); });
     const el = document.querySelector("[data-transports]");
     if (el) {
-      el.querySelector("[data-transports-actif]").setAttribute("aria-checked", String(reglages.transports.actif));
-      el.classList.toggle("masque", !reglages.transports.actif);
+      el.querySelector("[data-transports-actif]").setAttribute("aria-checked", String(actif));
+      el.classList.toggle("masque", !actif);
     }
-    if (!reglages.transports.actif && popupGare) popupGare.remove();
+    if (!actif && popupGare) popupGare.remove();
   }
 
-  function ajouterTransports(lignes, gares) {
+  function ajouterTransports(lignes, gares, ter) {
     const attribution = "Transports : © contributeurs OpenStreetMap";
     carte.addSource("transports-lignes", { type: "geojson", data: lignes, attribution });
     carte.addSource("transports-gares", { type: "geojson", data: gares });
     const avant = carte.getLayer("colleges") ? "colleges" : undefined;
+    // Réseau TER en gris fin, sous les lignes urbaines (les lignes de chaque gare sont dans sa fenêtre).
+    if (ter) {
+      carte.addSource("transports-ter", { type: "geojson", data: ter });
+      carte.addLayer({ id: "transports-ter", type: "line", source: "transports-ter", minzoom: 7,
+        layout: { "line-cap": "round", "line-join": "round" },
+        paint: { "line-color": "#9aa3b5", "line-opacity": 0.8,
+          "line-width": ["interpolate", ["linear"], ["zoom"], 7, 0.5, 10, 0.9, 13, 1.6, 16, 2.4] } }, avant);
+    }
     const cat = ["get", "cat"];
     const poids = ["match", cat, ["rer", "transilien", "banlieue"], 1.3, "metro", 1.1, 0.85];
+    const largeur = ["interpolate", ["linear"], ["zoom"], 8, ["*", poids, 0.8], 11, ["*", poids, 1.8], 14, ["*", poids, 3.2], 17, ["*", poids, 5]];
     carte.addLayer({ id: "transports-lignes", type: "line", source: "transports-lignes", minzoom: 8,
+      filter: ["!=", cat, "telepherique"],
       layout: { "line-cap": "round", "line-join": "round", "line-sort-key": ["match", cat, "metro", 3, ["rer", "transilien", "banlieue"], 2, 1] },
-      paint: { "line-color": ["coalesce", ["get", "couleur"], "#8a93ad"],
-        "line-width": ["interpolate", ["linear"], ["zoom"], 8, ["*", poids, 0.8], 11, ["*", poids, 1.8], 14, ["*", poids, 3.2], 17, ["*", poids, 5]],
+      paint: { "line-color": ["coalesce", ["get", "couleur"], "#8a93ad"], "line-width": largeur,
         "line-opacity": ["interpolate", ["linear"], ["zoom"], 8, 0.55, 12, 0.85] } }, avant);
+    // Téléphériques urbains (Brest, Toulouse…) en tirets.
+    carte.addLayer({ id: "transports-telepheriques", type: "line", source: "transports-lignes", minzoom: 10,
+      filter: ["==", cat, "telepherique"],
+      paint: { "line-color": ["coalesce", ["get", "couleur"], "#4a5470"], "line-width": largeur, "line-dasharray": [2, 1.2] } }, avant);
     const type = ["get", "type"], halte = ["==", type, "halte"];
     // Gares dès le zoom 9 (les haltes à partir de 11) ; stations de métro et arrêts de tram à partir de 12.
     const visible = ["step", ["zoom"], ["case", halte, 0, 1], 11, 1];
@@ -2047,27 +2065,34 @@
       texte("transports-noms-gares", 11, ["gare"]);
       texte("transports-noms-stations", 14, ["halte", "metro", "tram", "tram-train", "funiculaire"]);
     }
-    const date = metaTransports && metaTransports.donnees_osm ? new Date(metaTransports.donnees_osm).toLocaleDateString("fr-FR") : null;
-    const html = `<section class="calque calque-transports" data-transports>
-        <div class="calque-tete">
-          <div class="calque-ouvrir">${ICONE_TRANSPORTS}<span class="calque-titres"><span class="calque-nom">Transports</span><span class="calque-resume">Métro, tram, RER et gares</span></span></div>
-          <button type="button" class="interrupteur" role="switch" data-transports-actif aria-checked="${reglages.transports.actif}" aria-label="Afficher les transports"></button>
-        </div>
-        <p class="note">Lignes à leurs couleurs ; gares et stations en zoomant. Touchez une gare pour voir ses lignes, TER compris.
-          Source : OpenStreetMap${date ? `, données du ${date}` : ""} (<a href="documentation-carte.html#transports">en savoir plus</a>).</p>
-      </section>`;
-    $("calques").insertAdjacentHTML("beforeend", html);
-    majTransports();
     ["transports-gares", "transports-stations"].forEach((id) => {
       carte.on("mouseenter", id, () => (carte.getCanvas().style.cursor = "pointer"));
       carte.on("mouseleave", id, () => (carte.getCanvas().style.cursor = ""));
     });
   }
 
+  function chargerDonneesTransports() {
+    etatTransports = "chargement";
+    const ter = metaTransports && metaTransports.ter ? charger("data/transports/ter.geojson").catch(() => null) : Promise.resolve(null);
+    Promise.all([charger("data/transports/lignes.geojson"), charger("data/transports/gares.geojson"), ter])
+      .then(([l, g, t]) => { ajouterTransports(l, g, t); etatTransports = "charge"; majTransports(); })
+      .catch((e) => { etatTransports = "erreur"; console.info("Calque Transports non chargé", e); });
+  }
+
+  // Interrupteur dans le panneau des calques (si le build a produit le calque) ; données chargées à l'activation.
   function chargerTransports() {
-    Promise.all([charger("data/transports/lignes.geojson"), charger("data/transports/gares.geojson")])
-      .then(([l, g]) => ajouterTransports(l, g))
-      .catch((e) => console.info("Calque Transports non chargé", e));
+    if (!metaTransports) return;
+    const date = metaTransports.donnees_osm ? new Date(metaTransports.donnees_osm).toLocaleDateString("fr-FR") : null;
+    const html = `<section class="calque calque-transports" data-transports>
+        <div class="calque-tete">
+          <div class="calque-ouvrir">${ICONE_TRANSPORTS}<span class="calque-titres"><span class="calque-nom">Transports</span><span class="calque-resume">Métro, tram, RER, TER et gares</span></span></div>
+          <button type="button" class="interrupteur" role="switch" data-transports-actif aria-checked="${reglages.transports.actif}" aria-label="Afficher les transports"></button>
+        </div>
+        <p class="note">Lignes urbaines à leurs couleurs, téléphériques en tirets, TER en gris ; gares et stations en zoomant.
+          Touchez une gare pour voir ses lignes. Source : OpenStreetMap${date ? `, données du ${date}` : ""} (<a href="documentation-carte.html#transports">en savoir plus</a>).</p>
+      </section>`;
+    $("calques").insertAdjacentHTML("beforeend", html);
+    majTransports();
   }
 
   // Texte lisible sur la couleur d'une ligne (blanc ou encre selon la luminosité).

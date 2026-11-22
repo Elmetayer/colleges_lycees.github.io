@@ -15,7 +15,7 @@ pipeline/secteurs.py      secteurs des collèges publics, département par dépa
 pipeline/ecoles_6e.py     entrée en 6e des écoles : évaluations de 6e du collège de secteur (après l'assemblage des secteurs)
 pipeline/secteurs_ecoles.py secteurs des écoles publiés par les villes (Paris, Bordeaux, Strasbourg, Nantes, Orléans, Clermont-Ferrand, Tours, Saint-Nazaire) → secteurs-ecoles/<ville>.geojson
 pipeline/zones_communes.py  zones des communes à une seule école publique et des regroupements pédagogiques (RPI), d'après l'annuaire → zones-communes/<dep>.geojson
-pipeline/transports.py    calque Transports : lignes de métro, tram, RER, Transilien et gares d'OpenStreetMap (extrait Geofabrik) → transports/lignes.geojson, gares.geojson
+pipeline/transports.py    calque Transports : lignes de métro, tram, RER, Transilien, téléphériques urbains, réseau TER et gares d'OpenStreetMap (extrait Geofabrik) → transports/lignes.geojson, ter.geojson, gares.geojson
 pipeline/suivi.py         rapport de chaque build (sources, contrôles) → data/suivi.json, historique dans la branche suivi-donnees
 pipeline/requirements.txt dépendances Python
 site/                     site statique publié sur GitHub Pages
@@ -38,7 +38,7 @@ site/                     site statique publié sur GitHub Pages
 
 Le workflow GitHub Actions calcule les secteurs des collèges, lance `pipeline/build.py` (données des établissements et des secteurs des écoles), vérifie le site dans un vrai navigateur (`tests/verifier_site.py`), puis publie le dossier `site/` sur GitHub Pages. Une vérification en échec bloque la publication : le site garde sa version précédente. Il tourne à chaque modification de `main`, le 3 de chaque mois, et à la demande depuis l'onglet Actions.
 
-Le calque Transports est préparé par un job à part (`transports`), en parallèle des secteurs : il télécharge l'extrait France d'OpenStreetMap chez Geofabrik (4,8 Go, une vingtaine de minutes), le filtre avec osmium et calcule lignes et gares. L'extrait n'est retéléchargé que si les données gardées en cache Actions ont plus de 25 jours ; l'extrait filtré (environ 15 Mo) reste en cache pour recalculer quand la méthode change (`VERSION_CALCUL` dans `pipeline/transports.py`). En cas d'échec, la version précédente est publiée et signalée sur la page de suivi. Les lignes sont coupées à la frontière avec les contours des départements d'Etalab.
+Le calque Transports est préparé par un job à part (`transports`), en parallèle des secteurs : il télécharge l'extrait France d'OpenStreetMap chez Geofabrik (4,8 Go, une vingtaine de minutes), le filtre avec osmium et calcule lignes et gares. L'extrait n'est retéléchargé que si les données gardées en cache Actions ont plus de 25 jours ; l'extrait filtré (environ 15 Mo) reste en cache pour recalculer quand la méthode change (`VERSION_CALCUL` dans `pipeline/transports.py`). En cas d'échec, la version précédente est publiée et signalée sur la page de suivi. Les lignes sont coupées à la frontière avec les contours des départements d'Etalab ; une copie des contours est gardée dans le même cache, reprise si Etalab ne répond pas, et un calcul fait sans frontière est refait au build suivant. Sur le site, le calque est masqué par défaut et ses fichiers ne sont chargés qu'à la première activation.
 
 Dans les réglages du dépôt, Settings → Pages doit avoir « GitHub Actions » comme source.
 
