@@ -1,18 +1,18 @@
 {
  "version": 1,
- "genere_le": "2026-11-22T12:56:41+00:00",
+ "genere_le": "2026-11-22T16:27:20+00:00",
  "statut": "publie",
  "etat": "partiel",
  "build": {
-  "passage": "45022318966",
-  "lien": "https://github.com/Elmetayer/colleges_lycees.github.io/actions/runs/45022318966",
-  "commit": "f85749d",
+  "passage": "45042310803",
+  "lien": "https://github.com/Elmetayer/colleges_lycees.github.io/actions/runs/45042310803",
+  "commit": "befe642",
   "evenement": "push",
   "branche": "main"
  },
  "compte": {
-  "ok": 27,
-  "partiel": 2,
+  "ok": 28,
+  "partiel": 1,
   "ko": 0
  },
  "chiffres": {
@@ -44,10 +44,10 @@
      "producteur": "data.education.gouv.fr",
      "page": "https://data.education.gouv.fr/explore/dataset/fr-en-adresse-et-geolocalisation-etablissements-premier-et-second-degre/",
      "lignes": 63552,
-     "lignes_precedentes": 63556,
+     "lignes_precedentes": 63552,
      "carte": "7 267 collèges, 4 468 lycées, 46 294 écoles",
      "mise_a_jour": "2026-11-22T06:00:53.216000+00:00",
-     "telecharge_le": "2026-11-22T12:37:52+00:00",
+     "telecharge_le": "2026-11-22T16:12:25+00:00",
      "etat": "ok",
      "details": [
       [
@@ -56,7 +56,7 @@
       ],
       [
        "Version précédente",
-       "63 556 lignes"
+       "63 552 lignes"
       ]
      ]
     },
@@ -66,10 +66,10 @@
      "producteur": "data.education.gouv.fr",
      "page": "https://data.education.gouv.fr/explore/dataset/fr-en-annuaire-education/",
      "lignes": 68550,
-     "lignes_precedentes": 68555,
+     "lignes_precedentes": 68550,
      "carte": "type de contrat, date d'ouverture, niveaux des écoles",
      "mise_a_jour": "2026-11-22T06:01:17.978000+00:00",
-     "telecharge_le": "2026-11-22T12:37:56+00:00",
+     "telecharge_le": "2026-11-22T16:12:29+00:00",
      "etat": "ok",
      "details": [
       [
@@ -78,7 +78,7 @@
       ],
       [
        "Version précédente",
-       "68 555 lignes"
+       "68 550 lignes"
       ]
      ]
     },
@@ -91,7 +91,7 @@
      "lignes_precedentes": 26869,
      "carte": "6 613 collèges avec résultats au brevet",
      "mise_a_jour": "2026-08-03T09:55:18.316000+00:00",
-     "telecharge_le": "2026-11-22T12:37:58+00:00",
+     "telecharge_le": "2026-11-22T16:12:32+00:00",
      "etat": "ok",
      "details": [
       [
@@ -113,7 +113,7 @@
      "lignes_precedentes": 21061,
      "carte": "6 739 collèges avec IPS",
      "mise_a_jour": "2026-09-01T09:31:02.578000+00:00",
-     "telecharge_le": "2026-11-22T12:37:59+00:00",
+     "telecharge_le": "2026-11-22T16:12:33+00:00",
      "etat": "ok",
      "details": [
       [
@@ -135,7 +135,7 @@
      "lignes_precedentes": 369797,
      "carte": "6 728 collèges avec évaluations",
      "mise_a_jour": "2026-06-16T08:38:58.396000+00:00",
-     "telecharge_le": "2026-11-22T12:38:17+00:00",
+     "telecharge_le": "2026-11-22T16:12:35+00:00",
      "etat": "ok",
      "details": [
       [
@@ -157,7 +157,7 @@
      "lignes_precedentes": 32485,
      "carte": "2 359 lycées avec résultats",
      "mise_a_jour": "2026-06-10T10:17:27.564000+00:00",
-     "telecharge_le": "2026-11-22T12:38:20+00:00",
+     "telecharge_le": "2026-11-22T16:12:51+00:00",
      "etat": "ok",
      "details": [
       [
@@ -179,7 +179,7 @@
      "lignes_precedentes": 28258,
      "carte": "1 951 lycées avec résultats",
      "mise_a_jour": "2026-06-10T10:16:56.029000+00:00",
-     "telecharge_le": "2026-11-22T12:38:22+00:00",
+     "telecharge_le": "2026-11-22T16:12:53+00:00",
      "etat": "ok",
      "details": [
       [
@@ -201,7 +201,7 @@
      "lignes_precedentes": 10905,
      "carte": "3 446 lycées avec IPS",
      "mise_a_jour": "2026-06-10T08:20:49.021000+00:00",
-     "telecharge_le": "2026-11-22T12:38:24+00:00",
+     "telecharge_le": "2026-11-22T16:12:56+00:00",
      "etat": "ok",
      "details": [
       [
@@ -223,7 +223,7 @@
      "lignes_precedentes": 97080,
      "carte": "29 226 écoles avec IPS",
      "mise_a_jour": "2026-08-07T07:34:04.835000+00:00",
-     "telecharge_le": "2026-11-22T12:38:27+00:00",
+     "telecharge_le": "2026-11-22T16:12:56+00:00",
      "etat": "ok",
      "details": [
       [
@@ -245,7 +245,7 @@
      "lignes_precedentes": 143509,
      "carte": "45 194 écoles avec effectifs",
      "mise_a_jour": "2026-08-27T09:25:30.169000+00:00",
-     "telecharge_le": "2026-11-22T12:38:34+00:00",
+     "telecharge_le": "2026-11-22T16:12:59+00:00",
      "etat": "ok",
      "details": [
       [
@@ -267,7 +267,7 @@
      "lignes_precedentes": 47148,
      "carte": "45 136 écoles avec taille des classes",
      "mise_a_jour": "2026-06-16T07:12:44+00:00",
-     "telecharge_le": "2026-11-22T12:38:37+00:00",
+     "telecharge_le": "2026-11-22T16:13:06+00:00",
      "etat": "ok",
      "details": [
       [
@@ -299,7 +299,7 @@
      "details": [
       [
        "Recalculés",
-       "11, 49, 54, 62, 76, 92"
+       "11, 30, 44, 54, 59, 92"
       ],
       [
        "Inchangés",
@@ -351,7 +351,7 @@
      "lignes_precedentes": 53,
      "carte": "48 secteurs élémentaires, 50 secteurs maternelles ; zones du 03/07/2025",
      "mise_a_jour": "2026-11-22T05:12:48+00:00",
-     "telecharge_le": "2026-11-22T12:40:08+00:00",
+     "telecharge_le": "2026-11-22T16:14:35+00:00",
      "etat": "ok",
      "details": [
       [
@@ -459,7 +459,7 @@
      "lignes_precedentes": 74,
      "carte": "69 secteurs élémentaires, 71 secteurs maternelles",
      "mise_a_jour": "2026-11-02T04:01:29.852000+00:00",
-     "telecharge_le": "2026-11-22T12:40:09+00:00",
+     "telecharge_le": "2026-11-22T16:14:36+00:00",
      "etat": "ok",
      "details": [
       [
@@ -504,7 +504,7 @@
      "lignes_precedentes": 31,
      "carte": "31 secteurs élémentaires",
      "mise_a_jour": "2026-03-21T02:00:13+00:00",
-     "telecharge_le": "2026-11-22T12:38:48+00:00",
+     "telecharge_le": "2026-11-22T16:13:17+00:00",
      "etat": "ok",
      "details": [
       [
@@ -536,7 +536,7 @@
      "lignes_precedentes": 33,
      "carte": "33 secteurs maternelles",
      "mise_a_jour": "2026-03-21T02:00:13+00:00",
-     "telecharge_le": "2026-11-22T12:38:49+00:00",
+     "telecharge_le": "2026-11-22T16:13:18+00:00",
      "etat": "ok",
      "details": [
       [
@@ -568,7 +568,7 @@
      "lignes_precedentes": 735,
      "carte": "369 secteurs élémentaires",
      "mise_a_jour": "2026-03-03T15:53:30+00:00",
-     "telecharge_le": "2026-11-22T12:38:39+00:00",
+     "telecharge_le": "2026-11-22T16:13:08+00:00",
      "etat": "ok",
      "details": [
       [
@@ -608,7 +608,7 @@
      "lignes_precedentes": 783,
      "carte": "390 secteurs maternelles",
      "mise_a_jour": "2026-03-03T15:53:09+00:00",
-     "telecharge_le": "2026-11-22T12:38:42+00:00",
+     "telecharge_le": "2026-11-22T16:13:11+00:00",
      "etat": "ok",
      "details": [
       [
@@ -648,7 +648,7 @@
      "lignes_precedentes": 724,
      "carte": "positions des écoles, 100,0 % rattachées à l'annuaire",
      "mise_a_jour": "2026-03-03T15:58:03+00:00",
-     "telecharge_le": "2026-11-22T12:38:40+00:00",
+     "telecharge_le": "2026-11-22T16:13:10+00:00",
      "etat": "ok",
      "details": [
       [
@@ -671,7 +671,7 @@
      "lignes_precedentes": 719,
      "carte": "positions des écoles, 99,6 % rattachées à l'annuaire",
      "mise_a_jour": "2026-03-03T15:56:28+00:00",
-     "telecharge_le": "2026-11-22T12:38:44+00:00",
+     "telecharge_le": "2026-11-22T16:13:14+00:00",
      "etat": "ok",
      "details": [
       [
@@ -699,7 +699,7 @@
      "lignes_precedentes": 20,
      "carte": "20 secteurs élémentaires, 20 secteurs maternelles",
      "mise_a_jour": "2026-10-24T23:01:11.651000+00:00",
-     "telecharge_le": "2026-11-22T12:40:06+00:00",
+     "telecharge_le": "2026-11-22T16:14:33+00:00",
      "etat": "ok",
      "details": [
       [
@@ -740,7 +740,7 @@
      "lignes_precedentes": 50,
      "carte": "50 secteurs élémentaires",
      "mise_a_jour": "2026-10-01T17:02:12+00:00",
-     "telecharge_le": "2026-11-22T12:38:45+00:00",
+     "telecharge_le": "2026-11-22T16:13:15+00:00",
      "etat": "ok",
      "details": [
       [
@@ -776,7 +776,7 @@
      "lignes_precedentes": 59,
      "carte": "59 secteurs maternelles",
      "mise_a_jour": "2026-10-01T17:02:09+00:00",
-     "telecharge_le": "2026-11-22T12:38:45+00:00",
+     "telecharge_le": "2026-11-22T16:13:16+00:00",
      "etat": "ok",
      "details": [
       [
@@ -808,7 +808,7 @@
      "lignes_precedentes": 33,
      "carte": "33 secteurs élémentaires ; zones du 03/09/2026",
      "mise_a_jour": "2022-03-24T14:34:28+00:00",
-     "telecharge_le": "2026-11-22T12:40:04+00:00",
+     "telecharge_le": "2026-11-22T16:14:31+00:00",
      "etat": "ok",
      "details": [
       [
@@ -844,7 +844,7 @@
      "lignes_precedentes": 35,
      "carte": "35 secteurs maternelles ; zones du 06/12/2023",
      "mise_a_jour": "2022-03-24T14:34:28+00:00",
-     "telecharge_le": "2026-11-22T12:40:05+00:00",
+     "telecharge_le": "2026-11-22T16:14:32+00:00",
      "etat": "ok",
      "details": [
       [
@@ -881,12 +881,12 @@
      "mise_a_jour": null,
      "telecharge_le": null,
      "carte": "17 942 communes (élémentaires), 17 670 communes (maternelles)",
-     "etat": "partiel",
+     "etat": "ok",
      "details": [
       [
        "Contours des communes",
-       "34 745 communes, 94 départements lus ; versions précédentes reprises : 10",
-       "attention"
+       "34 745 communes, 95 départements lus",
+       ""
       ],
       [
        "Zones (élémentaires)",
@@ -958,7 +958,7 @@
       ],
       [
        "Ce passage",
-       "extrait OSM téléchargé et recalculé"
+       "données du cache (moins de 25 jours), non recalculées"
       ],
       [
        "Fichiers",
@@ -1481,7 +1481,6 @@
  "verification": "ok",
  "erreurs": [],
  "problemes": [
-  "secteurs_clermont_secteurs_scolaires_des_ecoles_vcf : source injoignable (HTTPSConnectionPool(host='opendata.clermontmetropole.eu', port=443): Max retries exceeded with url: /api/explore/v2.1/catalog/datasets/secteurs-scolaires-des-ecoles-vcf/exports/csv?delimiter=%3B&select=nom,type,modification_date,geo_shape (Caused by ResponseError('too many 429 error responses'))) ; version téléchargée le 2026-11-18 réutilisée",
-  "contours des communes : geo.api.gouv.fr injoignable pour 10, versions précédentes reprises"
+  "secteurs_clermont_secteurs_scolaires_des_ecoles_vcf : source injoignable (HTTPSConnectionPool(host='opendata.clermontmetropole.eu', port=443): Max retries exceeded with url: /api/explore/v2.1/catalog/datasets/secteurs-scolaires-des-ecoles-vcf/exports/csv?delimiter=%3B&select=nom,type,modification_date,geo_shape (Caused by ResponseError('too many 429 error responses'))) ; version téléchargée le 2026-11-18 réutilisée"
  ]
 }
