@@ -20,6 +20,8 @@ pipeline/suivi.py         rapport de chaque build (sources, contrôles) → data
 pipeline/requirements.txt dépendances Python
 site/                     site statique publié sur GitHub Pages
   index.html, app.js      carte (MapLibre GL)
+  style.css               styles ; bloc :root en tête = charte graphique (toutes les couleurs et polices, lues aussi par la carte)
+  polices/                Literata et Atkinson Hyperlegible (woff2 des paquets @fontsource, licence SIL OFL), servies par le site
   parametres.js           réglages modifiables sans toucher au code (zone neutre de la valeur ajoutée, textes, clé Web3Forms du formulaire de contact)
   documentation.html      sommaire de la documentation
   documentation-*.html    pages : carte, collèges, lycées, écoles, secteurs, sources
@@ -39,6 +41,8 @@ site/                     site statique publié sur GitHub Pages
 Le workflow GitHub Actions calcule les secteurs des collèges, lance `pipeline/build.py` (données des établissements et des secteurs des écoles), vérifie le site dans un vrai navigateur (`tests/verifier_site.py`), puis publie le dossier `site/` sur GitHub Pages. Une vérification en échec bloque la publication : le site garde sa version précédente. Il tourne à chaque modification de `main`, le 3 de chaque mois, et à la demande depuis l'onglet Actions.
 
 Le calque Transports est préparé par un job à part (`transports`), en parallèle des secteurs : il télécharge l'extrait France d'OpenStreetMap chez Geofabrik (4,8 Go, une vingtaine de minutes), le filtre avec osmium et calcule lignes et gares. L'extrait n'est retéléchargé que si les données gardées en cache Actions ont plus de 25 jours ; l'extrait filtré (environ 15 Mo) reste en cache pour recalculer quand la méthode change (`VERSION_CALCUL` dans `pipeline/transports.py`). En cas d'échec, la version précédente est publiée et signalée sur la page de suivi. Les lignes sont coupées à la frontière avec les contours des départements d'Etalab ; une copie des contours est gardée dans le même cache, reprise si Etalab ne répond pas, et un calcul fait sans frontière est refait au build suivant. Sur le site, le calque est masqué par défaut et ses fichiers ne sont chargés qu'à la première activation.
+
+Charte graphique : toutes les couleurs et les polices sont des variables CSS du bloc `:root` en tête de `site/style.css` (marque, gris, états, graphiques, carte, échelles de données). `app.js` les lit au démarrage (`couleur("encre")`) pour colorer la carte, les icônes et les graphiques : changer une valeur dans ce bloc change l'interface et la carte. Restent à reprendre à la main quand la charte change : les deux icônes en data URI de `style.css` (flèche des listes, loupe), `favicon.svg` (puis `.ico` et `.png`) et `outils/partage.svg` (puis `partage.png`). La vérification contrôle que chaque couleur lue par `app.js` existe dans `style.css` et qu'aucune page n'appelle Google Fonts.
 
 Dans les réglages du dépôt, Settings → Pages doit avoir « GitHub Actions » comme source.
 

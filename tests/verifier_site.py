@@ -731,8 +731,29 @@ def verifier_referencement():
             erreurs.append(f"référencement : titre de {page.name} absent ou trop long (70 caractères au plus)")
 
 
+def verifier_charte():
+    """Charte graphique : polices servies par le site (aucun appel à Google Fonts), fichiers de polices
+    présents, et chaque couleur lue par app.js (couleur("x")) déclarée en --x dans style.css."""
+    css = (SITE / "style.css").read_text(encoding="utf-8")
+    for fichier in re.findall(r'url\("(polices/[^"]+)"\)', css):
+        if not (SITE / fichier).is_file():
+            erreurs.append(f"charte : {fichier} manquant")
+    if "polices/" not in css:
+        erreurs.append("charte : aucune police déclarée dans style.css")
+    for page in sorted(SITE.glob("*.html")):
+        if "fonts.googleapis.com" in page.read_text(encoding="utf-8"):
+            erreurs.append(f"charte : {page.name} charge encore Google Fonts")
+    declarees = set(re.findall(r"--([\w-]+)\s*:", css))
+    app = (SITE / "app.js").read_text(encoding="utf-8")
+    lues = set(re.findall(r'couleur\("([\w-]+)"\)', app))
+    lues |= {f"donnees-{i}" for i in range(1, 6)} | {f"divergente-{i}" for i in range(1, 6)}
+    for nom in sorted(lues - declarees):
+        erreurs.append(f"charte : --{nom} lue par app.js mais absente de style.css")
+
+
 def main():
     try:
+        verifier_charte()
         verifier_icones()
         verifier_audience()
         verifier_referencement()
